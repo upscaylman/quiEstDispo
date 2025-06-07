@@ -1,0 +1,58 @@
+{
+  "short_name": "Qui est dispo",
+  "name": "Qui est dispo - Spontaneous meetups",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "logo192.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "logo512.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "maskable any"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#3B82F6",
+  "background_color": "#111827",
+  "orientation": "portrait-primary",
+  "categories": ["social", "lifestyle"],
+  "lang": "fr",
+  "scope": "/",
+  "id": "qui-est-dispo",
+  "description": "Application mobile pour organiser des rencontres spontanées entre amis",
+  "shortcuts": [
+    {
+      "name": "I'm down",
+      "short_name": "Available",
+      "description": "Broadcast your availability",
+      "url": "/?action=available",
+      "icons": [{ "src": "logo192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Find friends",
+      "short_name": "Friends",
+      "description": "See who's available",
+      "url": "/?action=friends",
+      "icons": [{ "src": "logo192.svg", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot1.png",
+      "sizes": "640x1280",
+      "type": "image/png",
+      "platform": "wide",
+      "label": "Main interface with availability button"
+    }
+  ]
+}

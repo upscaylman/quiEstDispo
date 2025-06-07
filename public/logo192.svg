@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8B5CF6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="96" cy="96" r="88" fill="url(#gradient)" />
+  
+  <!-- Icon: Location pin with person -->
+  <g transform="translate(96, 96)">
+    <!-- Location pin -->
+    <path d="M 0 -40 C -22 -40 -40 -22 -40 0 C -40 15 -20 40 0 60 C 20 40 40 15 40 0 C 40 -22 22 -40 0 -40 Z" 
+          fill="white" opacity="0.9"/>
+    
+    <!-- Person icon inside pin -->
+    <circle cx="0" cy="-10" r="12" fill="#3B82F6"/>
+    <path d="M -20 15 C -20 5 -10 0 0 0 C 10 0 20 5 20 15 Z" fill="#3B82F6"/>
+  </g>
+  
+  <!-- Text "QED" (Qui Est Dispo) -->
+  <text x="96" y="160" font-family="Arial, sans-serif" font-size="24" font-weight="bold" 
+        text-anchor="middle" fill="white">QED</text>
+</svg>

@@ -1,0 +1,1679 @@
+import {
+  FacebookAuthProvider,
+  signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  signInWithPopup,
+} from 'firebase/auth';
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+} from 'firebase/firestore';
+import { auth, db } from '../firebase';
+
+// Utilitaire pour vérifier la connectivité (amélioré)
+const isOnline = () => {
+  // navigator.onLine peut être peu fiable, on assume connecté par défaut
+  if (typeof navigator === 'undefined') return true;
+
+  // Si navigator.onLine dit offline, on fait confiance
+  if (!navigator.onLine) return false;
+
+  // Sinon on assume connecté (Firebase gèrera les erreurs réseau)
+  return true;
+};
+
+// Messages d'erreur réseau simplifiés avec debug (moins verbeux)
+const getNetworkErrorMessage = (defaultMessage = 'Erreur de connexion') => {
+  const onlineStatus = isOnline();
+
+  // Seulement log si réellement offline
+  if (!onlineStatus) {
+    console.log('🌐 Network status: offline detected');
+    return 'Pas de connexion internet détectée';
+  }
+  return 'Problème de réseau temporaire, réessayez';
+};
+
+// Utilitaire pour retry avec backoff optimisé
+const retryWithBackoff = async (fn, maxRetries = 2, baseDelay = 500) => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      if (error.code === 'unavailable' || error.code === 'deadline-exceeded') {
+        const delay = baseDelay * Math.pow(1.5, i); // Moins agressif
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
+// Service d'authentification ultra-simplifié avec App Check
+export class AuthService {
+  // Connexion avec Google selon la documentation officielle
+  static async signInWithGoogle() {
+    try {
+      // eslint-disable-next-line no-console
+      console.log('🔥 Firebase: Starting Google sign-in...');
+
+      const provider = new GoogleAuthProvider();
+
+      // Configuration selon la documentation Firebase
+      provider.addScope('email');
+      provider.addScope('profile');
+
+      // Paramètres optionnels recommandés
+      provider.setCustomParameters({
+        // Forcer la sélection de compte pour permettre de changer d'utilisateur
+        prompt: 'select_account',
+        // Langue française pour l'interface Google
+        hl: 'fr',
+      });
+
+      const result = await signInWithPopup(auth, provider);
+
+      // Récupérer les credentials Google selon la documentation
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const token = credential?.accessToken;
+
+      // eslint-disable-next-line no-console
+      console.log('✅ Firebase: Google sign-in successful');
+
+      if (process.env.NODE_ENV === 'development' && token) {
+        console.log('🔑 Google Access Token available for API calls');
+      }
+
+      // Créer le profil utilisateur avec les informations Google
+      if (result.user) {
+        try {
+          await this.createUserProfile(result.user);
+        } catch (profileError) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            '⚠️ Profile creation failed, continuing anyway:',
+            profileError
+          );
+        }
+      }
+
+      return {
+        user: result.user,
+        credential,
+        token,
+      };
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('❌ Google sign-in failed:', error);
+
+      // Gestion d'erreurs spécifiques selon la documentation Firebase
+      let errorMessage = 'Connexion Google échouée';
+
+      switch (error.code) {
+        case 'auth/popup-closed-by-user':
+          errorMessage = "Connexion annulée par l'utilisateur";
+          break;
+        case 'auth/popup-blocked':
+          errorMessage =
+            'Popup bloquée par le navigateur. Autorisez les popups pour ce site';
+          break;
+        case 'auth/cancelled-popup-request':
+          errorMessage =
+            'Demande de connexion annulée. Une autre connexion est en cours';
+          break;
+        case 'auth/account-exists-with-different-credential':
+          errorMessage =
+            'Un compte existe déjà avec cette adresse email mais un autre fournisseur';
+          break;
+        case 'auth/auth-domain-config-required':
+          errorMessage = 'Configuration de domaine manquante dans Firebase';
+          break;
+        case 'auth/credential-already-in-use':
+          errorMessage =
+            'Ces identifiants sont déjà utilisés par un autre compte';
+          break;
+        case 'auth/operation-not-allowed':
+          errorMessage =
+            "Connexion Google non activée. Contactez l'administrateur";
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = 'Problème de connexion. Vérifiez votre internet';
+          break;
+        case 'auth/internal-error':
+          errorMessage = 'Erreur interne. Réessayez dans quelques instants';
+          break;
+        case 'auth/invalid-api-key':
+          errorMessage = 'Configuration Firebase incorrecte';
+          break;
+        default:
+          errorMessage = error.message || 'Connexion Google échouée';
+      }
+
+      throw new Error(errorMessage);
+    }
+  }
+
+  // Connexion Google avec redirection (alternative pour appareils mobiles)
+  static async signInWithGoogleRedirect() {
+    try {
+      console.log('🔄 Starting Google sign-in with redirect...');
+
+      const provider = new GoogleAuthProvider();
+      provider.addScope('email');
+      provider.addScope('profile');
+      provider.setCustomParameters({
+        prompt: 'select_account',
+        hl: 'fr',
+      });
+
+      // Import dynamique pour éviter les erreurs si non disponible
+      const { signInWithRedirect } = await import('firebase/auth');
+
+      // Démarrer la redirection
+      await signInWithRedirect(auth, provider);
+      // Note: La page va être rechargée, le résultat sera traité par getGoogleRedirectResult()
+    } catch (error) {
+      console.error('❌ Google redirect sign-in failed:', error);
+      throw new Error(`Redirection Google échouée: ${error.message}`);
+    }
+  }
+
+  // Récupérer le résultat de la redirection Google
+  static async getGoogleRedirectResult() {
+    try {
+      console.log('🔍 Checking for Google redirect result...');
+
+      const { getRedirectResult } = await import('firebase/auth');
+      const result = await getRedirectResult(auth);
+
+      if (result) {
+        console.log('✅ Google redirect sign-in successful');
+
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        const token = credential?.accessToken;
+
+        // Créer le profil utilisateur
+        if (result.user) {
+          await this.createUserProfile(result.user);
+        }
+
+        return {
+          user: result.user,
+          credential,
+          token,
+        };
+      }
+
+      return null; // Pas de redirection en cours
+    } catch (error) {
+      console.error('❌ Google redirect result failed:', error);
+      throw new Error(`Récupération redirection échouée: ${error.message}`);
+    }
+  }
+
+  // Connexion avec Facebook selon la documentation officielle
+  static async signInWithFacebook() {
+    try {
+      // eslint-disable-next-line no-console
+      console.log('🔥 Firebase: Starting Facebook sign-in...');
+
+      const provider = new FacebookAuthProvider();
+
+      // Configuration selon la documentation Firebase
+      provider.addScope('email');
+      provider.addScope('public_profile');
+
+      // Paramètres optionnels recommandés
+      provider.setCustomParameters({
+        // Langue française pour l'interface Facebook
+        locale: 'fr_FR',
+      });
+
+      const result = await signInWithPopup(auth, provider);
+
+      // Récupérer les credentials Facebook selon la documentation
+      const credential = FacebookAuthProvider.credentialFromResult(result);
+      const token = credential?.accessToken;
+
+      // eslint-disable-next-line no-console
+      console.log('✅ Firebase: Facebook sign-in successful');
+
+      if (process.env.NODE_ENV === 'development' && token) {
+        console.log('🔑 Facebook Access Token available for API calls');
+      }
+
+      // Créer le profil utilisateur avec les informations Facebook
+      if (result.user) {
+        try {
+          await this.createUserProfile(result.user);
+        } catch (profileError) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            '⚠️ Profile creation failed, continuing anyway:',
+            profileError
+          );
+        }
+      }
+
+      return {
+        user: result.user,
+        credential,
+        token,
+      };
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('❌ Facebook sign-in failed:', error);
+
+      // Gestion d'erreurs spécifiques selon la documentation Firebase
+      let errorMessage = 'Connexion Facebook échouée';
+
+      switch (error.code) {
+        case 'auth/popup-closed-by-user':
+          errorMessage = "Connexion annulée par l'utilisateur";
+          break;
+        case 'auth/popup-blocked':
+          errorMessage =
+            'Popup bloquée par le navigateur. Autorisez les popups pour ce site';
+          break;
+        case 'auth/cancelled-popup-request':
+          errorMessage =
+            'Demande de connexion annulée. Une autre connexion est en cours';
+          break;
+        case 'auth/account-exists-with-different-credential':
+          errorMessage =
+            'Un compte existe déjà avec cette adresse email mais un autre fournisseur';
+          break;
+        case 'auth/auth-domain-config-required':
+          errorMessage = 'Configuration de domaine manquante dans Firebase';
+          break;
+        case 'auth/credential-already-in-use':
+          errorMessage =
+            'Ces identifiants sont déjà utilisés par un autre compte';
+          break;
+        case 'auth/operation-not-allowed':
+          errorMessage =
+            "Connexion Facebook non activée. Contactez l'administrateur";
+          break;
+        case 'auth/user-disabled':
+          errorMessage = 'Ce compte utilisateur a été désactivé';
+          break;
+        case 'auth/user-not-found':
+          errorMessage = 'Utilisateur non trouvé';
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = 'Problème de connexion. Vérifiez votre internet';
+          break;
+        case 'auth/internal-error':
+          errorMessage = 'Erreur interne. Réessayez dans quelques instants';
+          break;
+        case 'auth/invalid-api-key':
+          errorMessage = 'Configuration Firebase incorrecte';
+          break;
+        default:
+          errorMessage = error.message || 'Connexion Facebook échouée';
+      }
+
+      throw new Error(errorMessage);
+    }
+  }
+
+  // Connexion Facebook avec redirection (alternative pour appareils mobiles)
+  static async signInWithFacebookRedirect() {
+    try {
+      console.log('🔄 Starting Facebook sign-in with redirect...');
+
+      const provider = new FacebookAuthProvider();
+      provider.addScope('email');
+      provider.addScope('public_profile');
+      provider.setCustomParameters({
+        locale: 'fr_FR',
+      });
+
+      // Import dynamique pour éviter les erreurs si non disponible
+      const { signInWithRedirect } = await import('firebase/auth');
+
+      // Démarrer la redirection
+      await signInWithRedirect(auth, provider);
+      // Note: La page va être rechargée, le résultat sera traité par getFacebookRedirectResult()
+    } catch (error) {
+      console.error('❌ Facebook redirect sign-in failed:', error);
+      throw new Error(`Redirection Facebook échouée: ${error.message}`);
+    }
+  }
+
+  // Récupérer le résultat de la redirection Facebook
+  static async getFacebookRedirectResult() {
+    try {
+      console.log('🔍 Checking for Facebook redirect result...');
+
+      const { getRedirectResult } = await import('firebase/auth');
+      const result = await getRedirectResult(auth);
+
+      if (result) {
+        console.log('✅ Facebook redirect sign-in successful');
+
+        const credential = FacebookAuthProvider.credentialFromResult(result);
+        const token = credential?.accessToken;
+
+        // Créer le profil utilisateur
+        if (result.user) {
+          await this.createUserProfile(result.user);
+        }
+
+        return {
+          user: result.user,
+          credential,
+          token,
+        };
+      }
+
+      return null; // Pas de redirection en cours
+    } catch (error) {
+      console.error('❌ Facebook redirect result failed:', error);
+      throw new Error(
+        `Récupération redirection Facebook échouée: ${error.message}`
+      );
+    }
+  }
+
+  // Connexion avec numéro de téléphone
+  // Connexion avec numéro de téléphone selon la documentation Firebase
+  static async signInWithPhone(phoneNumber, recaptchaVerifier) {
+    try {
+      console.log('📱 Starting phone authentication...');
+
+      // Formatter le numéro de téléphone selon les standards E.164
+      const formattedNumber = phoneNumber.startsWith('+')
+        ? phoneNumber
+        : `+33${phoneNumber.startsWith('0') ? phoneNumber.slice(1) : phoneNumber}`;
+
+      console.log('📞 Formatted phone number:', formattedNumber);
+
+      // Envoyer le SMS selon la documentation Firebase
+      const confirmationResult = await signInWithPhoneNumber(
+        auth,
+        formattedNumber,
+        recaptchaVerifier
+      );
+
+      console.log('✅ SMS sent successfully');
+      return confirmationResult;
+    } catch (error) {
+      console.error('❌ Phone sign-in error:', error);
+      let errorMessage = "Erreur lors de l'envoi du SMS";
+
+      // Gestion d'erreurs complète selon la documentation Firebase
+      switch (error.code) {
+        case 'auth/billing-not-enabled':
+          errorMessage =
+            'Authentification SMS non activée. Plan Blaze requis pour les vrais numéros. Utilisez +33612345678 avec code 123456 pour tester';
+          break;
+        case 'auth/invalid-phone-number':
+          errorMessage =
+            'Numéro de téléphone invalide. Format requis: +33XXXXXXXXX';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = 'Trop de tentatives. Réessayez dans quelques minutes';
+          break;
+        case 'auth/captcha-check-failed':
+          errorMessage =
+            'Vérification reCAPTCHA échouée. Rechargez la page et réessayez';
+          break;
+        case 'auth/quota-exceeded':
+          errorMessage = "Quota SMS dépassé pour aujourd'hui";
+          break;
+        case 'auth/missing-phone-number':
+          errorMessage = 'Numéro de téléphone manquant';
+          break;
+        case 'auth/app-not-authorized':
+          errorMessage =
+            'Application non autorisée pour Firebase Auth. Vérifiez la configuration';
+          break;
+        case 'auth/operation-not-allowed':
+          errorMessage =
+            'Authentification par téléphone non activée dans Firebase Console';
+          break;
+        case 'auth/network-request-failed':
+          errorMessage =
+            'Problème de connexion. Vérifiez votre connexion internet';
+          break;
+        case 'auth/internal-error':
+          errorMessage =
+            'Erreur interne Firebase. Réessayez dans quelques instants';
+          break;
+        default:
+          errorMessage = error.message || "Erreur lors de l'envoi du SMS";
+      }
+
+      throw new Error(errorMessage);
+    }
+  }
+
+  /**
+   * Tester l'authentification SMS avec des numéros fictifs
+   * Selon la documentation: https://firebase.google.com/docs/auth/web/phone-auth#test-with-fictional-phone-numbers
+   */
+  static async testPhoneAuth(
+    testPhoneNumber = '+33612345678',
+    testCode = '123456'
+  ) {
+    try {
+      console.log('🧪 Testing phone auth with fictional numbers...');
+
+      // Activer le mode test selon la documentation
+      auth.settings = auth.settings || {};
+      auth.settings.appVerificationDisabledForTesting = true;
+
+      // Créer un reCAPTCHA fictif pour les tests
+      const recaptchaVerifier = this.createRecaptchaVerifier(
+        'recaptcha-container',
+        {
+          testMode: true,
+          size: 'invisible',
+        }
+      );
+
+      // Effectuer la connexion de test
+      const confirmationResult = await this.signInWithPhone(
+        testPhoneNumber,
+        recaptchaVerifier
+      );
+
+      // Confirmer avec le code de test
+      const result = await confirmationResult.confirm(testCode);
+
+      console.log('✅ Test phone auth successful');
+      return result.user;
+    } catch (error) {
+      console.error('❌ Test phone auth failed:', error);
+      throw new Error(`Test d'authentification échoué: ${error.message}`);
+    }
+  }
+
+  // Créer un reCAPTCHA verifier selon la documentation Firebase
+  static createRecaptchaVerifier(elementId, options = {}) {
+    try {
+      console.log('🔧 Creating reCAPTCHA verifier...');
+
+      // Activer le mode debug pour les tests selon la documentation
+      if (process.env.NODE_ENV === 'development' || options.testMode) {
+        console.log('🔧 Activation du mode debug reCAPTCHA pour les tests');
+        // Désactiver la validation d'app pour les tests selon la documentation
+        // https://firebase.google.com/docs/auth/web/phone-auth#integration_testing
+        auth.settings = auth.settings || {};
+        auth.settings.appVerificationDisabledForTesting = true;
+      }
+
+      // Configuration reCAPTCHA pour l'authentification téléphone
+      const recaptchaConfig = {
+        size: options.size || 'invisible', // invisible par défaut pour une meilleure UX
+        callback: response => {
+          // reCAPTCHA résolu
+          console.log('✅ reCAPTCHA resolved');
+          if (options.onSuccess) options.onSuccess(response);
+        },
+        'expired-callback': () => {
+          // reCAPTCHA expiré
+          console.log('⚠️ reCAPTCHA expired');
+          if (options.onExpired) options.onExpired();
+        },
+        'error-callback': error => {
+          // Erreur reCAPTCHA
+          console.error('❌ reCAPTCHA error:', error);
+          if (options.onError) options.onError(error);
+        },
+      };
+
+      // En développement, utiliser un reCAPTCHA simplifié
+      if (process.env.NODE_ENV === 'development') {
+        console.log(
+          '🔧 Mode développement: configuration reCAPTCHA simplifiée'
+        );
+        // Firebase utilisera un reCAPTCHA par défaut en mode développement
+      }
+
+      const recaptchaVerifier = new RecaptchaVerifier(
+        auth,
+        elementId,
+        recaptchaConfig
+      );
+
+      // Rendu automatique en mode test selon la documentation
+      if (process.env.NODE_ENV === 'development' || options.testMode) {
+        console.log('🔧 Mode test: reCAPTCHA sera résolu automatiquement');
+        // Le reCAPTCHA se résoudra automatiquement en mode test
+      }
+
+      return recaptchaVerifier;
+    } catch (error) {
+      console.error('❌ Error creating reCAPTCHA verifier:', error);
+      console.error('❌ Details:', {
+        elementId,
+        options,
+        nodeEnv: process.env.NODE_ENV,
+        authSettings: auth.settings,
+      });
+      throw new Error(
+        `Impossible de créer le vérificateur reCAPTCHA: ${error.message}`
+      );
+    }
+  }
+
+  // Confirmer le code SMS
+  static async confirmPhoneCode(confirmationResult, verificationCode) {
+    try {
+      const result = await confirmationResult.confirm(verificationCode);
+
+      // Créer le profil utilisateur
+      if (result.user) {
+        await this.createUserProfile(result.user);
+      }
+
+      return result.user;
+    } catch (error) {
+      console.error('❌ Code confirmation error:', error);
+      let errorMessage = 'Code de vérification invalide';
+
+      // Gestion d'erreurs selon la documentation Firebase
+      switch (error.code) {
+        case 'auth/invalid-verification-code':
+          errorMessage =
+            'Code de vérification invalide. Vérifiez les 6 chiffres';
+          break;
+        case 'auth/code-expired':
+          errorMessage = 'Le code a expiré. Demandez un nouveau code SMS';
+          break;
+        case 'auth/session-expired':
+          errorMessage =
+            'Session expirée. Recommencez le processus de connexion';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = 'Trop de tentatives. Attendez avant de réessayer';
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = 'Problème de connexion. Vérifiez votre internet';
+          break;
+        case 'auth/internal-error':
+          errorMessage = 'Erreur interne. Réessayez dans quelques instants';
+          break;
+        default:
+          errorMessage = error.message || 'Code de vérification invalide';
+      }
+
+      throw new Error(errorMessage);
+    }
+  }
+
+  // Créer le profil utilisateur dans Firestore
+  static async createUserProfile(user) {
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.log('🔥 Creating user profile for:', user.uid);
+      console.log('📱 Phone number from Firebase Auth:', user.phoneNumber);
+    }
+
+    // Données utilisateur selon les bonnes pratiques Firebase
+    const userData = {
+      uid: user.uid,
+      name: user.displayName || 'Utilisateur',
+      phone: user.phoneNumber || '',
+      email: user.email || '',
+      avatar: user.photoURL || '',
+      // Informations d'authentification
+      emailVerified: user.emailVerified || false,
+      phoneVerified: !!user.phoneNumber,
+      // Métadonnées
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString(),
+      // Statut
+      isOnline: true,
+      lastSeen: new Date().toISOString(),
+      // Fonctionnalités app
+      location: null,
+      isAvailable: false,
+      currentActivity: null,
+      friends: [],
+      // Préférences utilisateur
+      preferences: {
+        darkMode: false,
+        notifications: true,
+        defaultRadius: 5, // km
+      },
+    };
+
+    // Toujours essayer de créer le profil, même si isOnline() est incertain
+    // Firebase gèrera les erreurs réseau si nécessaire
+
+    try {
+      await retryWithBackoff(async () => {
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+          // eslint-disable-next-line no-console
+          console.log('📝 Creating new user document...');
+          await setDoc(userRef, {
+            ...userData,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            lastSeen: serverTimestamp(),
+          });
+        } else {
+          // eslint-disable-next-line no-console
+          console.log('🔄 Updating existing user...');
+          // Mise à jour selon les bonnes pratiques Firebase
+          await updateDoc(userRef, {
+            // Statut de connexion
+            isOnline: true,
+            lastSeen: serverTimestamp(),
+            lastLoginAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            // Mettre à jour les infos de profil si elles ont changé
+            name: user.displayName || userData.name,
+            email: user.email || userData.email,
+            avatar: user.photoURL || userData.avatar,
+            emailVerified: user.emailVerified || false,
+            phoneVerified: !!user.phoneNumber,
+          });
+        }
+      });
+
+      // eslint-disable-next-line no-console
+      console.log('✅ User profile created/updated successfully');
+      return userData;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('⚠️ Firestore error, using local data:', error);
+      return userData;
+    }
+  }
+
+  // Déconnexion
+  static async signOut() {
+    console.log('🚪 AuthService.signOut() appelé');
+    try {
+      const currentUserId = auth.currentUser?.uid;
+
+      if (currentUserId) {
+        console.log('👤 Utilisateur connecté trouvé:', currentUserId);
+
+        // Essayer la mise à jour Firestore de manière non-bloquante
+        if (isOnline()) {
+          console.log('🌐 Tentative rapide de mise à jour du statut...');
+          // Fire and forget - ne pas attendre la réponse
+          updateDoc(doc(db, 'users', currentUserId), {
+            isOnline: false,
+            lastSeen: serverTimestamp(),
+          })
+            .then(() => {
+              console.log('✅ Statut offline mis à jour (async)');
+            })
+            .catch(error => {
+              console.warn(
+                '⚠️ Mise à jour statut échouée (ignorée):',
+                error.message
+              );
+            });
+        }
+      }
+
+      console.log('🔥 Appel de firebaseSignOut...');
+      await firebaseSignOut(auth);
+      console.log('✅ Déconnexion réussie');
+    } catch (error) {
+      console.error('❌ Erreur dans AuthService.signOut:', error);
+      throw new Error(`Déconnexion échouée: ${error.message}`);
+    }
+  }
+
+  // Écouter les changements d'authentification
+  static onAuthStateChanged(callback) {
+    return onAuthStateChanged(auth, callback);
+  }
+
+  // Fonctions utilitaires pour la gestion des utilisateurs selon la documentation Firebase
+
+  // Obtenir l'utilisateur actuel
+  static getCurrentUser() {
+    return auth.currentUser;
+  }
+
+  // Vérifier si l'utilisateur est connecté
+  static isAuthenticated() {
+    return !!auth.currentUser;
+  }
+
+  // Recharger les données utilisateur
+  static async reloadUser() {
+    if (auth.currentUser) {
+      await auth.currentUser.reload();
+      return auth.currentUser;
+    }
+    return null;
+  }
+
+  // Mettre à jour le profil utilisateur
+  static async updateUserProfile(displayName, photoURL) {
+    if (!auth.currentUser) {
+      throw new Error('Aucun utilisateur connecté');
+    }
+
+    try {
+      const { updateProfile } = await import('firebase/auth');
+      await updateProfile(auth.currentUser, {
+        displayName: displayName || auth.currentUser.displayName,
+        photoURL: photoURL || auth.currentUser.photoURL,
+      });
+
+      // Mettre à jour aussi dans Firestore
+      if (isOnline()) {
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        await updateDoc(userRef, {
+          name: displayName || auth.currentUser.displayName,
+          avatar: photoURL || auth.currentUser.photoURL,
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      return auth.currentUser;
+    } catch (error) {
+      console.error('Erreur mise à jour profil:', error);
+      throw new Error(
+        `Impossible de mettre à jour le profil: ${error.message}`
+      );
+    }
+  }
+
+  /**
+   * Effectuer une requête sécurisée vers un backend personnalisé avec App Check
+   * Selon la documentation Firebase : https://firebase.google.com/docs/app-check/web/custom-resource
+   * @param {string} url - URL du backend
+   * @param {Object} options - Options de la requête
+   * @param {boolean} limitedUse - Utiliser un jeton à usage limité
+   */
+  static async secureBackendCall(url, options = {}, limitedUse = false) {
+    try {
+      console.log('🔐 Making secure backend call with App Check...');
+
+      // Import dynamique pour éviter les dépendances circulaires
+      const { AppCheckService } = await import('./appCheckService');
+      return await AppCheckService.secureApiCall(url, options, limitedUse);
+    } catch (error) {
+      console.error('❌ Secure backend call failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Vérifier l'état d'App Check
+   */
+  static async checkAppCheckStatus() {
+    try {
+      const { AppCheckService } = await import('./appCheckService');
+      const isAvailable = await AppCheckService.isAppCheckAvailable();
+      console.log(
+        `🔐 App Check status: ${isAvailable ? 'Available' : 'Not available'}`
+      );
+      return isAvailable;
+    } catch (error) {
+      console.error('❌ App Check status check failed:', error);
+      return false;
+    }
+  }
+}
+
+// Service de disponibilité ultra-simplifié
+export class AvailabilityService {
+  // Définir sa disponibilité
+  static async setAvailability(userId, activity, location, duration = 45) {
+    // eslint-disable-next-line no-console
+    console.log('🔥 Setting availability:', { userId, activity, location });
+
+    if (!isOnline()) {
+      // eslint-disable-next-line no-console
+      console.warn('⚠️ Offline mode, creating local availability');
+      return 'offline-' + Date.now();
+    }
+
+    try {
+      return await retryWithBackoff(async () => {
+        const availabilityData = {
+          userId,
+          activity,
+          location,
+          startTime: new Date().toISOString(),
+          endTime: new Date(Date.now() + duration * 60 * 1000).toISOString(),
+          isActive: true,
+          createdAt: new Date().toISOString(),
+        };
+
+        const availabilityRef = await addDoc(
+          collection(db, 'availabilities'),
+          availabilityData
+        );
+
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, {
+          isAvailable: true,
+          currentActivity: activity,
+          availabilityId: availabilityRef.id,
+          location: location,
+          updatedAt: serverTimestamp(),
+        });
+
+        // eslint-disable-next-line no-console
+        console.log('✅ Availability set successfully');
+        return availabilityRef.id;
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('⚠️ Availability service error:', error);
+      throw new Error(
+        `Impossible de définir la disponibilité: ${error.message}`
+      );
+    }
+  }
+
+  // Arrêter sa disponibilité
+  static async stopAvailability(userId, availabilityId) {
+    if (!isOnline()) {
+      // eslint-disable-next-line no-console
+      console.warn('⚠️ Offline mode, cannot stop availability');
+      return;
+    }
+
+    try {
+      await retryWithBackoff(async () => {
+        if (availabilityId && !availabilityId.startsWith('offline-')) {
+          await deleteDoc(doc(db, 'availabilities', availabilityId));
+        }
+
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, {
+          isAvailable: false,
+          currentActivity: null,
+          availabilityId: null,
+          updatedAt: serverTimestamp(),
+        });
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('⚠️ Stop availability error:', error);
+      throw new Error(
+        `Impossible d'arrêter la disponibilité: ${error.message}`
+      );
+    }
+  }
+
+  // Écouter les disponibilités des amis
+  static onAvailableFriends(userId, callback) {
+    if (!isOnline()) {
+      // eslint-disable-next-line no-console
+      console.warn('⚠️ Offline mode, no friends available');
+      callback([]);
+      return () => {};
+    }
+
+    try {
+      const userRef = doc(db, 'users', userId);
+
+      return onSnapshot(userRef, async userDoc => {
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const friendIds = userData.friends || [];
+
+          if (friendIds.length === 0) {
+            callback([]);
+            return;
+          }
+
+          const q = query(
+            collection(db, 'availabilities'),
+            where('userId', 'in', friendIds),
+            where('isActive', '==', true)
+          );
+
+          onSnapshot(q, async snapshot => {
+            const availabilities = [];
+
+            for (const docSnap of snapshot.docs) {
+              const availability = { id: docSnap.id, ...docSnap.data() };
+
+              try {
+                const friendRef = doc(db, 'users', availability.userId);
+                const friendSnap = await getDoc(friendRef);
+
+                if (friendSnap.exists()) {
+                  availability.friend = friendSnap.data();
+                  availabilities.push(availability);
+                }
+              } catch (error) {
+                // eslint-disable-next-line no-console
+                console.warn('Warning: Could not fetch friend data:', error);
+              }
+            }
+
+            callback(availabilities);
+          });
+        } else {
+          callback([]);
+        }
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error listening to friends:', error);
+      callback([]);
+      return () => {};
+    }
+  }
+
+  // Notifier les amis de sa disponibilité
+  static async notifyFriends(userId, activity) {
+    if (!isOnline()) {
+      // eslint-disable-next-line no-console
+      console.warn('⚠️ Offline mode, cannot notify friends');
+      return;
+    }
+
+    try {
+      await retryWithBackoff(async () => {
+        const userRef = doc(db, 'users', userId);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          const friendIds = userData.friends || [];
+
+          // Créer une notification pour chaque ami
+          for (const friendId of friendIds) {
+            await addDoc(collection(db, 'notifications'), {
+              to: friendId,
+              from: userId,
+              type: 'availability',
+              activity: activity,
+              message: `${userData.name} is down for ${activity}!`,
+              createdAt: serverTimestamp(),
+              read: false,
+            });
+          }
+        }
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Erreur notification amis:', error);
+      throw error;
+    }
+  }
+
+  // Répondre à une invitation
+  static async respondToInvitation(userId, friendId, response) {
+    if (!isOnline()) {
+      // eslint-disable-next-line no-console
+      console.warn('⚠️ Offline mode, cannot respond to invitation');
+      return;
+    }
+
+    try {
+      await retryWithBackoff(async () => {
+        await addDoc(collection(db, 'notifications'), {
+          to: friendId,
+          from: userId,
+          type: 'response',
+          response: response, // 'joined' ou 'declined'
+          message:
+            response === 'joined'
+              ? `${auth.currentUser.displayName} joined your meetup!`
+              : `${auth.currentUser.displayName} declined your invitation`,
+          createdAt: serverTimestamp(),
+          read: false,
+        });
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Erreur réponse invitation:', error);
+      throw error;
+    }
+  }
+}
+
+// Service d'amis ultra-simplifié
+export class FriendsService {
+  // Normaliser un numéro de téléphone au format international
+  static normalizePhoneNumber(phoneNumber) {
+    // Supprimer tous les espaces, tirets, etc.
+    let cleaned = phoneNumber.replace(/[\s\-\(\)\.]/g, '');
+
+    // Si commence par 0, remplacer par +33
+    if (cleaned.startsWith('0')) {
+      cleaned = '+33' + cleaned.substring(1);
+    }
+    // Si commence par 33, ajouter +
+    else if (cleaned.startsWith('33') && !cleaned.startsWith('+')) {
+      cleaned = '+' + cleaned;
+    }
+    // Si ne commence ni par + ni par 33, ajouter +33
+    else if (!cleaned.startsWith('+') && !cleaned.startsWith('33')) {
+      cleaned = '+33' + cleaned;
+    }
+
+    return cleaned;
+  }
+
+  // Fonction de debug pour lister tous les utilisateurs (à supprimer en production)
+  static async debugListAllUsers() {
+    try {
+      const usersRef = collection(db, 'users');
+      const querySnapshot = await getDocs(usersRef);
+      console.log('📋 Tous les utilisateurs dans la base:');
+      querySnapshot.forEach(doc => {
+        const data = doc.data();
+        console.log(`- ${data.name}: ${data.phone} (uid: ${doc.id})`);
+      });
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+      console.error('Erreur debug:', error);
+      return [];
+    }
+  }
+
+  // Debug complet des relations d'amitié
+  static async debugFriendshipData(currentUserId) {
+    try {
+      console.log("\n🔍 === DEBUG RELATIONS D'AMITIÉ ===");
+
+      // 1. Informations utilisateur actuel
+      const userRef = doc(db, 'users', currentUserId);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        console.log(
+          `👤 Utilisateur actuel: ${userData.name} (${currentUserId})`
+        );
+        console.log(`📱 Téléphone: ${userData.phone}`);
+        console.log(`👥 Liste amis dans profil:`, userData.friends || []);
+        console.log(`📊 Nombre d'amis: ${(userData.friends || []).length}`);
+      }
+
+      // 2. Tous les utilisateurs disponibles
+      const allUsers = await this.debugListAllUsers();
+      console.log(`\n📋 Total utilisateurs dans la base: ${allUsers.length}`);
+
+      // 3. Vérifier chaque utilisateur et ses relations
+      console.log('\n🔗 Relations détaillées:');
+      for (const user of allUsers) {
+        const friends = user.friends || [];
+        const isFriendOfCurrent = friends.includes(currentUserId);
+        const isCurrentFriendOf = (userSnap.data()?.friends || []).includes(
+          user.id
+        );
+
+        console.log(`\n- ${user.name} (${user.id})`);
+        console.log(`  📱 Téléphone: ${user.phone}`);
+        console.log(`  👥 Ses amis: [${friends.join(', ')}]`);
+        console.log(
+          `  ↔️ Est ami avec moi: ${isFriendOfCurrent ? '✅' : '❌'}`
+        );
+        console.log(
+          `  ↔️ Je suis ami avec lui: ${isCurrentFriendOf ? '✅' : '❌'}`
+        );
+        console.log(
+          `  🔄 Relation mutuelle: ${isFriendOfCurrent && isCurrentFriendOf ? '✅' : '❌'}`
+        );
+      }
+
+      // 4. Résumé du problème
+      console.log('\n📊 === RÉSUMÉ ===');
+      const myFriends = userSnap.data()?.friends || [];
+      const potentialFriends = allUsers.filter(u => u.id !== currentUserId);
+
+      console.log(`✅ Mes amis déclarés: ${myFriends.length}`);
+      console.log(`👥 Utilisateurs disponibles: ${potentialFriends.length}`);
+      console.log(`🔗 Relations mutuelles: ${myFriends.length}`);
+
+      if (myFriends.length === 0 && potentialFriends.length > 0) {
+        console.log('\n⚠️ PROBLÈME IDENTIFIÉ:');
+        console.log('- Vous avez des utilisateurs dans la base');
+        console.log("- Mais aucune relation d'amitié n'est configurée");
+        console.log(
+          '- Utilisez addTestFriendship() pour créer des relations de test'
+        );
+      }
+
+      return {
+        currentUser: userSnap.data(),
+        allUsers,
+        myFriends,
+        potentialFriends,
+      };
+    } catch (error) {
+      console.error('❌ Erreur debug friendship:', error);
+      return null;
+    }
+  }
+
+  // Créer des relations d'amitié de test (mode développement uniquement)
+  static async addTestFriendships(currentUserId) {
+    if (process.env.NODE_ENV !== 'development') {
+      console.warn(
+        "⚠️ Cette fonction n'est disponible qu'en mode développement"
+      );
+      return;
+    }
+
+    try {
+      console.log("🧪 Création de relations d'amitié de test...");
+
+      const allUsers = await this.debugListAllUsers();
+      const otherUsers = allUsers.filter(u => u.id !== currentUserId);
+
+      if (otherUsers.length === 0) {
+        console.log('❌ Aucun autre utilisateur trouvé pour créer des amitiés');
+        return;
+      }
+
+      // Créer des amitiés avec tous les autres utilisateurs (pour les tests)
+      const friendships = [];
+      for (const user of otherUsers.slice(0, 3)) {
+        // Limiter à 3 amis max
+        try {
+          await this.addMutualFriendship(currentUserId, user.id);
+          friendships.push(user.name);
+          console.log(`✅ Amitié créée avec: ${user.name}`);
+        } catch (error) {
+          console.log(`❌ Échec amitié avec ${user.name}:`, error.message);
+        }
+      }
+
+      console.log(
+        `🎉 ${friendships.length} amitiés de test créées:`,
+        friendships
+      );
+      return friendships;
+    } catch (error) {
+      console.error('❌ Erreur création amitiés test:', error);
+      return [];
+    }
+  }
+
+  // Ajouter un ami par numéro de téléphone
+  static async addFriendByPhone(currentUserId, phoneNumber) {
+    if (!isOnline()) {
+      throw new Error('Connexion requise pour ajouter des amis');
+    }
+
+    try {
+      return await retryWithBackoff(async () => {
+        // Normaliser le numéro de téléphone
+        const normalizedPhone = this.normalizePhoneNumber(phoneNumber);
+        console.log('🔍 Recherche utilisateur avec numéro:', normalizedPhone);
+
+        // Debug: lister tous les utilisateurs
+        await this.debugListAllUsers();
+
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('phone', '==', normalizedPhone));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          const friendDoc = querySnapshot.docs[0];
+          const friendId = friendDoc.id;
+          const friendData = friendDoc.data();
+
+          // Vérifier qu'on ne s'ajoute pas soi-même
+          if (friendId === currentUserId) {
+            throw new Error('Vous ne pouvez pas vous ajouter vous-même');
+          }
+
+          await this.addMutualFriendship(currentUserId, friendId);
+          console.log('✅ Ami ajouté:', friendData.name);
+          return friendData;
+        } else {
+          // Essayer aussi avec des variantes du format
+          const phoneVariants = [
+            normalizedPhone,
+            phoneNumber, // Format original
+            phoneNumber.replace(/\s+/g, ''), // Sans espaces
+          ];
+
+          console.log('🔍 Recherche avec variantes:', phoneVariants);
+
+          for (const variant of phoneVariants) {
+            if (variant !== normalizedPhone) {
+              const qVariant = query(usersRef, where('phone', '==', variant));
+              const variantSnapshot = await getDocs(qVariant);
+
+              if (!variantSnapshot.empty) {
+                const friendDoc = variantSnapshot.docs[0];
+                const friendId = friendDoc.id;
+                const friendData = friendDoc.data();
+
+                if (friendId === currentUserId) {
+                  throw new Error('Vous ne pouvez pas vous ajouter vous-même');
+                }
+
+                await this.addMutualFriendship(currentUserId, friendId);
+                console.log('✅ Ami trouvé avec variante:', friendData.name);
+                return friendData;
+              }
+            }
+          }
+
+          throw new Error(
+            "Utilisateur non trouvé avec ce numéro. Assurez-vous que cette personne s'est déjà connectée à l'application."
+          );
+        }
+      });
+    } catch (error) {
+      console.error('❌ Erreur ajout ami:', error);
+      throw new Error(`Impossible d'ajouter l'ami: ${error.message}`);
+    }
+  }
+
+  // Créer une amitié mutuelle
+  static async addMutualFriendship(userId1, userId2) {
+    if (!isOnline()) {
+      throw new Error('Connexion requise pour ajouter des amis');
+    }
+
+    try {
+      await retryWithBackoff(async () => {
+        const user1Ref = doc(db, 'users', userId1);
+        const user2Ref = doc(db, 'users', userId2);
+
+        const [user1Snap, user2Snap] = await Promise.all([
+          getDoc(user1Ref),
+          getDoc(user2Ref),
+        ]);
+
+        if (user1Snap.exists() && user2Snap.exists()) {
+          const user1Friends = user1Snap.data().friends || [];
+          const user2Friends = user2Snap.data().friends || [];
+
+          const updates = [];
+
+          if (!user1Friends.includes(userId2)) {
+            updates.push(
+              updateDoc(user1Ref, {
+                friends: [...user1Friends, userId2],
+                updatedAt: serverTimestamp(),
+              })
+            );
+          }
+
+          if (!user2Friends.includes(userId1)) {
+            updates.push(
+              updateDoc(user2Ref, {
+                friends: [...user2Friends, userId1],
+                updatedAt: serverTimestamp(),
+              })
+            );
+          }
+
+          await Promise.all(updates);
+        }
+      });
+    } catch (error) {
+      throw new Error(`Impossible de créer l'amitié: ${error.message}`);
+    }
+  }
+
+  // Récupérer la liste des amis
+  static async getFriends(userId) {
+    if (!isOnline()) {
+      // eslint-disable-next-line no-console
+      console.warn('⚠️ Offline mode, returning empty friends list');
+      return [];
+    }
+
+    try {
+      return await retryWithBackoff(async () => {
+        const userRef = doc(db, 'users', userId);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          const friendIds = userSnap.data().friends || [];
+
+          if (friendIds.length === 0) {
+            return [];
+          }
+
+          const friendsPromises = friendIds.map(friendId =>
+            getDoc(doc(db, 'users', friendId))
+          );
+
+          const friendsSnaps = await Promise.all(friendsPromises);
+
+          return friendsSnaps
+            .filter(snap => snap.exists())
+            .map(snap => ({ id: snap.id, ...snap.data() }));
+        }
+
+        return [];
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Warning: Could not fetch friends:', error);
+      return [];
+    }
+  }
+}
+
+// Service de notifications ultra-simplifié
+// Service d'invitations pour les activités
+export class InvitationService {
+  // Envoyer des invitations à plusieurs amis pour une activité
+  static async sendInvitations(fromUserId, activity, friendIds, location) {
+    try {
+      console.log(
+        `📨 Envoi d'invitations ${activity} à ${friendIds.length} amis`
+      );
+
+      if (!isOnline()) {
+        throw new Error('Connexion requise pour envoyer des invitations');
+      }
+
+      const batch = [];
+      const invitationTime = new Date();
+
+      for (const friendId of friendIds) {
+        // Créer une invitation
+        const invitationData = {
+          fromUserId,
+          toUserId: friendId,
+          activity,
+          location,
+          status: 'pending', // pending, accepted, declined, expired
+          createdAt: serverTimestamp(),
+          expiresAt: new Date(invitationTime.getTime() + 15 * 60 * 1000), // 15 minutes
+        };
+
+        // Ajouter l'invitation à la collection
+        const invitationPromise = addDoc(
+          collection(db, 'invitations'),
+          invitationData
+        );
+
+        // Créer une notification pour l'ami
+        const notificationPromise = this.createInvitationNotification(
+          friendId,
+          fromUserId,
+          activity
+        );
+
+        batch.push(invitationPromise);
+        batch.push(notificationPromise);
+      }
+
+      // Exécuter toutes les opérations en parallèle
+      await Promise.all(batch);
+
+      console.log(
+        `✅ ${friendIds.length} invitations envoyées pour ${activity}`
+      );
+      return { success: true, count: friendIds.length };
+    } catch (error) {
+      console.error('❌ Erreur envoi invitations:', error);
+      throw new Error(
+        `Erreur lors de l'envoi des invitations: ${error.message}`
+      );
+    }
+  }
+
+  // Créer une notification pour une invitation
+  static async createInvitationNotification(toUserId, fromUserId, activity) {
+    try {
+      // Récupérer le nom de l'expéditeur
+      const fromUser = await getDoc(doc(db, 'users', fromUserId));
+      const fromUserName = fromUser.exists() ? fromUser.data().name : 'Un ami';
+
+      const activities = {
+        coffee: 'Coffee ☕',
+        lunch: 'Lunch 🍽️',
+        drinks: 'Drinks 🍻',
+        chill: 'Chill 😎',
+      };
+
+      const activityLabel = activities[activity] || activity;
+
+      const notification = {
+        toUserId,
+        fromUserId,
+        type: 'invitation',
+        title: 'Nouvelle invitation !',
+        message: `${fromUserName} vous invite pour ${activityLabel}`,
+        data: {
+          activity,
+          fromUserId,
+          fromUserName,
+        },
+        read: false,
+        createdAt: serverTimestamp(),
+      };
+
+      return await addDoc(collection(db, 'notifications'), notification);
+    } catch (error) {
+      console.error('❌ Erreur création notification invitation:', error);
+      // Ne pas faire échouer l'invitation si la notification échoue
+    }
+  }
+
+  // Répondre à une invitation
+  static async respondToInvitation(invitationId, userId, response) {
+    try {
+      console.log(`📝 Réponse à l'invitation ${invitationId}: ${response}`);
+
+      if (!['accepted', 'declined'].includes(response)) {
+        throw new Error('Réponse invalide. Utilisez "accepted" ou "declined"');
+      }
+
+      // Mettre à jour le statut de l'invitation
+      await updateDoc(doc(db, 'invitations', invitationId), {
+        status: response,
+        respondedAt: serverTimestamp(),
+      });
+
+      // Si acceptée, créer une notification de retour
+      if (response === 'accepted') {
+        const invitation = await getDoc(doc(db, 'invitations', invitationId));
+        if (invitation.exists()) {
+          const invitationData = invitation.data();
+          await this.createResponseNotification(
+            invitationData.fromUserId,
+            userId,
+            invitationData.activity,
+            true
+          );
+        }
+      }
+
+      console.log(`✅ Réponse ${response} enregistrée`);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Erreur réponse invitation:', error);
+      throw new Error(`Erreur lors de la réponse: ${error.message}`);
+    }
+  }
+
+  // Créer une notification de réponse
+  static async createResponseNotification(
+    toUserId,
+    fromUserId,
+    activity,
+    accepted
+  ) {
+    try {
+      const fromUser = await getDoc(doc(db, 'users', fromUserId));
+      const fromUserName = fromUser.exists() ? fromUser.data().name : 'Un ami';
+
+      const activities = {
+        coffee: 'Coffee ☕',
+        lunch: 'Lunch 🍽️',
+        drinks: 'Drinks 🍻',
+        chill: 'Chill 😎',
+      };
+
+      const activityLabel = activities[activity] || activity;
+      const message = accepted
+        ? `${fromUserName} a accepté votre invitation pour ${activityLabel} !`
+        : `${fromUserName} a décliné votre invitation pour ${activityLabel}`;
+
+      const notification = {
+        toUserId,
+        fromUserId,
+        type: 'invitation_response',
+        title: accepted ? 'Invitation acceptée !' : 'Invitation déclinée',
+        message,
+        data: {
+          activity,
+          accepted,
+          fromUserId,
+          fromUserName,
+        },
+        read: false,
+        createdAt: serverTimestamp(),
+      };
+
+      await addDoc(collection(db, 'notifications'), notification);
+    } catch (error) {
+      console.error('❌ Erreur notification réponse:', error);
+    }
+  }
+
+  // Nettoyer les invitations expirées
+  static async cleanupExpiredInvitations() {
+    try {
+      const now = new Date();
+      const expiredQuery = query(
+        collection(db, 'invitations'),
+        where('expiresAt', '<', now),
+        where('status', '==', 'pending')
+      );
+
+      const expiredInvitations = await getDocs(expiredQuery);
+      const deletePromises = [];
+
+      expiredInvitations.forEach(doc => {
+        deletePromises.push(updateDoc(doc.ref, { status: 'expired' }));
+      });
+
+      if (deletePromises.length > 0) {
+        await Promise.all(deletePromises);
+        console.log(
+          `🧹 ${deletePromises.length} invitations expirées nettoyées`
+        );
+      }
+    } catch (error) {
+      console.error('❌ Erreur nettoyage invitations:', error);
+    }
+  }
+}
+
+export class NotificationService {
+  // Écouter les notifications
+  static onNotifications(userId, callback) {
+    if (!isOnline()) {
+      // eslint-disable-next-line no-console
+      console.warn('⚠️ Offline mode, no notifications');
+      callback([]);
+      return () => {};
+    }
+
+    try {
+      const q = query(
+        collection(db, 'notifications'),
+        where('to', '==', userId)
+      );
+
+      return onSnapshot(q, snapshot => {
+        const notifications = snapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(notif => !notif.read)
+          .sort((a, b) => {
+            const aTime = a.createdAt?.toDate?.() || new Date();
+            const bTime = b.createdAt?.toDate?.() || new Date();
+            return bTime - aTime;
+          });
+
+        callback(notifications);
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Warning: Could not listen to notifications:', error);
+      callback([]);
+      return () => {};
+    }
+  }
+
+  // Marquer une notification comme lue
+  static async markAsRead(notificationId) {
+    if (!isOnline()) {
+      // eslint-disable-next-line no-console
+      console.warn('⚠️ Offline mode, cannot mark notification as read');
+      return;
+    }
+
+    try {
+      await retryWithBackoff(async () => {
+        const notificationRef = doc(db, 'notifications', notificationId);
+        await updateDoc(notificationRef, {
+          read: true,
+          updatedAt: serverTimestamp(),
+        });
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Warning: Could not mark notification as read:', error);
+    }
+  }
+
+  static async createNotification(
+    toUserId,
+    fromUserId,
+    type,
+    message,
+    data = {}
+  ) {
+    if (!isOnline()) {
+      // eslint-disable-next-line no-console
+      console.warn('⚠️ Offline mode, cannot create notification');
+      return;
+    }
+
+    try {
+      await retryWithBackoff(async () => {
+        await addDoc(collection(db, 'notifications'), {
+          to: toUserId,
+          from: fromUserId,
+          type,
+          message,
+          data,
+          read: false,
+          createdAt: serverTimestamp(),
+        });
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Warning: Could not create notification:', error);
+    }
+  }
+}
+
+// Export du service App Check pour utilisation externe
+export { AppCheckService } from './appCheckService';
