@@ -31,10 +31,14 @@ const AddFriendModal = ({ isOpen, onClose, onAddFriend, currentUser }) => {
 C'est une super app pour savoir qui est disponible pour un café, un resto ou juste traîner. 
 
 Télécharge l'app et on pourra se retrouver facilement :
-📱 [Lien de téléchargement à venir]
+📱 https://qui-est-dispo-app.vercel.app
+
+Tu peux même l'installer sur ton téléphone comme une vraie app ! 
+Sur Android : Menu → "Ajouter à l'écran d'accueil"
+Sur iPhone : Partage → "Ajouter à l'écran d'accueil"
 
 À bientôt !
-${currentUser?.name || 'Ton ami'}`;
+${currentUser?.displayName || currentUser?.name || 'Ton ami'}`;
 
   // Initialiser le scanner QR
   useEffect(() => {

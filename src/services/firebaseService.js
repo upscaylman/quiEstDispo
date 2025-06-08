@@ -1457,11 +1457,12 @@ export class InvitationService {
         fromUserId,
         type: 'invitation',
         title: 'Nouvelle invitation !',
-        message: `${fromUserName} vous invite pour ${activityLabel}`,
+        message: `${fromUserName} vous invite pour ${activityLabel}. Rejoignez l'app : https://qui-est-dispo-app.vercel.app`,
         data: {
           activity,
           fromUserId,
           fromUserName,
+          appUrl: 'https://qui-est-dispo-app.vercel.app',
         },
         read: false,
         createdAt: serverTimestamp(),

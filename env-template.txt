@@ -1,0 +1,20 @@
+# Variables d'environnement Firebase pour Qui est dispo
+# Renommez ce fichier en .env.local et remplissez avec vos vraies clés
+
+# Configuration Firebase (récupérez ces valeurs depuis Firebase Console > Paramètres du projet > Configuration du SDK)
+REACT_APP_FIREBASE_API_KEY=your_api_key_here
+REACT_APP_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+REACT_APP_FIREBASE_PROJECT_ID=your_project_id
+REACT_APP_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+REACT_APP_FIREBASE_APP_ID=your_app_id
+REACT_APP_FIREBASE_MEASUREMENT_ID=your_measurement_id
+
+# reCAPTCHA v3 Site Key (optionnel mais recommandé pour la sécurité)
+REACT_APP_RECAPTCHA_V3_SITE_KEY=your_recaptcha_site_key
+
+# Mapbox Token (pour les cartes interactives)
+REACT_APP_MAPBOX_TOKEN=your_mapbox_token
+
+# VAPID Key pour les notifications push (optionnel)
+REACT_APP_FIREBASE_VAPID_KEY=your_vapid_key 

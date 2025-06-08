@@ -116,3 +116,5 @@ workbox-config.js
 
 # Debug
 debug.log
+
+.vercel
