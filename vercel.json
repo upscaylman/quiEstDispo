@@ -1,6 +1,7 @@
 {
   "version": 2,
   "name": "qui-est-dispo",
+  "alias": ["qui-est-dispo-app"],
   "build": {
     "env": {
       "REACT_APP_ENV": "production"
