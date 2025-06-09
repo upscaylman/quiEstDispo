@@ -42,9 +42,14 @@ const UpdateNotification = () => {
           });
 
           // Vérifier manuellement les mises à jour (important pour mobile)
-          registration.update().then(() => {
-            console.log('🔄 Vérification de mise à jour effectuée');
-          });
+          registration
+            .update()
+            .then(() => {
+              console.log('🔄 Vérification de mise à jour effectuée');
+            })
+            .catch(error => {
+              console.warn('⚠️ Erreur lors de la vérification:', error);
+            });
 
           // Demander la version actuelle au service worker
           if (registration.active) {
@@ -69,11 +74,18 @@ const UpdateNotification = () => {
 
         if (event.data && event.data.type === 'CURRENT_VERSION') {
           const swVersion = event.data.version;
+          console.log(
+            `📋 Version du SW: ${swVersion}, Version locale: ${currentVersion}`
+          );
+
           if (currentVersion && currentVersion !== swVersion) {
             console.log(
               `🆕 Nouvelle version détectée: ${currentVersion} → ${swVersion}`
             );
-            setShowUpdate(true);
+            // Éviter les doublons
+            if (!showUpdate) {
+              setShowUpdate(true);
+            }
           }
           currentVersion = swVersion;
         }
@@ -111,19 +123,44 @@ const UpdateNotification = () => {
   }, []);
 
   const handleUpdate = () => {
+    console.log('🔄 Début de la mise à jour...');
+    setShowUpdate(false);
+
     if (waitingWorker) {
+      console.log('📞 Envoi du message SKIP_WAITING au service worker');
+
+      // Écouter la confirmation du service worker
+      const handleControllerChange = () => {
+        console.log('✅ Nouveau service worker actif, rechargement...');
+        navigator.serviceWorker.removeEventListener(
+          'controllerchange',
+          handleControllerChange
+        );
+        window.location.reload();
+      };
+
+      navigator.serviceWorker.addEventListener(
+        'controllerchange',
+        handleControllerChange
+      );
+
       // Dire au service worker en attente de prendre le contrôle
       waitingWorker.postMessage({ type: 'SKIP_WAITING' });
 
-      // Recharger la page après un court délai
+      // Fallback: recharger après 2 secondes si pas de réponse
       setTimeout(() => {
+        console.log('⏰ Timeout - Rechargement forcé');
+        navigator.serviceWorker.removeEventListener(
+          'controllerchange',
+          handleControllerChange
+        );
         window.location.reload();
-      }, 100);
+      }, 2000);
     } else {
-      // Fallback: forcer le rechargement
-      window.location.reload();
+      console.log('💾 Pas de service worker en attente, rechargement direct');
+      // Fallback: forcer le rechargement avec cache bust
+      window.location.href = window.location.href + '?update=' + Date.now();
     }
-    setShowUpdate(false);
   };
 
   const handleDismiss = () => {
