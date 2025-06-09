@@ -1,9 +1,11 @@
 import { motion } from 'framer-motion';
 import { Check, Edit2, Phone, Save, X } from 'lucide-react';
 import React, { useState } from 'react';
-import { FriendsService } from '../services/firebaseService';
+import { useAuth } from '../hooks/useAuth';
+import { AuthService, FriendsService } from '../services/firebaseService';
 
 const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
+  const { refreshUserData } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState(user.phone || '');
   const [isLoading, setIsLoading] = useState(false);
@@ -31,17 +33,21 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
       const normalizedPhone = FriendsService.normalizePhoneNumber(phoneNumber);
 
       // Vérifier que le numéro n'est pas déjà utilisé par un autre utilisateur
-      const { AuthService } = await import('../services/firebaseService');
       await AuthService.updateUserPhone(user.uid, normalizedPhone);
-
-      // Mettre à jour l'état local
-      await onProfileUpdate({ ...user, phone: normalizedPhone });
 
       setSuccess('Numéro de téléphone ajouté avec succès ! 🎉');
       setIsEditing(false);
 
       // Effacer le message de succès après 3 secondes
       setTimeout(() => setSuccess(''), 3000);
+
+      // Recharger les données utilisateur depuis Firebase
+      await refreshUserData();
+
+      // Mettre à jour l'état local si la fonction est fournie
+      if (onProfileUpdate) {
+        await onProfileUpdate({ ...user, phone: normalizedPhone });
+      }
     } catch (error) {
       console.error('Erreur mise à jour téléphone:', error);
       setError(error.message || 'Erreur lors de la mise à jour');

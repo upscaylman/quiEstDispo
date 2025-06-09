@@ -701,11 +701,37 @@ export class AuthService {
 
       // eslint-disable-next-line no-console
       console.log('✅ User profile created/updated successfully');
-      return userData;
+
+      // Récupérer les données réelles depuis Firestore
+      const freshUserData = await this.getUserProfile(user.uid);
+      return freshUserData || userData;
     } catch (error) {
       // eslint-disable-next-line no-console
       console.warn('⚠️ Firestore error, using local data:', error);
       return userData;
+    }
+  }
+
+  // Récupérer le profil utilisateur depuis Firestore
+  static async getUserProfile(userId) {
+    try {
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+        console.log('✅ User profile fetched from Firestore:', data);
+        return {
+          uid: userId,
+          ...data,
+        };
+      } else {
+        console.warn('⚠️ User profile not found in Firestore');
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Error fetching user profile:', error);
+      throw error;
     }
   }
 

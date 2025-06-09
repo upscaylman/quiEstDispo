@@ -259,6 +259,24 @@ export const useAuth = () => {
     }
   };
 
+  const refreshUserData = async () => {
+    try {
+      setLoading(true);
+      const currentUser = AuthService.getCurrentUser();
+      if (currentUser) {
+        console.log('🔄 Refreshing user data...');
+        const userData = await AuthService.createUserProfile(currentUser);
+        console.log('✅ User data refreshed:', userData);
+        setUser(userData);
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing user data:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     user,
     loading,
@@ -272,6 +290,7 @@ export const useAuth = () => {
     createRecaptchaVerifier,
     testPhoneAuth,
     checkBlazePlanStatus,
+    refreshUserData,
     signOut,
   };
 };
