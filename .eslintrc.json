@@ -1,17 +1,3 @@
 {
-  "extends": ["react-app", "react-app/jest"],
-  "rules": {
-    "no-console": "off",
-    "react-hooks/exhaustive-deps": "warn",
-    "no-unused-vars": "warn",
-    "prefer-const": "error",
-    "no-var": "error",
-    "react/prop-types": "off",
-    "react/no-unescaped-entities": "off"
-  },
-  "env": {
-    "browser": true,
-    "es6": true,
-    "node": true
-  }
+  "extends": ["react-app", "react-app/jest"]
 }
