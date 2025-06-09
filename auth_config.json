@@ -1,0 +1,96 @@
+{
+  "users": [
+    {
+      "localId": "RJBhNdouRyf8t2NFbMmlzoRJQsy2",
+      "email": "test@test.com",
+      "emailVerified": false,
+      "passwordHash": "4aLVzRyzUZGo9BOl6cLgr/1a/gzbBisqd3J0N9DHn93VEggRmCbhd7wgIEcpwX/h24NHVH899bVKBuf1mUSmPw==",
+      "salt": "RVjpp/18l43+8Q==",
+      "lastSignedInAt": "1749297129910",
+      "createdAt": "1749297092066",
+      "disabled": false,
+      "providerUserInfo": []
+    },
+    {
+      "localId": "RxTNILikWQV6qMGTeKBUN2xf5jp2",
+      "email": "epheandrill@gmail.com",
+      "emailVerified": true,
+      "displayName": "Epheandrill Voisi",
+      "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocKUB7QIUnVx5YThl_8r_csBNdXJ8bZzJwc5JPnKGVHogAKpdQg=s96-c",
+      "lastSignedInAt": "1749305036352",
+      "createdAt": "1749301806698",
+      "providerUserInfo": [
+        {
+          "providerId": "google.com",
+          "rawId": "102138037521480443281",
+          "email": "epheandrill@gmail.com",
+          "displayName": "Epheandrill Voisi",
+          "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocKUB7QIUnVx5YThl_8r_csBNdXJ8bZzJwc5JPnKGVHogAKpdQg=s96-c"
+        }
+      ]
+    },
+    {
+      "localId": "Z6N6UoSzNrPigJAraEAvG87yI0F3",
+      "lastSignedInAt": "1749330713500",
+      "createdAt": "1749317603150",
+      "phoneNumber": "+33612345678",
+      "providerUserInfo": []
+    },
+    {
+      "localId": "j4mZnidYusYFSAqwySYnKnybg073",
+      "email": "test@yahoo.com",
+      "emailVerified": false,
+      "passwordHash": "Kk0LVVvUiWSzgLNZHt97dcrXjP6m+rtalJaTI7T3NmdI7nrXV+hidSeWhxIViQaKEdq0RLgWboz56w8T2bHhCQ==",
+      "salt": "3B/rrebycv7QLg==",
+      "lastSignedInAt": "1749297267077",
+      "createdAt": "1749297267077",
+      "providerUserInfo": []
+    },
+    {
+      "localId": "uoxu4SsPU8TKKJsdpEWa9dAvPTZ2",
+      "email": "bouvier.jul@gmail.com",
+      "emailVerified": true,
+      "displayName": "Julien Kaesery (urskills)",
+      "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocI8HOZHHs1ArzICu7kAm2kFMPSigkqYvDEz61QEKd1ggAuhmCjG=s96-c",
+      "lastSignedInAt": "1749418286499",
+      "createdAt": "1749307421592",
+      "providerUserInfo": [
+        {
+          "providerId": "google.com",
+          "rawId": "100820947450438118352",
+          "email": "bouvier.jul@gmail.com",
+          "displayName": "Julien Kaesery (urskills)",
+          "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocI8HOZHHs1ArzICu7kAm2kFMPSigkqYvDEz61QEKd1ggAuhmCjG=s96-c"
+        }
+      ]
+    },
+    {
+      "localId": "ynnwVzK64wYnq42NmaBi77mpNGs2",
+      "email": "amazprim79@gmail.com",
+      "emailVerified": true,
+      "displayName": "Amazon Prime",
+      "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocK5311mn-nthsWV6gEVDdkFovut7GQtki4g3QhS6HgSRWri5vQ=s96-c",
+      "lastSignedInAt": "1749305979215",
+      "createdAt": "1749304902272",
+      "providerUserInfo": [
+        {
+          "providerId": "google.com",
+          "rawId": "105225247810300924409",
+          "email": "amazprim79@gmail.com",
+          "displayName": "Amazon Prime",
+          "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocK5311mn-nthsWV6gEVDdkFovut7GQtki4g3QhS6HgSRWri5vQ=s96-c"
+        }
+      ]
+    },
+    {
+      "localId": "zR9Hfs6s3uRNYrMBJ3Wh72SH7Ar1",
+      "email": "tes78@gmail.com",
+      "emailVerified": false,
+      "passwordHash": "XMBEG6cqvozsj5hyy47zQXVZlD06TQO41UGd2Yb/FaHcBGWAZMuwdPXZDzJ+0Gl9wRwvEEdYxmK+fH4BN3Ue2g==",
+      "salt": "5TDYjwU5eDUH5A==",
+      "lastSignedInAt": "1749297162885",
+      "createdAt": "1749297162885",
+      "providerUserInfo": []
+    }
+  ]
+}
