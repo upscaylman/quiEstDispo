@@ -1,11 +1,9 @@
 {
-  "extends": [
-    "react-app",
-    "react-app/jest"
-  ],
+  "extends": ["react-app", "react-app/jest"],
   "rules": {
+    "no-console": "off",
+    "react-hooks/exhaustive-deps": "warn",
     "no-unused-vars": "warn",
-    "no-console": "warn",
     "prefer-const": "error",
     "no-var": "error",
     "react/prop-types": "off",
