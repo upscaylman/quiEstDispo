@@ -262,6 +262,7 @@ export const useAuth = () => {
   return {
     user,
     loading,
+    setLoading,
     signInWithGoogle,
     signInWithFacebook,
     checkGoogleRedirectResult,

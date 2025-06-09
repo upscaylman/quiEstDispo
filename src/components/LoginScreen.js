@@ -15,6 +15,7 @@ const LoginScreen = () => {
     createRecaptchaVerifier,
     testPhoneAuth,
     loading,
+    setLoading,
   } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
@@ -114,6 +115,7 @@ const LoginScreen = () => {
   const handlePhoneSignIn = async () => {
     try {
       setError('');
+      console.log('🔄 Starting phone sign-in process...');
 
       // Créer le reCAPTCHA verifier s'il n'existe pas
       if (!recaptchaVerifier) {
@@ -126,10 +128,13 @@ const LoginScreen = () => {
               console.log('✅ reCAPTCHA résolu avec succès');
             },
             onExpired: () => {
+              console.log('⚠️ reCAPTCHA expiré');
               setError('reCAPTCHA expiré. Veuillez réessayer.');
+              setLoading(false); // Important: arrêter le loading
             },
             onError: error => {
               console.error('❌ reCAPTCHA error:', error);
+              setLoading(false); // Important: arrêter le loading
               if (error.message && error.message.includes('sitekey')) {
                 setError(
                   'Mode développement: utilisez le bouton de test SMS ci-dessous'
@@ -144,12 +149,14 @@ const LoginScreen = () => {
           console.log('✅ reCAPTCHA verifier created');
 
           // Procéder directement à l'envoi SMS sans rendre manuellement
+          console.log('📱 Sending SMS with phone number:', phoneNumber);
           const result = await signInWithPhone(phoneNumber, verifier);
+          console.log('✅ SMS sent, confirmation result:', result);
           setConfirmationResult(result);
-          console.log('✅ SMS sent');
           return;
         } catch (verifierError) {
           console.error('❌ Error creating reCAPTCHA verifier:', verifierError);
+          setLoading(false); // Important: arrêter le loading
 
           if (
             verifierError.message &&
@@ -164,14 +171,23 @@ const LoginScreen = () => {
         }
       }
 
-      // Envoyer le SMS
+      // Envoyer le SMS avec le verifier existant
+      console.log('📱 Sending SMS with existing verifier...');
       const result = await signInWithPhone(phoneNumber, recaptchaVerifier);
+      console.log('✅ SMS sent successfully');
       setConfirmationResult(result);
     } catch (error) {
+      console.error('❌ Complete phone sign-in error:', error);
       setError(error.message || 'Erreur envoi SMS. Vérifiez le numéro.');
+      setLoading(false); // Critical: toujours arrêter le loading
+
       // Réinitialiser le reCAPTCHA en cas d'erreur
       if (recaptchaVerifier) {
-        recaptchaVerifier.clear();
+        try {
+          recaptchaVerifier.clear();
+        } catch (clearError) {
+          console.warn('Warning: Could not clear reCAPTCHA:', clearError);
+        }
         setRecaptchaVerifier(null);
       }
     }
