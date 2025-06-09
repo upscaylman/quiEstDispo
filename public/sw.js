@@ -1,5 +1,5 @@
 // Service Worker pour "Qui est dispo" avec mise à jour automatique
-const VERSION = '1.0.12'; // Incrémenter à chaque déploiement
+const VERSION = '1.0.13'; // Incrémenter à chaque déploiement
 const CACHE_NAME = 'qui-est-dispo-v' + VERSION;
 const STATIC_CACHE = 'qui-est-dispo-static-v1';
 
@@ -29,8 +29,21 @@ self.addEventListener('install', event => {
       })
       .then(() => {
         console.log('✅ Service Worker: Ressources mises en cache');
-        // Prendre le contrôle immédiatement (skipWaiting)
-        return self.skipWaiting();
+        console.log(
+          '⏳ Service Worker: En attente du signal utilisateur pour activer'
+        );
+        // NE PAS faire skipWaiting automatiquement - attendre l'action utilisateur
+        // return self.skipWaiting();
+
+        // Notifier les clients qu'une nouvelle version est prête
+        self.clients.matchAll().then(clients => {
+          clients.forEach(client => {
+            client.postMessage({
+              type: 'NEW_VERSION_READY',
+              version: VERSION,
+            });
+          });
+        });
       })
   );
 });
@@ -60,6 +73,17 @@ self.addEventListener('activate', event => {
         console.log('✅ Service Worker: Prêt et actif');
         // Prendre le contrôle de toutes les pages immédiatement
         return self.clients.claim();
+      })
+      .then(() => {
+        // Notifier les clients qu'une nouvelle version est active
+        self.clients.matchAll().then(clients => {
+          clients.forEach(client => {
+            client.postMessage({
+              type: 'NEW_VERSION_ACTIVE',
+              version: VERSION,
+            });
+          });
+        });
       })
   );
 });

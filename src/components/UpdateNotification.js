@@ -72,6 +72,16 @@ const UpdateNotification = () => {
           checkForUpdates();
         }
 
+        if (event.data && event.data.type === 'NEW_VERSION_READY') {
+          console.log(`🆕 Nouvelle version prête: ${event.data.version}`);
+          setShowUpdate(true);
+        }
+
+        if (event.data && event.data.type === 'NEW_VERSION_ACTIVE') {
+          console.log(`✅ Nouvelle version active: ${event.data.version}`);
+          // Optionnel: notifier que la mise à jour est terminée
+        }
+
         if (event.data && event.data.type === 'CURRENT_VERSION') {
           const swVersion = event.data.version;
           console.log(
