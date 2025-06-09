@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import { Clock, MapPin, Smartphone, Users } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { AuthService } from '../services/firebaseService';
 
 const LoginScreen = () => {
   const {
@@ -23,6 +24,23 @@ const LoginScreen = () => {
   const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
   const [showRedirectOption, setShowRedirectOption] = useState(false);
   const [showFacebookRedirect, setShowFacebookRedirect] = useState(false);
+  const [blazeStatus, setBlazeStatus] = useState(null);
+
+  // Vérifier le statut du plan Blaze au chargement
+  useEffect(() => {
+    if (authMethod === 'phone') {
+      checkBlazeStatus();
+    }
+  }, [authMethod]);
+
+  const checkBlazeStatus = async () => {
+    try {
+      const status = await AuthService.checkBlazePlanStatus();
+      setBlazeStatus(status);
+    } catch (error) {
+      console.warn('Could not check Blaze status:', error);
+    }
+  };
 
   const handleGoogleSignIn = async (useRedirect = false) => {
     try {
@@ -382,6 +400,35 @@ const LoginScreen = () => {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Statut du plan Blaze */}
+              {blazeStatus && (
+                <div
+                  className={`p-3 rounded-lg text-sm ${
+                    blazeStatus.blazeEnabled === true
+                      ? 'bg-green-50 border border-green-200 text-green-700'
+                      : blazeStatus.blazeEnabled === false
+                        ? 'bg-yellow-50 border border-yellow-200 text-yellow-700'
+                        : 'bg-gray-50 border border-gray-200 text-gray-700'
+                  }`}
+                >
+                  <p className="font-medium">{blazeStatus.message}</p>
+                  {blazeStatus.blazeEnabled === false && (
+                    <div className="mt-2 text-xs">
+                      <p>• Numéro de test : +33612345678</p>
+                      <p>• Code de test : 123456</p>
+                      <a
+                        href="https://console.firebase.google.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:text-yellow-800 mt-1 inline-block"
+                      >
+                        → Activer le plan Blaze pour de vrais numéros
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {!confirmationResult ? (
                 <>
                   <div>
@@ -397,7 +444,11 @@ const LoginScreen = () => {
                         type="tel"
                         value={phoneNumber}
                         onChange={e => setPhoneNumber(e.target.value)}
-                        placeholder="+33 6 12 34 56 78"
+                        placeholder={
+                          blazeStatus?.blazeEnabled === false
+                            ? '+33612345678 (test)'
+                            : '+33 6 12 34 56 78'
+                        }
                         className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>

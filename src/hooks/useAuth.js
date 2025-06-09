@@ -250,6 +250,15 @@ export const useAuth = () => {
     }
   };
 
+  const checkBlazePlanStatus = async () => {
+    try {
+      return await AuthService.checkBlazePlanStatus();
+    } catch (error) {
+      console.error('❌ Blaze status check error:', error);
+      throw error;
+    }
+  };
+
   return {
     user,
     loading,
@@ -261,6 +270,7 @@ export const useAuth = () => {
     confirmPhoneCode,
     createRecaptchaVerifier,
     testPhoneAuth,
+    checkBlazePlanStatus,
     signOut,
   };
 };

@@ -421,7 +421,12 @@ export class AuthService {
       switch (error.code) {
         case 'auth/billing-not-enabled':
           errorMessage =
-            'Authentification SMS non activée. Plan Blaze requis pour les vrais numéros. Utilisez +33612345678 avec code 123456 pour tester';
+            '🔄 Authentification SMS non activée. Pour utiliser de vrais numéros :\n\n' +
+            '1. Allez sur https://console.firebase.google.com\n' +
+            '2. Sélectionnez votre projet\n' +
+            '3. Cliquez "Upgrade" → "Blaze plan"\n' +
+            '4. Ajoutez une carte de crédit\n\n' +
+            '💡 En attendant, utilisez +33612345678 avec code 123456 pour tester';
           break;
         case 'auth/invalid-phone-number':
           errorMessage =
@@ -834,6 +839,50 @@ export class AuthService {
     } catch (error) {
       console.error('❌ App Check status check failed:', error);
       return false;
+    }
+  }
+
+  /**
+   * Vérifier si le plan Blaze est activé
+   */
+  static async checkBlazePlanStatus() {
+    try {
+      // Tenter d'envoyer un SMS à un numéro de test pour vérifier le plan
+      const testNumber = '+33612345678';
+      const testElement = document.createElement('div');
+      testElement.id = 'blaze-test-recaptcha';
+      testElement.style.display = 'none';
+      document.body.appendChild(testElement);
+
+      const testRecaptcha = this.createRecaptchaVerifier(
+        'blaze-test-recaptcha',
+        {
+          size: 'invisible',
+          testMode: true,
+        }
+      );
+
+      await signInWithPhoneNumber(auth, testNumber, testRecaptcha);
+
+      // Nettoyer
+      testRecaptcha.clear();
+      document.body.removeChild(testElement);
+
+      return {
+        blazeEnabled: true,
+        message: '✅ Plan Blaze activé - SMS réels disponibles',
+      };
+    } catch (error) {
+      if (error.code === 'auth/billing-not-enabled') {
+        return {
+          blazeEnabled: false,
+          message: '⚠️ Plan Spark - Seuls les numéros de test sont disponibles',
+        };
+      }
+      return {
+        blazeEnabled: null,
+        message: `❓ Statut inconnu: ${error.message}`,
+      };
     }
   }
 }
