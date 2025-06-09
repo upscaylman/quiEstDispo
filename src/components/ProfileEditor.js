@@ -74,6 +74,44 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
     }
   };
 
+  const handleRemovePhone = async () => {
+    if (
+      !window.confirm(
+        'Êtes-vous sûr de vouloir supprimer votre numéro de téléphone ?'
+      )
+    ) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      console.log('🗑️ Suppression du numéro de téléphone...');
+      await AuthService.removeUserPhone(user.uid);
+
+      setSuccess('✅ Numéro de téléphone supprimé !');
+      setPhoneNumber('');
+      setIsEditing(false);
+
+      // Effacer le message de succès après 3 secondes
+      setTimeout(() => setSuccess(''), 3000);
+
+      // Recharger les données utilisateur depuis Firebase
+      await refreshUserData();
+
+      // Mettre à jour l'état local si la fonction est fournie
+      if (onProfileUpdate) {
+        await onProfileUpdate({ ...user, phone: '' });
+      }
+    } catch (error) {
+      console.error('❌ Erreur suppression numéro:', error);
+      setError(error.message || 'Erreur lors de la suppression');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div
       className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
@@ -129,25 +167,44 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
           </div>
 
           {!isEditing && (
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setIsEditing(true)}
-              className={`p-2 rounded-full ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
-              title="Modifier le numéro"
-            >
-              <Edit2
-                size={16}
-                className={darkMode ? 'text-gray-300' : 'text-gray-600'}
-              />
-            </motion.button>
+            <div className="flex items-center space-x-2">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setIsEditing(true)}
+                className={`p-2 rounded-full ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
+                title={user.phone ? 'Modifier le numéro' : 'Ajouter un numéro'}
+              >
+                <Edit2
+                  size={16}
+                  className={darkMode ? 'text-gray-300' : 'text-gray-600'}
+                />
+              </motion.button>
+
+              {user.phone && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleRemovePhone}
+                  disabled={isLoading}
+                  className={`p-2 rounded-full ${darkMode ? 'bg-red-700 hover:bg-red-600' : 'bg-red-100 hover:bg-red-200'} transition-colors`}
+                  title="Supprimer le numéro"
+                >
+                  <X
+                    size={16}
+                    className={darkMode ? 'text-red-300' : 'text-red-600'}
+                  />
+                </motion.button>
+              )}
+            </div>
           )}
         </div>
 
         <p
           className={`text-xs mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
         >
-          Nécessaire pour que vos amis puissent vous trouver et vous ajouter
+          Nécessaire pour que vos amis puissent vous trouver et vous ajouter.
+          {user.phone ? ' Vous pouvez le modifier ou le supprimer.' : ''}
         </p>
 
         {isEditing ? (

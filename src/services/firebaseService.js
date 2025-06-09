@@ -915,7 +915,7 @@ export class AuthService {
 
           if (existingUser.id !== userId) {
             throw new Error(
-              `❌ Ce numéro de téléphone (${phoneNumber}) est déjà associé au compte de "${existingUserData.name || 'un autre utilisateur'}". Chaque numéro ne peut être utilisé que par un seul compte.`
+              'Ce numéro de téléphone est déjà utilisé par un autre utilisateur'
             );
           }
         }
@@ -949,6 +949,32 @@ export class AuthService {
       throw new Error(
         `Impossible de mettre à jour le téléphone: ${error.message}`
       );
+    }
+  }
+
+  // Supprimer le numéro de téléphone d'un utilisateur
+  static async removeUserPhone(userId) {
+    console.log('🗑️ removeUserPhone appelée pour userId:', userId);
+
+    if (!isOnline()) {
+      throw new Error('Connexion requise pour supprimer le téléphone');
+    }
+
+    try {
+      await retryWithBackoff(async () => {
+        console.log('📝 Suppression du numéro dans Firestore...');
+
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, {
+          phone: '',
+          updatedAt: serverTimestamp(),
+        });
+
+        console.log('✅ Numéro de téléphone supprimé avec succès');
+      });
+    } catch (error) {
+      console.error('❌ Erreur suppression téléphone:', error);
+      throw new Error(`Impossible de supprimer le téléphone: ${error.message}`);
     }
   }
 
