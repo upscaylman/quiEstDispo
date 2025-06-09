@@ -21,7 +21,7 @@ const LoginScreen = () => {
   const [verificationCode, setVerificationCode] = useState('');
   const [confirmationResult, setConfirmationResult] = useState(null);
   const [error, setError] = useState('');
-  const [authMethod, setAuthMethod] = useState('google');
+  const [authMethod, setAuthMethod] = useState('phone');
   const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
   const [showRedirectOption, setShowRedirectOption] = useState(false);
   const [showFacebookRedirect, setShowFacebookRedirect] = useState(false);
@@ -297,26 +297,6 @@ const LoginScreen = () => {
           {/* Auth Method Toggle */}
           <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
             <button
-              onClick={() => setAuthMethod('google')}
-              className={`flex-1 py-2 px-2 rounded-md font-medium transition-colors text-sm ${
-                authMethod === 'google'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600'
-              }`}
-            >
-              Google
-            </button>
-            <button
-              onClick={() => setAuthMethod('facebook')}
-              className={`flex-1 py-2 px-2 rounded-md font-medium transition-colors text-sm ${
-                authMethod === 'facebook'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600'
-              }`}
-            >
-              Facebook
-            </button>
-            <button
               onClick={() => setAuthMethod('phone')}
               className={`flex-1 py-2 px-2 rounded-md font-medium transition-colors text-sm ${
                 authMethod === 'phone'
@@ -326,6 +306,16 @@ const LoginScreen = () => {
             >
               Téléphone
             </button>
+            <button
+              onClick={() => setAuthMethod('google')}
+              className={`flex-1 py-2 px-2 rounded-md font-medium transition-colors text-sm ${
+                authMethod === 'google'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600'
+              }`}
+            >
+              Google
+            </button>
           </div>
 
           {error && (
@@ -334,87 +324,7 @@ const LoginScreen = () => {
             </div>
           )}
 
-          {authMethod === 'google' ? (
-            <div className="space-y-3">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleGoogleSignIn(false)}
-                disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white py-4 px-6 rounded-xl font-medium transition-colors flex items-center justify-center"
-              >
-                {loading ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                ) : (
-                  <>
-                    <span className="mr-2">🔍</span>
-                    Continuer avec Google
-                  </>
-                )}
-              </motion.button>
-
-              {showRedirectOption && (
-                <motion.button
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleGoogleSignIn(true)}
-                  disabled={loading}
-                  className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white py-3 px-6 rounded-xl font-medium transition-colors flex items-center justify-center text-sm"
-                >
-                  {loading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <>
-                      <span className="mr-2">🔄</span>
-                      Essayer avec redirection
-                    </>
-                  )}
-                </motion.button>
-              )}
-            </div>
-          ) : authMethod === 'facebook' ? (
-            <div className="space-y-3">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleFacebookSignIn(false)}
-                disabled={loading}
-                className="w-full bg-blue-800 hover:bg-blue-900 disabled:bg-gray-400 text-white py-4 px-6 rounded-xl font-medium transition-colors flex items-center justify-center"
-              >
-                {loading ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                ) : (
-                  <>
-                    <span className="mr-2">📘</span>
-                    Continuer avec Facebook
-                  </>
-                )}
-              </motion.button>
-
-              {showFacebookRedirect && (
-                <motion.button
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleFacebookSignIn(true)}
-                  disabled={loading}
-                  className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white py-3 px-6 rounded-xl font-medium transition-colors flex items-center justify-center text-sm"
-                >
-                  {loading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <>
-                      <span className="mr-2">🔄</span>
-                      Essayer avec redirection
-                    </>
-                  )}
-                </motion.button>
-              )}
-            </div>
-          ) : (
+          {authMethod === 'phone' ? (
             <div className="space-y-4">
               {/* Statut du plan Blaze */}
               {blazeStatus && (
@@ -539,6 +449,46 @@ const LoginScreen = () => {
                     )}
                   </div>
                 </>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handleGoogleSignIn(false)}
+                disabled={loading}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white py-4 px-6 rounded-xl font-medium transition-colors flex items-center justify-center"
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                ) : (
+                  <>
+                    <span className="mr-2">🔍</span>
+                    Continuer avec Google
+                  </>
+                )}
+              </motion.button>
+
+              {showRedirectOption && (
+                <motion.button
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleGoogleSignIn(true)}
+                  disabled={loading}
+                  className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white py-3 px-6 rounded-xl font-medium transition-colors flex items-center justify-center text-sm"
+                >
+                  {loading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <>
+                      <span className="mr-2">🔄</span>
+                      Essayer avec redirection
+                    </>
+                  )}
+                </motion.button>
               )}
             </div>
           )}
