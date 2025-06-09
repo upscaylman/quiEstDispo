@@ -9,6 +9,8 @@ const UpdateNotification = () => {
   useEffect(() => {
     // Vérifier si on est dans un navigateur et que les service workers sont supportés
     if ('serviceWorker' in navigator) {
+      let currentVersion = null;
+
       // Fonction pour vérifier les mises à jour
       const checkForUpdates = async () => {
         try {
@@ -23,6 +25,7 @@ const UpdateNotification = () => {
 
           // Écouter les nouveaux service workers
           registration.addEventListener('updatefound', () => {
+            console.log('🔍 Nouvelle version détectée...');
             const newWorker = registration.installing;
 
             newWorker.addEventListener('statechange', () => {
@@ -30,6 +33,7 @@ const UpdateNotification = () => {
                 newWorker.state === 'installed' &&
                 navigator.serviceWorker.controller
               ) {
+                console.log('✅ Nouvelle version prête à installer');
                 // Nouvelle version disponible
                 setWaitingWorker(newWorker);
                 setShowUpdate(true);
@@ -37,8 +41,15 @@ const UpdateNotification = () => {
             });
           });
 
-          // Vérifier manuellement les mises à jour
-          registration.update();
+          // Vérifier manuellement les mises à jour (important pour mobile)
+          registration.update().then(() => {
+            console.log('🔄 Vérification de mise à jour effectuée');
+          });
+
+          // Demander la version actuelle au service worker
+          if (registration.active) {
+            registration.active.postMessage({ type: 'GET_VERSION' });
+          }
         } catch (error) {
           console.warn(
             'Erreur lors de la vérification des mises à jour:',
@@ -47,20 +58,55 @@ const UpdateNotification = () => {
         }
       };
 
+      // Écouter les messages du service worker
+      const handleMessage = event => {
+        if (event.data && event.data.type === 'CHECK_FOR_UPDATES') {
+          console.log(
+            '📢 Service Worker demande une vérification de mise à jour'
+          );
+          checkForUpdates();
+        }
+
+        if (event.data && event.data.type === 'CURRENT_VERSION') {
+          const swVersion = event.data.version;
+          if (currentVersion && currentVersion !== swVersion) {
+            console.log(
+              `🆕 Nouvelle version détectée: ${currentVersion} → ${swVersion}`
+            );
+            setShowUpdate(true);
+          }
+          currentVersion = swVersion;
+        }
+      };
+
+      navigator.serviceWorker.addEventListener('message', handleMessage);
+
       // Vérifier immédiatement
       checkForUpdates();
 
-      // Vérifier périodiquement (toutes les 2 minutes)
-      const interval = setInterval(checkForUpdates, 2 * 60 * 1000);
+      // Vérifier périodiquement (plus fréquent sur mobile)
+      const interval = setInterval(checkForUpdates, 60 * 1000); // Toutes les minutes
 
-      // Écouter les messages du service worker
-      navigator.serviceWorker.addEventListener('message', event => {
-        if (event.data && event.data.type === 'NEW_VERSION_AVAILABLE') {
-          setShowUpdate(true);
+      // Vérifier aussi lors du focus de la fenêtre (mobile)
+      const handleVisibilityChange = () => {
+        if (!document.hidden) {
+          console.log(
+            '📱 Application revenue au premier plan, vérification...'
+          );
+          setTimeout(checkForUpdates, 1000);
         }
-      });
+      };
 
-      return () => clearInterval(interval);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        clearInterval(interval);
+        navigator.serviceWorker.removeEventListener('message', handleMessage);
+        document.removeEventListener(
+          'visibilitychange',
+          handleVisibilityChange
+        );
+      };
     }
   }, []);
 

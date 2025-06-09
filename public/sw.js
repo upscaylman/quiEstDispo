@@ -1,5 +1,6 @@
 // Service Worker pour "Qui est dispo" avec mise à jour automatique
-const CACHE_NAME = 'qui-est-dispo-v' + Date.now();
+const VERSION = '1.0.11'; // Incrémenter à chaque déploiement
+const CACHE_NAME = 'qui-est-dispo-v' + VERSION;
 const STATIC_CACHE = 'qui-est-dispo-static-v1';
 
 // Ressources à mettre en cache
@@ -105,30 +106,35 @@ self.addEventListener('fetch', event => {
   );
 });
 
-// Écouter les messages du client (pour skipWaiting)
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    console.log("⚡ Service Worker: Activation forcée par l'utilisateur");
-    self.skipWaiting();
-  }
-});
-
 // Notification périodique pour vérifier les mises à jour
 setInterval(
   () => {
     self.clients.matchAll().then(clients => {
       if (clients && clients.length > 0) {
-        // Vérifier s'il y a une nouvelle version
-        fetch('/?sw-check=' + Date.now(), { cache: 'no-cache' })
-          .then(() => {
-            // Si une nouvelle version est détectée par le navigateur,
-            // elle déclenchera automatiquement un événement 'updatefound'
-          })
-          .catch(() => {
-            // Ignorer les erreurs
+        // Envoyer un message aux clients pour vérifier les mises à jour
+        clients.forEach(client => {
+          client.postMessage({
+            type: 'CHECK_FOR_UPDATES',
+            version: VERSION,
           });
+        });
       }
     });
   },
-  5 * 60 * 1000
-); // Vérifier toutes les 5 minutes
+  2 * 60 * 1000
+); // Vérifier toutes les 2 minutes
+
+// Écouter les demandes de vérification de version
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'GET_VERSION') {
+    event.source.postMessage({
+      type: 'CURRENT_VERSION',
+      version: VERSION,
+    });
+  }
+
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log("⚡ Service Worker: Activation forcée par l'utilisateur");
+    self.skipWaiting();
+  }
+});
