@@ -15,15 +15,25 @@ import { getStorage } from 'firebase/storage';
 // Réduire les logs d'erreur Firebase au minimum
 setLogLevel('silent');
 
-// Configuration Firebase - Assurez-vous de définir les variables d'environnement
+// Configuration Firebase - Temporairement hardcodée pour debug Vercel
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID,
-  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
+  apiKey:
+    process.env.REACT_APP_FIREBASE_API_KEY ||
+    'AIzaSyD6Hv0ruhvmWJoxaAtsqEM5nSWwU63c7dg',
+  authDomain:
+    process.env.REACT_APP_FIREBASE_AUTH_DOMAIN ||
+    'qui-est-dispo.firebaseapp.com',
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || 'qui-est-dispo',
+  storageBucket:
+    process.env.REACT_APP_FIREBASE_STORAGE_BUCKET ||
+    'qui-est-dispo.appspot.com',
+  messagingSenderId:
+    process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || '640967592489',
+  appId:
+    process.env.REACT_APP_FIREBASE_APP_ID ||
+    '1:640967592489:web:4ef8f1a4b7d2f0d2b7d2f0',
+  measurementId:
+    process.env.REACT_APP_FIREBASE_MEASUREMENT_ID || 'G-XXXXXXXXXX',
 };
 
 // Vérifier que les variables d'environnement sont définies
