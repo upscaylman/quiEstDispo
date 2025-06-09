@@ -62,6 +62,18 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
     setError('');
   };
 
+  const handleDebug = async () => {
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        console.log('🔍 Debug: Vérification des données utilisateur...');
+        console.log('User ID:', user.uid);
+        await AuthService.debugUserData(user.uid);
+      } catch (error) {
+        console.error('❌ Erreur debug:', error);
+      }
+    }
+  };
+
   return (
     <div
       className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
@@ -252,6 +264,43 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
           >
             <p className="text-green-700 text-sm font-medium">{success}</p>
           </motion.div>
+        )}
+
+        {/* Bouton de debug en développement */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-4 p-3 bg-gray-100 border border-gray-300 rounded-lg">
+            <p className="text-xs text-gray-600 mb-2">
+              Mode développement - Debug :
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={handleDebug}
+                className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-xs font-medium mr-2"
+              >
+                🔍 Vérifier données Firebase
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    console.log(
+                      "🧪 Test: Tentative d'ajout d'un numéro déjà utilisé..."
+                    );
+                    // Utiliser votre propre numéro pour tester le conflit
+                    await AuthService.updateUserPhone(user.uid, '+33677982529');
+                  } catch (error) {
+                    console.log(
+                      '✅ Test réussi - Erreur attendue:',
+                      error.message
+                    );
+                    setError(error.message);
+                  }
+                }}
+                className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-xs font-medium"
+              >
+                🧪 Tester conflit numéro
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -735,6 +735,54 @@ export class AuthService {
     }
   }
 
+  // Debug: Vérifier les données utilisateur dans Firestore
+  static async debugUserData(userId) {
+    try {
+      console.log(
+        '🔍 Debug: Vérification des données utilisateur pour ID:',
+        userId
+      );
+
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+
+        // Afficher les données importantes en tableau
+        console.table({
+          Nom: data.name || 'Non défini',
+          Email: data.email || 'Non défini',
+          Téléphone: data.phone || '❌ AUCUN NUMÉRO',
+          Avatar: data.avatar || 'Non défini',
+          'Créé le': data.createdAt || 'Non défini',
+          'Mis à jour le': data.updatedAt || 'Non défini',
+        });
+
+        // Log spécifique pour le téléphone
+        if (data.phone) {
+          console.log('✅ TÉLÉPHONE TROUVÉ:', data.phone);
+        } else {
+          console.log('❌ AUCUN NUMÉRO DE TÉLÉPHONE DANS LA BASE !');
+        }
+
+        // Log des données complètes
+        console.log(
+          '📊 Données utilisateur complètes:',
+          JSON.stringify(data, null, 2)
+        );
+
+        return data;
+      } else {
+        console.warn('⚠️ Aucun document utilisateur trouvé pour ID:', userId);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la vérification des données:', error);
+      throw error;
+    }
+  }
+
   // Déconnexion
   static async signOut() {
     console.log('🚪 AuthService.signOut() appelé');
@@ -833,26 +881,46 @@ export class AuthService {
 
   // Mettre à jour le numéro de téléphone d'un utilisateur
   static async updateUserPhone(userId, phoneNumber) {
+    console.log('🔄 updateUserPhone appelée avec:', { userId, phoneNumber });
+
     if (!isOnline()) {
       throw new Error('Connexion requise pour mettre à jour le téléphone');
     }
 
     try {
       await retryWithBackoff(async () => {
+        console.log("🔍 Vérification de l'unicité du numéro...");
+
         // Vérifier que le numéro n'est pas déjà utilisé par un autre utilisateur
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('phone', '==', phoneNumber));
         const querySnapshot = await getDocs(q);
 
+        console.log('📊 Résultats de la vérification:', {
+          found: !querySnapshot.empty,
+          count: querySnapshot.size,
+        });
+
         // Si le numéro existe déjà, vérifier que c'est le même utilisateur
         if (!querySnapshot.empty) {
           const existingUser = querySnapshot.docs[0];
+          const existingUserData = existingUser.data();
+
+          console.log('👤 Utilisateur existant trouvé:', {
+            existingUserId: existingUser.id,
+            currentUserId: userId,
+            isSameUser: existingUser.id === userId,
+            existingUserName: existingUserData.name,
+          });
+
           if (existingUser.id !== userId) {
             throw new Error(
-              'Ce numéro de téléphone est déjà utilisé par un autre utilisateur'
+              `❌ Ce numéro de téléphone (${phoneNumber}) est déjà associé au compte de "${existingUserData.name || 'un autre utilisateur'}". Chaque numéro ne peut être utilisé que par un seul compte.`
             );
           }
         }
+
+        console.log('📝 Mise à jour du document utilisateur...');
 
         // Mettre à jour le numéro dans Firestore
         const userRef = doc(db, 'users', userId);
@@ -860,6 +928,19 @@ export class AuthService {
           phone: phoneNumber,
           updatedAt: serverTimestamp(),
         });
+
+        console.log('✅ Document mis à jour avec succès');
+
+        // Vérifier que la mise à jour a été effectuée
+        const updatedDoc = await getDoc(userRef);
+        if (updatedDoc.exists()) {
+          const updatedData = updatedDoc.data();
+          console.log('🔍 Vérification post-mise à jour:', {
+            phoneInDoc: updatedData.phone,
+            expectedPhone: phoneNumber,
+            match: updatedData.phone === phoneNumber,
+          });
+        }
 
         console.log('✅ Numéro de téléphone mis à jour:', phoneNumber);
       });
