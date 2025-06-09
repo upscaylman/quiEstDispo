@@ -253,7 +253,7 @@ const LoginScreen = () => {
         <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
           <span className="text-4xl">👋</span>
         </div>
-        <h1 className="text-4xl font-bold text-white mb-2">Qui Est Dispo</h1>
+        <h1 className="text-4xl font-bold text-white mb-2">Qui est dispo ?</h1>
         <p className="text-blue-100 text-lg">
           Organisez vos sorties spontanées entre amis
         </p>
