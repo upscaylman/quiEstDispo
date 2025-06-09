@@ -805,6 +805,46 @@ export class AuthService {
     }
   }
 
+  // Mettre à jour le numéro de téléphone d'un utilisateur
+  static async updateUserPhone(userId, phoneNumber) {
+    if (!isOnline()) {
+      throw new Error('Connexion requise pour mettre à jour le téléphone');
+    }
+
+    try {
+      await retryWithBackoff(async () => {
+        // Vérifier que le numéro n'est pas déjà utilisé par un autre utilisateur
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('phone', '==', phoneNumber));
+        const querySnapshot = await getDocs(q);
+
+        // Si le numéro existe déjà, vérifier que c'est le même utilisateur
+        if (!querySnapshot.empty) {
+          const existingUser = querySnapshot.docs[0];
+          if (existingUser.id !== userId) {
+            throw new Error(
+              'Ce numéro de téléphone est déjà utilisé par un autre utilisateur'
+            );
+          }
+        }
+
+        // Mettre à jour le numéro dans Firestore
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, {
+          phone: phoneNumber,
+          updatedAt: serverTimestamp(),
+        });
+
+        console.log('✅ Numéro de téléphone mis à jour:', phoneNumber);
+      });
+    } catch (error) {
+      console.error('❌ Erreur mise à jour téléphone:', error);
+      throw new Error(
+        `Impossible de mettre à jour le téléphone: ${error.message}`
+      );
+    }
+  }
+
   /**
    * Effectuer une requête sécurisée vers un backend personnalisé avec App Check
    * Selon la documentation Firebase : https://firebase.google.com/docs/app-check/web/custom-resource

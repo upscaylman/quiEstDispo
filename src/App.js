@@ -23,6 +23,7 @@ import LoginScreen from './components/LoginScreen';
 import MapView from './components/MapView';
 import MapboxMapView from './components/MapboxMapView';
 import NotificationBadge from './components/NotificationBadge';
+import ProfileEditor from './components/ProfileEditor';
 import UpdateNotification from './components/UpdateNotification';
 import WarningBanner from './components/WarningBanner';
 import { useAuth } from './hooks/useAuth';
@@ -325,6 +326,14 @@ function App() {
     }
     // Sinon c'est un userId
     return await addFriendByUserId(identifier);
+  };
+
+  const handleProfileUpdate = async updatedUser => {
+    // Mettre à jour l'état local de l'utilisateur si possible
+    // En pratique, on devrait déclencher un rechargement du profil utilisateur
+    console.log('📝 Profil mis à jour:', updatedUser);
+    // Forcer le rechargement pour récupérer les nouvelles données
+    window.location.reload();
   };
 
   const markNotificationAsRead = async notificationId => {
@@ -723,41 +732,12 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
       case 'settings':
         return (
           <div className="p-4 px-6">
-            {/* Section Profil */}
-            <div
-              className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
-            >
-              <h3
-                className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
-              >
-                Mon Profil
-              </h3>
-              <div className="flex items-center mb-6">
-                <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mr-4">
-                  {user.avatar && user.avatar.startsWith('http') ? (
-                    <img
-                      src={user.avatar}
-                      alt="Avatar"
-                      className="w-20 h-20 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-4xl">{user.avatar || '👤'}</span>
-                  )}
-                </div>
-                <div>
-                  <h4
-                    className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                  >
-                    {user.name || 'Utilisateur'}
-                  </h4>
-                  <p
-                    className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                  >
-                    {user.email}
-                  </p>
-                </div>
-              </div>
-            </div>
+            {/* Section Profil avec éditeur de téléphone */}
+            <ProfileEditor
+              user={user}
+              onProfileUpdate={handleProfileUpdate}
+              darkMode={darkMode}
+            />
 
             {/* Section Apparence */}
             <div
