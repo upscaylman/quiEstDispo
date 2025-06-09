@@ -1525,10 +1525,13 @@ export class FriendsService {
         ]);
 
         if (user1Snap.exists() && user2Snap.exists()) {
-          const user1Friends = user1Snap.data().friends || [];
-          const user2Friends = user2Snap.data().friends || [];
+          const user1Data = user1Snap.data();
+          const user2Data = user2Snap.data();
+          const user1Friends = user1Data.friends || [];
+          const user2Friends = user2Data.friends || [];
 
           const updates = [];
+          let newFriendshipCreated = false;
 
           if (!user1Friends.includes(userId2)) {
             updates.push(
@@ -1537,6 +1540,7 @@ export class FriendsService {
                 updatedAt: serverTimestamp(),
               })
             );
+            newFriendshipCreated = true;
           }
 
           if (!user2Friends.includes(userId1)) {
@@ -1546,6 +1550,31 @@ export class FriendsService {
                 updatedAt: serverTimestamp(),
               })
             );
+
+            // Créer une notification pour user2 (celui qui a été ajouté)
+            if (newFriendshipCreated) {
+              const user1Name = user1Data.name || 'Un utilisateur';
+              const user1Phone = user1Data.phone || 'numéro non disponible';
+
+              // Créer la notification directement
+              await addDoc(collection(db, 'notifications'), {
+                to: userId2,
+                from: userId1,
+                type: 'friend_added',
+                message: `👥 ${user1Name} vous a ajouté en ami via le numéro ${user1Phone}`,
+                data: {
+                  friendName: user1Name,
+                  friendPhone: user1Phone,
+                  friendId: userId1,
+                },
+                read: false,
+                createdAt: serverTimestamp(),
+              });
+
+              console.log(
+                `✅ Notification d'ajout d'ami envoyée à ${user2Data.name}`
+              );
+            }
           }
 
           await Promise.all(updates);
