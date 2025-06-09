@@ -1,7 +1,6 @@
 {
   "version": 2,
-  "name": "qui-est-dispo",
-  "alias": ["qui-est-dispo.vercel.app", "qui-est-dispo-app"],
+  "alias": ["qui-est-dispo.vercel.app"],
   "build": {
     "env": {
       "REACT_APP_ENV": "production"

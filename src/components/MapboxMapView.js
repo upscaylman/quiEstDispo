@@ -1,19 +1,19 @@
-import React, { useEffect, useRef, useState } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
+  Check,
+  Clock,
   Coffee,
+  Crosshair,
+  Filter,
+  MapPin as MapPinIcon,
+  Users,
   UtensilsCrossed,
   Wine,
-  Users,
-  Filter,
-  Crosshair,
-  Clock,
-  Check,
   X,
-  MapPin as MapPinIcon,
 } from 'lucide-react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Configuration Mapbox
 if (process.env.REACT_APP_MAPBOX_TOKEN) {
@@ -32,7 +32,7 @@ const MapboxMapView = ({
   const map = useRef(null);
   const userMarker = useRef(null);
   const friendMarkers = useRef([]);
-  
+
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [activityFilter, setActivityFilter] = useState('all');
@@ -69,7 +69,7 @@ const MapboxMapView = ({
     },
   ];
 
-  const getActivityColor = (activityName) => {
+  const getActivityColor = activityName => {
     const activity = activities.find(
       a => a.name.toLowerCase() === activityName?.toLowerCase()
     );
@@ -77,26 +77,33 @@ const MapboxMapView = ({
   };
 
   // Filtrer les amis par activité
-  const filteredFriends = activityFilter === 'all'
-    ? availableFriends
-    : availableFriends.filter(friend => 
-        friend.activity?.toLowerCase() === activityFilter
-      );
+  const filteredFriends =
+    activityFilter === 'all'
+      ? availableFriends
+      : availableFriends.filter(
+          friend => friend.activity?.toLowerCase() === activityFilter
+        );
 
   // Initialiser la carte
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
     if (!process.env.REACT_APP_MAPBOX_TOKEN) {
-      console.error('Mapbox token manquant ! Ajoutez REACT_APP_MAPBOX_TOKEN dans .env.local');
+      console.error(
+        'Mapbox token manquant ! Ajoutez REACT_APP_MAPBOX_TOKEN dans .env.local'
+      );
       return;
     }
 
     const initializeMap = () => {
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
-        style: darkMode ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/streets-v12',
-        center: userLocation ? [userLocation.lng, userLocation.lat] : [2.3522, 48.8566],
+        style: darkMode
+          ? 'mapbox://styles/mapbox/dark-v11'
+          : 'mapbox://styles/mapbox/streets-v12',
+        center: userLocation
+          ? [userLocation.lng, userLocation.lat]
+          : [2.3522, 48.8566],
         zoom: 13,
       });
 
@@ -121,9 +128,11 @@ const MapboxMapView = ({
   // Changer le style de la carte selon le mode sombre
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
-    
+
     map.current.setStyle(
-      darkMode ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/streets-v12'
+      darkMode
+        ? 'mapbox://styles/mapbox/dark-v11'
+        : 'mapbox://styles/mapbox/streets-v12'
     );
   }, [darkMode, mapLoaded]);
 
@@ -157,7 +166,9 @@ const MapboxMapView = ({
         ">
           😊
         </div>
-        ${isAvailable ? `
+        ${
+          isAvailable
+            ? `
           <div style="
             position: absolute;
             top: -4px;
@@ -168,7 +179,9 @@ const MapboxMapView = ({
             border-radius: 50%;
             animation: pulse 2s infinite;
           "></div>
-        ` : ''}
+        `
+            : ''
+        }
       </div>
     `;
 
@@ -208,9 +221,11 @@ const MapboxMapView = ({
 
     // Ajouter les nouveaux marqueurs
     filteredFriends.forEach(friend => {
-      const lat = friend.location?.lat || friend.lat || friend.friend?.location?.lat;
-      const lng = friend.location?.lng || friend.lng || friend.friend?.location?.lng;
-      
+      const lat =
+        friend.location?.lat || friend.lat || friend.friend?.location?.lat;
+      const lng =
+        friend.location?.lng || friend.lng || friend.friend?.location?.lng;
+
       if (!lat || !lng) return;
 
       const el = document.createElement('div');
@@ -218,10 +233,11 @@ const MapboxMapView = ({
       el.style.width = '40px';
       el.style.height = '40px';
       el.style.cursor = 'pointer';
-      
-      const ActivityIcon = activities.find(
-        a => a.name.toLowerCase() === friend.activity?.toLowerCase()
-      )?.icon || Users;
+
+      const ActivityIcon =
+        activities.find(
+          a => a.name.toLowerCase() === friend.activity?.toLowerCase()
+        )?.icon || Users;
 
       el.innerHTML = `
         <div style="
@@ -238,10 +254,15 @@ const MapboxMapView = ({
           color: white;
         ">
           <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-            ${friend.activity === 'coffee' ? '<path d="M3 14c0 1.3.84 2.4 2 2.82V17H3v2h12v-2h-2v-.18c1.16-.42 2-1.52 2-2.82v-4H3v4zm2 0v-2h8v2c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2zm13-4h2c1.1 0 2 .9 2 2v1c0 1.1-.9 2-2 2h-2v-5zM3 8h12c0-1.86-1.28-3.41-3-3.86V2H6v2.14C4.28 4.59 3 6.14 3 8z"/>' :
-              friend.activity === 'lunch' ? '<path d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z"/>' :
-              friend.activity === 'drinks' ? '<path d="M3 14c0 1.3.84 2.4 2 2.82V17c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2v-.18c1.16-.42 2-1.52 2-2.82v-3H3v3zM7 17v-1h6v1H7zM19.23 7L20 3h-8l.77 4M9.72 7L9 3H5v2h2.23l.77 4"/>' :
-              '<path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>'}
+            ${
+              friend.activity === 'coffee'
+                ? '<path d="M3 14c0 1.3.84 2.4 2 2.82V17H3v2h12v-2h-2v-.18c1.16-.42 2-1.52 2-2.82v-4H3v4zm2 0v-2h8v2c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2zm13-4h2c1.1 0 2 .9 2 2v1c0 1.1-.9 2-2 2h-2v-5zM3 8h12c0-1.86-1.28-3.41-3-3.86V2H6v2.14C4.28 4.59 3 6.14 3 8z"/>'
+                : friend.activity === 'lunch'
+                  ? '<path d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z"/>'
+                  : friend.activity === 'drinks'
+                    ? '<path d="M3 14c0 1.3.84 2.4 2 2.82V17c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2v-.18c1.16-.42 2-1.52 2-2.82v-3H3v3zM7 17v-1h6v1H7zM19.23 7L20 3h-8l.77 4M9.72 7L9 3H5v2h2.23l.77 4"/>'
+                    : '<path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>'
+            }
           </svg>
         </div>
         <div style="
@@ -294,14 +315,16 @@ const MapboxMapView = ({
     // Ajuster la vue pour inclure tous les marqueurs
     if (filteredFriends.length > 0 && userLocation) {
       const bounds = new mapboxgl.LngLatBounds();
-      
+
       // Ajouter la position de l'utilisateur
       bounds.extend([userLocation.lng, userLocation.lat]);
-      
+
       // Ajouter les positions des amis
       filteredFriends.forEach(friend => {
-        const lat = friend.location?.lat || friend.lat || friend.friend?.location?.lat;
-        const lng = friend.location?.lng || friend.lng || friend.friend?.location?.lng;
+        const lat =
+          friend.location?.lat || friend.lat || friend.friend?.location?.lat;
+        const lng =
+          friend.location?.lng || friend.lng || friend.friend?.location?.lng;
         if (lat && lng) {
           bounds.extend([lng, lat]);
         }
@@ -338,7 +361,7 @@ const MapboxMapView = ({
     return R * c;
   };
 
-  const formatDistance = (distance) => {
+  const formatDistance = distance => {
     if (distance < 1) {
       return `${Math.round(distance * 1000)}m`;
     }
@@ -346,11 +369,13 @@ const MapboxMapView = ({
   };
 
   return (
-    <div className={`h-full flex flex-col ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <div
+      className={`h-full flex flex-col ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}
+    >
       {/* Carte Mapbox */}
       <div className="flex-1 relative">
         <div ref={mapContainer} className="w-full h-full" />
-        
+
         {/* Contrôles sur la carte */}
         <div className="absolute top-4 right-4 flex flex-col space-y-2">
           <motion.button
@@ -366,7 +391,7 @@ const MapboxMapView = ({
           >
             <Filter size={20} />
           </motion.button>
-          
+
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={centerOnUser}
@@ -379,7 +404,7 @@ const MapboxMapView = ({
             <Crosshair size={20} />
           </motion.button>
         </div>
-        
+
         {/* Panel de filtres */}
         <AnimatePresence>
           {showFilters && (
@@ -391,7 +416,9 @@ const MapboxMapView = ({
                 darkMode ? 'bg-gray-800' : 'bg-white'
               } rounded-lg shadow-xl p-4 min-w-48`}
             >
-              <h3 className={`font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h3
+                className={`font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+              >
                 Filtres
               </h3>
               <div className="space-y-2">
@@ -433,14 +460,20 @@ const MapboxMapView = ({
             </motion.div>
           )}
         </AnimatePresence>
-        
+
         {!process.env.REACT_APP_MAPBOX_TOKEN && (
           <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
-            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 max-w-sm mx-4`}>
-              <h3 className={`text-lg font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div
+              className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 max-w-sm mx-4`}
+            >
+              <h3
+                className={`text-lg font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+              >
                 Token Mapbox manquant
               </h3>
-              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              <p
+                className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}
+              >
                 Ajoutez votre token Mapbox dans le fichier .env.local :
               </p>
               <code className="block mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded text-xs">
@@ -464,28 +497,34 @@ const MapboxMapView = ({
               <div className="flex items-center space-x-4">
                 <div className="text-3xl">{selectedFriend.avatar}</div>
                 <div>
-                  <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  <h3
+                    className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                  >
                     {selectedFriend.name}
                   </h3>
-                  <div className={`flex items-center space-x-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <div
+                    className={`flex items-center space-x-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                  >
                     <MapPinIcon size={14} />
                     <span>À proximité</span>
-                    {userLocation && selectedFriend.lat && selectedFriend.lng && (
-                      <>
-                        <span>•</span>
-                        <span>
-                          {formatDistance(
-                            calculateDistance(
-                              userLocation.lat,
-                              userLocation.lng,
-                              selectedFriend.lat,
-                              selectedFriend.lng
-                            )
-                          )}{' '}
-                          de distance
-                        </span>
-                      </>
-                    )}
+                    {userLocation &&
+                      selectedFriend.lat &&
+                      selectedFriend.lng && (
+                        <>
+                          <span>•</span>
+                          <span>
+                            {formatDistance(
+                              calculateDistance(
+                                userLocation.lat,
+                                userLocation.lng,
+                                selectedFriend.lat,
+                                selectedFriend.lng
+                              )
+                            )}{' '}
+                            de distance
+                          </span>
+                        </>
+                      )}
                   </div>
                 </div>
               </div>
@@ -507,18 +546,24 @@ const MapboxMapView = ({
               <div className="flex items-center space-x-3">
                 <span
                   className={`px-4 py-2 rounded-full text-white text-sm font-medium flex items-center space-x-2`}
-                  style={{ backgroundColor: getActivityColor(selectedFriend.activity) }}
+                  style={{
+                    backgroundColor: getActivityColor(selectedFriend.activity),
+                  }}
                 >
                   {React.createElement(
                     activities.find(
-                      a => a.name.toLowerCase() === selectedFriend.activity?.toLowerCase()
+                      a =>
+                        a.name.toLowerCase() ===
+                        selectedFriend.activity?.toLowerCase()
                     )?.icon || Users,
                     { size: 16 }
                   )}
                   <span>{selectedFriend.activity}</span>
                 </span>
 
-                <div className={`flex items-center space-x-1 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                <div
+                  className={`flex items-center space-x-1 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                >
                   <Clock size={14} />
                   <span>{selectedFriend.timeLeft || 0} min restantes</span>
                 </div>
@@ -539,25 +584,6 @@ const MapboxMapView = ({
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Message si aucun ami */}
-      {filteredFriends.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none"
-        >
-          <div className="text-center p-8 pointer-events-auto">
-            <Users size={64} className={`mx-auto mb-4 opacity-25 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} />
-            <h3 className={`text-xl font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-              Aucun ami disponible
-            </h3>
-            <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              Vos amis apparaîtront ici quand ils seront disponibles
-            </p>
-          </div>
-        </motion.div>
-      )}
     </div>
   );
 };

@@ -7,18 +7,24 @@ import reportWebVitals from './reportWebVitals';
 // Importer le gestionnaire d'erreurs Firebase en premier
 import './utils/errorHandler';
 
-// Enregistrement du Service Worker pour PWA
+// Enregistrement du Service Worker avec détection automatique des mises à jour
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')
       .then(registration => {
-        // eslint-disable-next-line no-console
-        console.log('SW registered: ', registration);
+        console.log('✅ Service Worker enregistré:', registration);
+
+        // Vérifier immédiatement s'il y a des mises à jour
+        registration.update();
+
+        // Vérifier périodiquement les mises à jour
+        setInterval(() => {
+          registration.update();
+        }, 30000); // Toutes les 30 secondes
       })
       .catch(registrationError => {
-        // eslint-disable-next-line no-console
-        console.log('SW registration failed: ', registrationError);
+        console.log('❌ Erreur Service Worker:', registrationError);
       });
   });
 }
@@ -30,5 +36,7 @@ root.render(
   </React.StrictMode>
 );
 
-// Performance monitoring
+// If you want to start measuring performance in your app, pass a function
+// to log results (for example: reportWebVitals(console.log))
+// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
 reportWebVitals();

@@ -1,5 +1,20 @@
 import { motion } from 'framer-motion';
-import { Bell, Coffee, MapPin, UserPlus, Users } from 'lucide-react';
+import {
+  Bell,
+  Clock as ClockIcon,
+  Coffee,
+  Facebook,
+  FileText,
+  HelpCircle,
+  Instagram,
+  Linkedin,
+  Mail,
+  MapPin,
+  Shield,
+  Twitter,
+  UserPlus,
+  Users,
+} from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import AddFriendModal from './components/AddFriendModal';
 import AvailabilityButtons from './components/AvailabilityButtons';
@@ -8,6 +23,8 @@ import LoginScreen from './components/LoginScreen';
 import MapView from './components/MapView';
 import MapboxMapView from './components/MapboxMapView';
 import NotificationBadge from './components/NotificationBadge';
+import UpdateNotification from './components/UpdateNotification';
+import WarningBanner from './components/WarningBanner';
 import { useAuth } from './hooks/useAuth';
 import { useGeolocation } from './hooks/useGeolocation';
 import {
@@ -33,7 +50,7 @@ function App() {
   const [showInviteFriendsModal, setShowInviteFriendsModal] = useState(false);
   const [selectedInviteActivity, setSelectedInviteActivity] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
-  const [useMapbox, setUseMapbox] = useState(false); // Utiliser MapView par défaut
+  const [useMapbox, setUseMapbox] = useState(true); // Utiliser MapboxMapView par défaut
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   // Charger les données utilisateur de manière optimisée
@@ -340,20 +357,25 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-        <div className="text-white text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white mx-auto"></div>
-          <p className="mt-4 text-xl">Vérification de l'authentification...</p>
-          <p className="mt-2 text-sm opacity-75">
-            Cela ne devrait prendre que quelques secondes
-          </p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement...</p>
         </div>
+        {/* Notification de mise à jour même pendant le chargement */}
+        <UpdateNotification />
       </div>
     );
   }
 
   if (!user) {
-    return <LoginScreen />;
+    return (
+      <>
+        <LoginScreen />
+        {/* Notification de mise à jour sur la page de connexion */}
+        <UpdateNotification />
+      </>
+    );
   }
 
   // Header commun avec notifications et profil
@@ -369,8 +391,7 @@ function App() {
             >
               {currentScreen === 'home' &&
                 `Salut ${user.name?.split(' ')[0]}! 👋`}
-              {currentScreen === 'map' &&
-                `Carte ${useMapbox ? '(Mapbox)' : '(Stylisée)'}`}
+              {currentScreen === 'map' && 'Carte'}
               {currentScreen === 'friends' && 'Mes Amis'}
               {currentScreen === 'notifications' && 'Notifications'}
               {currentScreen === 'settings' && 'Paramètres'}
@@ -774,39 +795,6 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
                   />
                 </motion.button>
               </div>
-
-              {/* Choix du type de carte */}
-              <div className="flex items-center justify-between mt-4">
-                <div>
-                  <h4
-                    className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                  >
-                    Carte Mapbox
-                  </h4>
-                  <p
-                    className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                  >
-                    Utiliser la vraie carte interactive (nécessite un token)
-                  </p>
-                </div>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setUseMapbox(!useMapbox)}
-                  className={`w-14 h-8 rounded-full p-1 transition-colors ${
-                    useMapbox
-                      ? 'bg-blue-500'
-                      : darkMode
-                        ? 'bg-gray-600'
-                        : 'bg-gray-300'
-                  }`}
-                >
-                  <div
-                    className={`w-6 h-6 rounded-full bg-white transition-transform ${
-                      useMapbox ? 'translate-x-6' : 'translate-x-0'
-                    }`}
-                  />
-                </motion.button>
-              </div>
             </div>
 
             {/* Section Déconnexion */}
@@ -826,183 +814,332 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
         );
       default:
         return (
-          <div className="p-4 px-6">
-            <AvailabilityButtons
-              isAvailable={isAvailable}
-              currentActivity={currentActivity}
-              onStartAvailability={handleActivityClick}
-              onStopAvailability={handleStopAvailability}
-              location={location}
-              locationError={locationError}
-              availabilityStartTime={availabilityStartTime}
-              retryGeolocation={retryGeolocation}
-              darkMode={darkMode}
-            />
+          <div className="min-h-screen flex flex-col">
+            {/* Contenu principal avec fond normal */}
+            <div className="flex-1 p-4 px-6">
+              <AvailabilityButtons
+                isAvailable={isAvailable}
+                currentActivity={currentActivity}
+                onStartAvailability={handleActivityClick}
+                onStopAvailability={handleStopAvailability}
+                location={location}
+                locationError={locationError}
+                availabilityStartTime={availabilityStartTime}
+                retryGeolocation={retryGeolocation}
+                darkMode={darkMode}
+              />
 
-            {/* Section Inviter des amis */}
-            <motion.div
-              className="mt-6"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <h3
-                className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}
-              >
-                Élargis ton cercle
-              </h3>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowAddFriendModal(true)}
-                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-3 px-4 rounded-xl font-medium flex items-center justify-center transition-all shadow-lg"
-              >
-                <UserPlus size={20} className="mr-2" />
-                <span>Inviter des amis 🎉</span>
-              </motion.button>
-
-              {/* Boutons de test en mode développement */}
-              {process.env.NODE_ENV === 'development' &&
-                friends.length === 0 && (
-                  <div className="mt-4 space-y-2">
-                    <button
-                      onClick={async () => {
-                        try {
-                          console.log("🧪 Test: Création d'amitiés de test...");
-                          await FriendsService.debugFriendshipData(user.uid);
-                          const result =
-                            await FriendsService.addTestFriendships(user.uid);
-                          if (result && result.length > 0) {
-                            alert('Amitiés de test créées ! Rechargement...');
-                            window.location.reload();
-                          } else {
-                            alert(
-                              'Aucun utilisateur trouvé pour créer des amitiés. Connectez-vous avec un autre compte.'
-                            );
-                          }
-                        } catch (error) {
-                          console.error('Erreur:', error);
-                          alert('Erreur: ' + error.message);
-                        }
-                      }}
-                      className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg text-sm font-medium"
-                    >
-                      🧪 Créer des amitiés de test
-                    </button>
-                    <button
-                      onClick={async () => {
-                        const mockData = getMockDataForOfflineMode();
-                        setFriends(mockData.friends);
-                        setAvailableFriends(mockData.availableFriends);
-                        alert('Données de démo chargées temporairement !');
-                      }}
-                      className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg text-sm font-medium"
-                    >
-                      🎭 Charger des données de démo
-                    </button>
-                  </div>
-                )}
-            </motion.div>
-
-            {availableFriends.length > 0 && (
+              {/* Section Inviter des amis */}
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
                 className="mt-6"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <h3
-                    className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                <h3
+                  className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}
+                >
+                  Élargis ton cercle
+                </h3>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowAddFriendModal(true)}
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-3 px-4 rounded-xl font-medium flex items-center justify-center transition-all shadow-lg"
+                >
+                  <UserPlus size={20} className="mr-2" />
+                  <span>Inviter des amis 🎉</span>
+                </motion.button>
+
+                {/* Boutons de test en mode développement */}
+                {process.env.NODE_ENV === 'development' &&
+                  friends.length === 0 && (
+                    <div className="mt-4 space-y-2">
+                      <button
+                        onClick={async () => {
+                          try {
+                            console.log(
+                              "🧪 Test: Création d'amitiés de test..."
+                            );
+                            await FriendsService.debugFriendshipData(user.uid);
+                            const result =
+                              await FriendsService.addTestFriendships(user.uid);
+                            if (result && result.length > 0) {
+                              alert('Amitiés de test créées ! Rechargement...');
+                              window.location.reload();
+                            } else {
+                              alert(
+                                'Aucun utilisateur trouvé pour créer des amitiés. Connectez-vous avec un autre compte.'
+                              );
+                            }
+                          } catch (error) {
+                            console.error('Erreur:', error);
+                            alert('Erreur: ' + error.message);
+                          }
+                        }}
+                        className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg text-sm font-medium"
+                      >
+                        🧪 Créer des amitiés de test
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const mockData = getMockDataForOfflineMode();
+                          setFriends(mockData.friends);
+                          setAvailableFriends(mockData.availableFriends);
+                          alert('Données de démo chargées temporairement !');
+                        }}
+                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg text-sm font-medium"
+                      >
+                        🎭 Charger des données de démo
+                      </button>
+                    </div>
+                  )}
+              </motion.div>
+
+              {availableFriends.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-6"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h3
+                      className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                    >
+                      Amis disponibles
+                    </h3>
+                    <div
+                      className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} bg-opacity-20 ${darkMode ? 'bg-blue-400' : 'bg-blue-500'} px-2 py-1 rounded-full`}
+                    >
+                      👆 Cliquez pour rejoindre
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {availableFriends.map(availability => (
+                      <motion.div
+                        key={availability.id}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleJoinFriendActivity(availability)}
+                        className={`${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'} rounded-lg p-3 shadow cursor-pointer transition-all border ${darkMode ? 'border-gray-700 hover:border-blue-500' : 'border-gray-200 hover:border-blue-300'}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mr-3">
+                              {availability.friend?.avatar &&
+                              availability.friend.avatar.startsWith('http') ? (
+                                <img
+                                  src={availability.friend.avatar}
+                                  alt="Avatar"
+                                  className="w-12 h-12 rounded-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-2xl">
+                                  {availability.friend?.avatar || '👤'}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <p
+                                className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                              >
+                                {availability.friend?.name}
+                              </p>
+                              <p
+                                className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                              >
+                                Dispo pour {availability.activity}
+                              </p>
+                              {availability.timeLeft && (
+                                <p
+                                  className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}
+                                >
+                                  Encore {availability.timeLeft} min
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Bouton visuel pour indiquer l'action */}
+                          <div className="flex flex-col items-center">
+                            <div
+                              className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                darkMode ? 'bg-blue-600' : 'bg-blue-500'
+                              } text-white`}
+                            >
+                              {availability.activity === 'coffee' && (
+                                <Coffee size={16} />
+                              )}
+                              {availability.activity === 'lunch' && (
+                                <span className="text-sm">🍽️</span>
+                              )}
+                              {availability.activity === 'drinks' && (
+                                <span className="text-sm">🍷</span>
+                              )}
+                              {availability.activity === 'chill' && (
+                                <Users size={16} />
+                              )}
+                              {!['coffee', 'lunch', 'drinks', 'chill'].includes(
+                                availability.activity
+                              ) && <span className="text-sm">📍</span>}
+                            </div>
+                            <span
+                              className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                            >
+                              Rejoindre
+                            </span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </div>
+
+            {/* Footer avec dégradé */}
+            <footer className="bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 px-6 py-8 border-t border-gray-200">
+              <div className="max-w-4xl mx-auto">
+                {/* Réseaux sociaux */}
+                <div className="flex justify-center space-x-6 mb-8">
+                  <a
+                    href="https://facebook.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white/70 hover:text-white transition-colors"
                   >
-                    Amis disponibles
-                  </h3>
-                  <div
-                    className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} bg-opacity-20 ${darkMode ? 'bg-blue-400' : 'bg-blue-500'} px-2 py-1 rounded-full`}
+                    <Facebook size={24} />
+                  </a>
+                  <a
+                    href="https://instagram.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white/70 hover:text-white transition-colors"
                   >
-                    👆 Cliquez pour rejoindre
+                    <Instagram size={24} />
+                  </a>
+                  <a
+                    href="https://x.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white/70 hover:text-white transition-colors"
+                  >
+                    <Twitter size={24} />
+                  </a>
+                  <a
+                    href="https://linkedin.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white/70 hover:text-white transition-colors"
+                  >
+                    <Linkedin size={24} />
+                  </a>
+                </div>
+
+                {/* Sections du footer */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-sm">
+                  {/* À PROPOS */}
+                  <div>
+                    <h3 className="font-semibold text-white mb-4 flex items-center">
+                      <HelpCircle size={16} className="mr-2" />À PROPOS
+                    </h3>
+                    <ul className="space-y-2">
+                      <li>
+                        <a
+                          href="#"
+                          className="text-white/70 hover:text-white transition-colors flex items-center"
+                        >
+                          <HelpCircle size={14} className="mr-2" />
+                          Centre d'aide
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="#"
+                          className="text-white/70 hover:text-white transition-colors flex items-center"
+                        >
+                          <FileText size={14} className="mr-2" />
+                          Guide d'utilisation
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* LEGAL */}
+                  <div>
+                    <h3 className="font-semibold text-white mb-4 flex items-center">
+                      <Shield size={16} className="mr-2" />
+                      LÉGAL
+                    </h3>
+                    <ul className="space-y-2">
+                      <li>
+                        <a
+                          href="#"
+                          className="text-white/70 hover:text-white transition-colors"
+                        >
+                          CGU Qui est dispo
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="#"
+                          className="text-white/70 hover:text-white transition-colors"
+                        >
+                          Mentions légales
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="#"
+                          className="text-white/70 hover:text-white transition-colors"
+                        >
+                          Données personnelles
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="#"
+                          className="text-white/70 hover:text-white transition-colors"
+                        >
+                          Cookies
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* SERVICE CLIENT */}
+                  <div>
+                    <h3 className="font-semibold text-white mb-4 flex items-center">
+                      <ClockIcon size={16} className="mr-2" />
+                      SERVICE CLIENT
+                    </h3>
+                    <div className="space-y-2">
+                      <p className="text-white/70 flex items-center">
+                        <ClockIcon size={14} className="mr-2" />
+                        Du lundi au vendredi
+                      </p>
+                      <p className="text-white/70 ml-6">
+                        de 10h à 18h (Heure de Paris)
+                      </p>
+                      <a
+                        href="mailto:contact@qui-est-dispo.com"
+                        className="text-white hover:text-white/80 transition-colors flex items-center mt-3"
+                      >
+                        <Mail size={14} className="mr-2" />
+                        Nous contacter
+                      </a>
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  {availableFriends.map(availability => (
-                    <motion.div
-                      key={availability.id}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => handleJoinFriendActivity(availability)}
-                      className={`${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'} rounded-lg p-3 shadow cursor-pointer transition-all border ${darkMode ? 'border-gray-700 hover:border-blue-500' : 'border-gray-200 hover:border-blue-300'}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                            {availability.friend?.avatar &&
-                            availability.friend.avatar.startsWith('http') ? (
-                              <img
-                                src={availability.friend.avatar}
-                                alt="Avatar"
-                                className="w-12 h-12 rounded-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-2xl">
-                                {availability.friend?.avatar || '👤'}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex-1">
-                            <p
-                              className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                            >
-                              {availability.friend?.name}
-                            </p>
-                            <p
-                              className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
-                            >
-                              Dispo pour {availability.activity}
-                            </p>
-                            {availability.timeLeft && (
-                              <p
-                                className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}
-                              >
-                                Encore {availability.timeLeft} min
-                              </p>
-                            )}
-                          </div>
-                        </div>
 
-                        {/* Bouton visuel pour indiquer l'action */}
-                        <div className="flex flex-col items-center">
-                          <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                              darkMode ? 'bg-blue-600' : 'bg-blue-500'
-                            } text-white`}
-                          >
-                            {availability.activity === 'coffee' && (
-                              <Coffee size={16} />
-                            )}
-                            {availability.activity === 'lunch' && (
-                              <span className="text-sm">🍽️</span>
-                            )}
-                            {availability.activity === 'drinks' && (
-                              <span className="text-sm">🍷</span>
-                            )}
-                            {availability.activity === 'chill' && (
-                              <Users size={16} />
-                            )}
-                            {!['coffee', 'lunch', 'drinks', 'chill'].includes(
-                              availability.activity
-                            ) && <span className="text-sm">📍</span>}
-                          </div>
-                          <span
-                            className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                          >
-                            Rejoindre
-                          </span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                {/* Copyright */}
+                <div className="border-t border-white/20 mt-8 pt-6 text-center">
+                  <p className="text-white/60 text-xs">
+                    © 2025 Qui est dispo. Tous droits réservés.
+                  </p>
                 </div>
-              </motion.div>
-            )}
+              </div>
+            </footer>
           </div>
         );
     }
@@ -1016,6 +1153,19 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
         className={`h-screen flex flex-col ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}
       >
         {renderHeader()}
+
+        {/* Bandeau d'avertissement si aucun ami disponible */}
+        {availableFriends.length === 0 && (
+          <div className="p-4">
+            <WarningBanner
+              icon={Users}
+              title="Aucun ami disponible"
+              message="Vos amis ne sont pas disponibles pour le moment. Invitez-les à partager leur statut !"
+              darkMode={darkMode}
+            />
+          </div>
+        )}
+
         <div className="flex-1 relative overflow-hidden">
           <MapComponent
             userLocation={location}
@@ -1071,6 +1221,9 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
           friends={friends}
           darkMode={darkMode}
         />
+
+        {/* Notification de mise à jour automatique */}
+        <UpdateNotification />
       </div>
     );
   }
@@ -1132,6 +1285,9 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
         friends={friends}
         darkMode={darkMode}
       />
+
+      {/* Notification de mise à jour automatique */}
+      <UpdateNotification />
     </div>
   );
 }

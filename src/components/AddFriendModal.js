@@ -1,10 +1,10 @@
 import { motion } from 'framer-motion';
-import { Mail, Phone, QrCode, UserPlus, X } from 'lucide-react';
+import { Mail, Phone, QrCode, Share2, UserPlus, X } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import QRCode from 'react-qr-code';
 
 const AddFriendModal = ({ isOpen, onClose, onAddFriend, currentUser }) => {
-  const [method, setMethod] = useState('phone'); // 'phone', 'qr', ou 'mail'
+  const [method, setMethod] = useState('phone'); // 'phone', 'qr', 'mail', ou 'share'
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
   const [inviteMessage, setInviteMessage] = useState('');
@@ -25,13 +25,13 @@ const AddFriendModal = ({ isOpen, onClose, onAddFriend, currentUser }) => {
       })
     : '';
 
-  // Message d'invitation par défaut
+  // Message d'invitation par défaut avec la bonne URL
   const defaultInviteMessage = `Salut ! Je t'invite à rejoindre "Qui Est Dispo" pour qu'on puisse organiser nos sorties ensemble ! 🎉
 
 C'est une super app pour savoir qui est disponible pour un café, un resto ou juste traîner. 
 
 Télécharge l'app et on pourra se retrouver facilement :
-📱 https://qui-est-dispo-app.vercel.app
+📱 https://qui-est-dispo.vercel.app/
 
 Tu peux même l'installer sur ton téléphone comme une vraie app ! 
 Sur Android : Menu → "Ajouter à l'écran d'accueil"
@@ -39,6 +39,15 @@ Sur iPhone : Partage → "Ajouter à l'écran d'accueil"
 
 À bientôt !
 ${currentUser?.displayName || currentUser?.name || 'Ton ami'}`;
+
+  // Message de partage social
+  const shareMessage = `🎉 Découvre "Qui Est Dispo" - l'app parfaite pour organiser tes sorties spontanées entre amis !
+
+☕ Coffee • 🍽️ Lunch • 🍻 Drinks • 😎 Chill
+
+📱 https://qui-est-dispo.vercel.app/
+
+#QuiEstDispo #SortiesEntreAmis #AppMobile`;
 
   // Initialiser le scanner QR
   useEffect(() => {
@@ -192,6 +201,35 @@ ${currentUser?.displayName || currentUser?.name || 'Ton ami'}`;
     }
   };
 
+  const handleSocialShare = async () => {
+    try {
+      if (navigator.share) {
+        // Utiliser l'API de partage native si disponible
+        await navigator.share({
+          title: 'Qui Est Dispo - App de sorties spontanées',
+          text: shareMessage,
+          url: 'https://qui-est-dispo.vercel.app/',
+        });
+        setSuccess('Invitation partagée avec succès !');
+      } else {
+        // Fallback: copier dans le presse-papier
+        await navigator.clipboard.writeText(shareMessage);
+        setSuccess("Message d'invitation copié dans le presse-papier !");
+      }
+
+      // Fermer le modal après 2 secondes
+      setTimeout(() => {
+        onClose();
+        setSuccess('');
+      }, 2000);
+    } catch (error) {
+      // Si l'utilisateur annule le partage, ne pas afficher d'erreur
+      if (error.name !== 'AbortError') {
+        setError('Erreur lors du partage');
+      }
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -224,7 +262,7 @@ ${currentUser?.displayName || currentUser?.name || 'Ton ami'}`;
         </div>
 
         {/* Method Selection */}
-        <div className="grid grid-cols-3 mb-6 bg-gray-100 rounded-lg p-1 gap-1">
+        <div className="grid grid-cols-4 mb-6 bg-gray-100 rounded-lg p-1 gap-1">
           <button
             onClick={() => {
               setMethod('phone');
@@ -271,6 +309,22 @@ ${currentUser?.displayName || currentUser?.name || 'Ton ami'}`;
           >
             <QrCode size={16} className="mb-1" />
             QR Code
+          </button>
+          <button
+            onClick={() => {
+              setMethod('share');
+              setError('');
+              setSuccess('');
+              setIsScanning(false);
+            }}
+            className={`py-2 px-2 rounded-md flex flex-col items-center justify-center transition-colors text-xs ${
+              method === 'share'
+                ? 'bg-white shadow text-blue-600'
+                : 'text-gray-600'
+            }`}
+          >
+            <Share2 size={16} className="mb-1" />
+            Partager
           </button>
         </div>
 
@@ -356,6 +410,40 @@ ${currentUser?.displayName || currentUser?.name || 'Ton ami'}`;
             <div className="bg-blue-50 p-3 rounded-lg">
               <p className="text-blue-700 text-sm">
                 📧 Cela ouvrira votre client email avec le message pré-rempli
+              </p>
+            </div>
+          </div>
+        ) : method === 'share' ? (
+          <div className="space-y-4">
+            <div className="text-center">
+              <Share2 size={48} className="mx-auto mb-4 text-blue-500" />
+              <h3 className="font-semibold mb-2">Partager l'app</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Partagez "Qui Est Dispo" sur toutes vos app sociales préférées
+              </p>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="text-sm text-gray-700 mb-2 font-medium">
+                Message à partager :
+              </p>
+              <p className="text-xs text-gray-600 bg-white p-3 rounded border">
+                {shareMessage}
+              </p>
+            </div>
+
+            <button
+              onClick={handleSocialShare}
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center"
+            >
+              <Share2 size={20} className="mr-2" />
+              Partager sur les réseaux sociaux
+            </button>
+
+            <div className="bg-purple-50 p-3 rounded-lg">
+              <p className="text-purple-700 text-sm">
+                📱 Partagez facilement sur WhatsApp, Instagram, Facebook,
+                Twitter et plus encore !
               </p>
             </div>
           </div>
