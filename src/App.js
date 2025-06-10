@@ -24,6 +24,7 @@ import {
 import React, { useCallback, useEffect, useState } from 'react';
 import AddFriendModal from './components/AddFriendModal';
 import AvailabilityButtons from './components/AvailabilityButtons';
+import CookieConsent from './components/CookieConsent';
 import DeleteAccountModal from './components/DeleteAccountModal';
 import InviteFriendsModal from './components/InviteFriendsModal';
 import LoginScreen from './components/LoginScreen';
@@ -36,6 +37,7 @@ import UpdateNotification from './components/UpdateNotification';
 import WarningBanner from './components/WarningBanner';
 import { useAuth } from './hooks/useAuth';
 import { useGeolocation } from './hooks/useGeolocation';
+import { CookieService } from './services/cookieService';
 import {
   AvailabilityService,
   FriendsService,
@@ -61,14 +63,26 @@ function App() {
   const [showInviteFriendsModal, setShowInviteFriendsModal] = useState(false);
   const [selectedInviteActivity, setSelectedInviteActivity] = useState(null);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
-  // Gestion du thème avec support du mode système
+  // Gestion du thème avec support du mode système et cookies
   const [themeMode, setThemeMode] = useState(() => {
+    // Essayer d'abord les cookies (avec consentement)
+    const cookieTheme = CookieService.getThemePreference();
+    if (cookieTheme) return cookieTheme;
+
+    // Fallback sur localStorage pour compatibilité
     const saved = localStorage.getItem('themeMode');
     return saved || 'light'; // 'light', 'dark', 'auto'
   });
 
   const [darkMode, setDarkMode] = useState(false);
-  const [useMapbox, setUseMapbox] = useState(true); // Utiliser MapboxMapView par défaut
+  const [useMapbox, setUseMapbox] = useState(() => {
+    // Essayer les cookies d'abord
+    const cookieProvider = CookieService.getMapProviderPreference();
+    if (cookieProvider !== null) return cookieProvider === 'mapbox';
+
+    // Fallback par défaut
+    return true; // Utiliser MapboxMapView par défaut
+  });
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pushNotificationStatus, setPushNotificationStatus] = useState({
     supported: false,
@@ -130,8 +144,9 @@ function App() {
     // Appliquer le thème immédiatement
     updateTheme();
 
-    // Sauvegarder dans localStorage
+    // Sauvegarder dans localStorage ET cookies (si consentement)
     localStorage.setItem('themeMode', themeMode);
+    CookieService.setThemePreference(themeMode);
 
     // Écouter les changements du thème système si en mode auto
     let mediaQuery;
@@ -146,6 +161,28 @@ function App() {
       }
     };
   }, [themeMode]);
+
+  // Écouter les changements de consentement cookies
+  useEffect(() => {
+    const handleConsentChange = event => {
+      const { preferences } = event.detail;
+      console.log('🍪 Consentement cookies mis à jour:', preferences);
+
+      // Si les cookies analytiques sont acceptés, démarrer la session
+      if (preferences.analytics) {
+        CookieService.setAnalyticsSession();
+      }
+
+      // Tracker la page courante si analytiques autorisés
+      CookieService.trackPageView(currentScreen);
+    };
+
+    window.addEventListener('cookieConsentChanged', handleConsentChange);
+
+    return () => {
+      window.removeEventListener('cookieConsentChanged', handleConsentChange);
+    };
+  }, [currentScreen]);
 
   useEffect(() => {
     if (!user) return;
@@ -587,6 +624,13 @@ function App() {
       console.error('Erreur suppression ami:', error);
       alert(`Erreur lors de la suppression: ${error.message}`);
     }
+  };
+
+  const handleMapProviderChange = provider => {
+    const isMapbox = provider === 'mapbox';
+    setUseMapbox(isMapbox);
+    CookieService.setMapProviderPreference(provider);
+    console.log(`🗺️ Provider de cartes changé: ${provider}`);
   };
 
   const handleSignOut = async () => {
@@ -1892,6 +1936,9 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
 
         {/* Notification de mise à jour automatique */}
         <UpdateNotification />
+
+        {/* Consentement cookies */}
+        <CookieConsent darkMode={darkMode} />
       </div>
     );
   }
@@ -1964,6 +2011,9 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
 
       {/* Notification de mise à jour automatique */}
       <UpdateNotification />
+
+      {/* Consentement cookies */}
+      <CookieConsent darkMode={darkMode} />
     </div>
   );
 }
