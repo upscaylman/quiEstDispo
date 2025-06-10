@@ -1,5 +1,5 @@
 // Service Worker pour "Qui est dispo" avec mise à jour automatique
-const VERSION = '1.0.19'; // Incrémenter à chaque déploiement
+const VERSION = '1.0.20'; // Incrémenter à chaque déploiement
 const CACHE_NAME = 'qui-est-dispo-v' + VERSION;
 const STATIC_CACHE = 'qui-est-dispo-static-v1';
 
