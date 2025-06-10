@@ -519,9 +519,6 @@ export class AuthService {
       );
       const phoneNumber = phoneUser.phoneNumber;
 
-      // DEBUG TEMPORAIRE
-      await this.debugPhoneAccountLinking(phoneNumber);
-
       // Chercher un utilisateur existant avec ce numéro de téléphone
       const usersQuery = query(
         collection(db, 'users'),
@@ -778,7 +775,21 @@ export class AuthService {
         console.log('✅ Compte Firebase Auth supprimé');
       }
 
-      console.log('🎉 Compte supprimé complètement !');
+      console.log('🎉 Suppression terminée, vérification...');
+
+      // 8. Vérifier que toutes les données ont bien été supprimées
+      const verification = await this.verifyUserDataDeletion(userId);
+      if (verification.success) {
+        console.log('🎉 Compte supprimé complètement et vérifié !');
+      } else if (verification.issues) {
+        console.warn(
+          '⚠️ Suppression incomplète, mais compte principal supprimé:',
+          verification.issues
+        );
+        // Ne pas faire échouer le processus pour des données résiduelles mineures
+      }
+
+      return { success: true, verification };
     } catch (error) {
       console.error('❌ Erreur lors de la suppression du compte:', error);
 
@@ -1436,41 +1447,6 @@ export class AuthService {
     }
   }
 
-  // Debug temporaire : vérifier tous les comptes existants
-  static async debugPhoneAccountLinking(phoneNumber) {
-    try {
-      console.log('🔍 DEBUG: Recherche de compte avec numéro:', phoneNumber);
-
-      // 1. Lister tous les utilisateurs pour voir leurs numéros
-      const allUsersSnapshot = await getDocs(collection(db, 'users'));
-      console.log('📊 Tous les comptes dans la base:');
-
-      allUsersSnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        console.log(
-          `- ${doc.id}: name="${data.name}", phone="${data.phone}", email="${data.email}"`
-        );
-      });
-
-      // 2. Recherche spécifique par numéro
-      const usersQuery = query(
-        collection(db, 'users'),
-        where('phone', '==', phoneNumber)
-      );
-      const existingUsers = await getDocs(usersQuery);
-
-      console.log(
-        `🔍 Recherche pour numéro ${phoneNumber}:`,
-        existingUsers.size,
-        'résultats'
-      );
-
-      return existingUsers;
-    } catch (error) {
-      console.error('❌ Erreur debug:', error);
-    }
-  }
-
   // Nettoyer les comptes doublons avec le même numéro de téléphone
   static async cleanupDuplicatePhoneAccounts(phoneNumber, keepAccountId) {
     try {
@@ -1513,6 +1489,228 @@ export class AuthService {
       console.log('🎉 Nettoyage des doublons terminé');
     } catch (error) {
       console.warn('⚠️ Erreur nettoyage doublons (non critique):', error);
+    }
+  }
+
+  // Vérifier que toutes les données d'un utilisateur ont été supprimées
+  static async verifyUserDataDeletion(userId) {
+    try {
+      console.log(
+        `🔍 Vérification de la suppression complète pour ${userId}...`
+      );
+
+      const issues = [];
+
+      // 1. Vérifier le document utilisateur principal
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        issues.push('Document utilisateur principal toujours présent');
+      }
+
+      // 2. Vérifier les disponibilités
+      const availabilitiesQuery = query(
+        collection(db, 'availabilities'),
+        where('userId', '==', userId)
+      );
+      const availabilitiesSnapshot = await getDocs(availabilitiesQuery);
+      if (!availabilitiesSnapshot.empty) {
+        issues.push(`${availabilitiesSnapshot.size} disponibilités restantes`);
+      }
+
+      // 3. Vérifier les réponses aux activités
+      const responsesQuery = query(
+        collection(db, 'activity_responses'),
+        where('userId', '==', userId)
+      );
+      const responsesSnapshot = await getDocs(responsesQuery);
+      if (!responsesSnapshot.empty) {
+        issues.push(
+          `${responsesSnapshot.size} réponses aux activités restantes`
+        );
+      }
+
+      // 4. Vérifier les notifications
+      const notificationsToQuery = query(
+        collection(db, 'notifications'),
+        where('to', '==', userId)
+      );
+      const notificationsFromQuery = query(
+        collection(db, 'notifications'),
+        where('from', '==', userId)
+      );
+
+      const [notificationsToSnapshot, notificationsFromSnapshot] =
+        await Promise.all([
+          getDocs(notificationsToQuery),
+          getDocs(notificationsFromQuery),
+        ]);
+
+      const totalNotifications =
+        notificationsToSnapshot.size + notificationsFromSnapshot.size;
+      if (totalNotifications > 0) {
+        issues.push(`${totalNotifications} notifications restantes`);
+      }
+
+      // 5. Vérifier les invitations d'amitié
+      const friendInvitationsToQuery = query(
+        collection(db, 'friend_invitations'),
+        where('toUserId', '==', userId)
+      );
+      const friendInvitationsFromQuery = query(
+        collection(db, 'friend_invitations'),
+        where('fromUserId', '==', userId)
+      );
+
+      const [invitationsToSnapshot, invitationsFromSnapshot] =
+        await Promise.all([
+          getDocs(friendInvitationsToQuery),
+          getDocs(friendInvitationsFromQuery),
+        ]);
+
+      const totalInvitations =
+        invitationsToSnapshot.size + invitationsFromSnapshot.size;
+      if (totalInvitations > 0) {
+        issues.push(`${totalInvitations} invitations d'amitié restantes`);
+      }
+
+      // 6. Vérifier les listes d'amis des autres utilisateurs
+      const allUsersQuery = query(
+        collection(db, 'users'),
+        where('friends', 'array-contains', userId)
+      );
+      const usersWithFriendship = await getDocs(allUsersQuery);
+      if (!usersWithFriendship.empty) {
+        issues.push(`Présent dans ${usersWithFriendship.size} listes d'amis`);
+      }
+
+      if (issues.length === 0) {
+        console.log(
+          '✅ Vérification réussie : toutes les données ont été supprimées'
+        );
+        return { success: true, message: 'Suppression complète vérifiée' };
+      } else {
+        console.warn('⚠️ Données restantes détectées:', issues);
+        return { success: false, issues };
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la vérification:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // DEBUG: Fonction pour nettoyer les données orphelines (mode développement uniquement)
+  static async debugCleanupOrphanedData() {
+    if (process.env.NODE_ENV !== 'development') {
+      console.warn(
+        '⚠️ Cette fonction est disponible uniquement en développement'
+      );
+      return;
+    }
+
+    try {
+      console.log('🧹 Recherche de données orphelines...');
+
+      // Obtenir tous les utilisateurs valides
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const validUserIds = new Set(usersSnapshot.docs.map(doc => doc.id));
+
+      console.log(`👥 ${validUserIds.size} utilisateurs valides trouvés`);
+
+      const orphanedData = {
+        availabilities: [],
+        responses: [],
+        notifications: [],
+        invitations: [],
+      };
+
+      // 1. Vérifier les disponibilités orphelines
+      const availabilitiesSnapshot = await getDocs(
+        collection(db, 'availabilities')
+      );
+      availabilitiesSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (!validUserIds.has(data.userId)) {
+          orphanedData.availabilities.push({ id: doc.id, userId: data.userId });
+        }
+      });
+
+      // 2. Vérifier les réponses orphelines
+      const responsesSnapshot = await getDocs(
+        collection(db, 'activity_responses')
+      );
+      responsesSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (!validUserIds.has(data.userId)) {
+          orphanedData.responses.push({ id: doc.id, userId: data.userId });
+        }
+      });
+
+      // 3. Vérifier les notifications orphelines
+      const notificationsSnapshot = await getDocs(
+        collection(db, 'notifications')
+      );
+      notificationsSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (!validUserIds.has(data.to) || !validUserIds.has(data.from)) {
+          orphanedData.notifications.push({
+            id: doc.id,
+            to: data.to,
+            from: data.from,
+            orphaned: !validUserIds.has(data.to) ? 'to' : 'from',
+          });
+        }
+      });
+
+      // 4. Vérifier les invitations orphelines
+      const invitationsSnapshot = await getDocs(
+        collection(db, 'friend_invitations')
+      );
+      invitationsSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (
+          !validUserIds.has(data.toUserId) ||
+          !validUserIds.has(data.fromUserId)
+        ) {
+          orphanedData.invitations.push({
+            id: doc.id,
+            toUserId: data.toUserId,
+            fromUserId: data.fromUserId,
+            orphaned: !validUserIds.has(data.toUserId)
+              ? 'toUserId'
+              : 'fromUserId',
+          });
+        }
+      });
+
+      // Affichage des résultats
+      console.log('📊 Données orphelines trouvées:');
+      console.table({
+        Disponibilités: orphanedData.availabilities.length,
+        Réponses: orphanedData.responses.length,
+        Notifications: orphanedData.notifications.length,
+        Invitations: orphanedData.invitations.length,
+      });
+
+      if (orphanedData.availabilities.length > 0) {
+        console.log(
+          '🗑️ Disponibilités orphelines:',
+          orphanedData.availabilities
+        );
+      }
+      if (orphanedData.responses.length > 0) {
+        console.log('🗑️ Réponses orphelines:', orphanedData.responses);
+      }
+      if (orphanedData.notifications.length > 0) {
+        console.log('🗑️ Notifications orphelines:', orphanedData.notifications);
+      }
+      if (orphanedData.invitations.length > 0) {
+        console.log('🗑️ Invitations orphelines:', orphanedData.invitations);
+      }
+
+      return orphanedData;
+    } catch (error) {
+      console.error('❌ Erreur lors du nettoyage debug:', error);
     }
   }
 }

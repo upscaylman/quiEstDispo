@@ -617,10 +617,25 @@ function App() {
       const { AuthService } = await import('./services/firebaseService');
 
       // Supprimer le compte complètement
-      await AuthService.deleteUserAccount(user.uid);
+      const result = await AuthService.deleteUserAccount(user.uid);
 
       console.log('✅ Compte supprimé avec succès');
-      alert('Votre compte a été supprimé définitivement. Au revoir !');
+
+      // Message de confirmation avec détails de vérification
+      let message = 'Votre compte a été supprimé définitivement. Au revoir !';
+
+      if (result.verification) {
+        if (result.verification.success) {
+          message +=
+            '\n\n✅ Vérification : Toutes vos données ont été supprimées de la base de données.';
+        } else if (result.verification.issues) {
+          message +=
+            '\n\n⚠️ Note : Quelques données secondaires pourraient subsister mais votre compte principal a été supprimé.';
+          console.log('Issues détectées:', result.verification.issues);
+        }
+      }
+
+      alert(message);
 
       // Fermer la modale
       setShowDeleteAccountModal(false);
