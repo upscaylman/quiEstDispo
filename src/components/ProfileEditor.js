@@ -16,11 +16,12 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   // État local pour l'avatar pour mise à jour immédiate
-  const [localAvatar, setLocalAvatar] = useState(user.avatar);
+  const [localAvatar, setLocalAvatar] = useState(null);
+  const [forceRefresh, setForceRefresh] = useState(0);
 
   // Synchroniser l'avatar local avec les changements de user.avatar
   useEffect(() => {
-    setLocalAvatar(user.avatar);
+    setLocalAvatar(null); // Réinitialiser l'avatar local quand user change
   }, [user.avatar]);
 
   const handleSavePhone = async () => {
@@ -153,32 +154,29 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
     try {
       console.log('📞 Appel AuthService.uploadUserPhoto...');
       const photoURL = await AuthService.uploadUserPhoto(user.uid, file);
-      console.log('✅ Upload terminé, nouvelle URL:', photoURL);
+      console.log(
+        '✅ Upload terminé, URL:',
+        photoURL.substring(0, 100) + '...'
+      );
 
-      // Mettre à jour l'avatar local immédiatement pour un affichage instantané
-      console.log('🔄 Mise à jour localAvatar:', localAvatar, '->', photoURL);
+      // Mettre à jour immédiatement l'avatar local
       setLocalAvatar(photoURL);
+      setForceRefresh(prev => prev + 1); // Forcer un re-render
 
       setSuccess('Photo de profil mise à jour ! 🎉');
       setTimeout(() => setSuccess(''), 3000);
 
-      // Mettre à jour l'état local immédiatement pour éviter la boucle
+      // Mettre à jour l'état parent immédiatement
       if (onProfileUpdate) {
-        console.log('📤 Appel onProfileUpdate...');
         await onProfileUpdate({ ...user, avatar: photoURL });
-      } else {
-        console.log('⚠️ onProfileUpdate non disponible');
       }
 
-      // Rafraîchir les données de manière différée pour éviter la boucle
-      setTimeout(async () => {
-        try {
-          console.log('🔄 Refresh userData différé...');
-          await refreshUserData();
-        } catch (error) {
-          console.warn('⚠️ Erreur refresh userData après upload:', error);
-        }
-      }, 1000);
+      // Rafraîchir les données Firebase
+      try {
+        await refreshUserData();
+      } catch (error) {
+        console.warn('Erreur refresh userData:', error);
+      }
     } catch (error) {
       console.error('❌ Erreur dans handlePhotoUpload:', error);
       setError(error.message || "Erreur lors de l'upload");
@@ -264,39 +262,32 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
             <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mr-4 overflow-hidden">
               {(() => {
                 const avatarToShow = localAvatar || user.avatar;
-                console.log('🖼️ Rendu avatar:', {
-                  localAvatar: localAvatar
-                    ? localAvatar.substring(0, 50) + '...'
-                    : null,
-                  userAvatar: user.avatar
-                    ? user.avatar.substring(0, 50) + '...'
-                    : null,
-                  avatarToShow: avatarToShow
-                    ? avatarToShow.substring(0, 50) + '...'
-                    : null,
-                  isImage:
-                    avatarToShow &&
-                    (avatarToShow.startsWith('http') ||
-                      avatarToShow.startsWith('data:')),
-                });
-
-                return avatarToShow &&
+                const isImageURL =
+                  avatarToShow &&
                   (avatarToShow.startsWith('http') ||
-                    avatarToShow.startsWith('data:')) ? (
-                  <img
-                    src={avatarToShow}
-                    alt="Avatar"
-                    className="w-20 h-20 rounded-full object-cover"
-                    onLoad={() =>
-                      console.log('🖼️ Image avatar chargée avec succès')
-                    }
-                    onError={e =>
-                      console.log('❌ Erreur chargement image avatar:', e)
-                    }
-                  />
-                ) : (
-                  <span className="text-4xl">{avatarToShow || '👤'}</span>
-                );
+                    avatarToShow.startsWith('data:'));
+
+                if (isImageURL) {
+                  return (
+                    <img
+                      key={`avatar-${forceRefresh}-${avatarToShow.substring(0, 20)}`} // Key unique pour forcer re-render
+                      src={avatarToShow}
+                      alt="Avatar"
+                      className="w-20 h-20 rounded-full object-cover"
+                      onLoad={() => console.log('✅ Avatar affiché')}
+                      onError={e => {
+                        console.log(
+                          '❌ Erreur avatar:',
+                          e.target.src.substring(0, 50)
+                        );
+                        setLocalAvatar(null); // Reset en cas d'erreur
+                      }}
+                    />
+                  );
+                }
+
+                // Emoji ou icône par défaut
+                return <span className="text-4xl">{avatarToShow || '👤'}</span>;
               })()}
             </div>
             {/* Overlay d'upload au centre avec transparence */}
