@@ -1669,6 +1669,30 @@ export class FriendsService {
 
       await addDoc(collection(db, 'notifications'), notificationData);
 
+      // 🔔 NOUVEAU : Envoyer notification push automatiquement
+      try {
+        const { default: PushNotificationService } = await import(
+          './pushNotificationService'
+        );
+
+        await PushNotificationService.sendPushToUser(toUserId, {
+          title: "👥 Nouvelle demande d'ami",
+          body: `${fromUserData.name} souhaite vous ajouter en ami`,
+          tag: 'friend-invitation',
+          data: {
+            type: 'friend_invitation',
+            fromUserId,
+            fromUserName: fromUserData.name,
+            invitationId: invitationRef.id,
+          },
+          requireInteraction: true,
+        });
+
+        console.log("🔔 Notification push envoyée pour demande d'ami");
+      } catch (pushError) {
+        console.warn('⚠️ Erreur notification push (non critique):', pushError);
+      }
+
       console.log(`✅ Invitation d'amitié créée pour ${fromUserData.name}`);
       return invitationRef.id;
     } catch (error) {
