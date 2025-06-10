@@ -182,12 +182,12 @@ const LoginScreen = () => {
         await confirmPhoneCode(confirmationResult, verificationCode);
       }
     } catch (error) {
-      if (error.message === 'ACCOUNT_LINKING_REQUIRED') {
-        // Cas spécial : le numéro a été lié à un compte existant
-        // L'utilisateur a été déconnecté et doit se reconnecter avec son compte principal
+      if (error.message === 'ACCOUNT_LINKING_SUCCESS') {
+        // Cas spécial : le numéro a été lié avec succès à un compte existant
+        // L'utilisateur a été déconnecté et l'interface va se mettre à jour automatiquement
         setError('');
         resetPhoneAuth();
-        // L'interface va se mettre à jour automatiquement car l'utilisateur est déconnecté
+        // Pas besoin d'afficher d'erreur, le message de succès a déjà été affiché
       } else {
         setError(error.message || 'Code incorrect. Réessayez.');
       }

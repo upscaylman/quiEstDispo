@@ -548,18 +548,23 @@ export class AuthService {
             existingUserData
           );
 
-          // Informer l'utilisateur qu'il doit se reconnecter avec son compte principal
+          // Lier le numéro au compte existant
           console.log('✅ Numéro lié au compte existant !');
-          alert(
-            `Ce numéro appartient à votre compte "${existingUserData.name}". ` +
-              `Vous allez être redirigé vers la connexion pour vous connecter avec votre compte principal.`
-          );
 
-          // Déconnecter le compte temporaire
+          // Déconnecter le compte temporaire pour forcer la reconnexion avec le compte principal
           await firebaseSignOut(auth);
 
+          // Nettoyer le compte temporaire
+          await this.cleanupTemporaryPhoneAccount(phoneUser.uid);
+
+          // Informer l'utilisateur avec un message explicatif
+          alert(
+            `✅ Parfait ! Votre numéro ${phoneNumber} a été ajouté à votre compte "${existingUserData.name}".\n\n` +
+              `Vous pouvez maintenant vous connecter avec votre email OU votre numéro de téléphone pour accéder au même compte.`
+          );
+
           // Retourner un signal spécial pour indiquer qu'il faut se reconnecter
-          throw new Error('ACCOUNT_LINKING_REQUIRED');
+          throw new Error('ACCOUNT_LINKING_SUCCESS');
         } else {
           console.log('✅ Même compte, mise à jour des infos...');
           // C'est le même compte, juste mettre à jour
@@ -573,7 +578,10 @@ export class AuthService {
 
       return phoneUser.uid;
     } catch (error) {
-      if (error.message === 'ACCOUNT_LINKING_REQUIRED') {
+      if (
+        error.message === 'ACCOUNT_LINKING_SUCCESS' ||
+        error.message === 'ACCOUNT_LINKING_REQUIRED'
+      ) {
         // Relancer l'erreur spéciale pour la gestion dans l'UI
         throw error;
       }
