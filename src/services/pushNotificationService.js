@@ -1,7 +1,10 @@
-// Service de notifications push
+// Service de notifications push avec Firebase Messaging
+import { getToken } from 'firebase/messaging';
+import { messaging } from '../firebase';
+
 export class PushNotificationService {
-  static vapidKey = 'YOUR_VAPID_KEY'; // À remplacer par votre clé VAPID
-  static isSupported = 'serviceWorker' in navigator && 'PushManager' in window;
+  static isSupported =
+    'serviceWorker' in navigator && 'PushManager' in window && !!messaging;
 
   // Demander la permission pour les notifications
   static async requestPermission() {
@@ -13,7 +16,7 @@ export class PushNotificationService {
     console.log('📱 Permission notifications:', permission);
 
     if (permission === 'granted') {
-      return this.getSubscription();
+      return this.getFirebaseToken();
     } else if (permission === 'denied') {
       throw new Error('Permission refusée pour les notifications');
     } else {
@@ -21,26 +24,55 @@ export class PushNotificationService {
     }
   }
 
-  // Obtenir ou créer un abonnement push
-  static async getSubscription() {
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      let subscription = await registration.pushManager.getSubscription();
+  // Obtenir le token Firebase pour les notifications
+  static async getFirebaseToken() {
+    if (!messaging) {
+      throw new Error('Firebase Messaging non initialisé');
+    }
 
-      if (!subscription) {
-        console.log('🔔 Création nouvel abonnement push...');
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: this.urlBase64ToUint8Array(this.vapidKey),
-        });
+    try {
+      // Vérifier si on a une clé VAPID configurée
+      const vapidKey = process.env.REACT_APP_FIREBASE_VAPID_KEY;
+
+      if (!vapidKey || vapidKey === 'your_vapid_key_here') {
+        console.warn(
+          '⚠️ Clé VAPID non configurée, utilisation de notifications locales uniquement'
+        );
+        return this.enableLocalNotifications();
       }
 
-      console.log('✅ Abonnement push obtenu:', subscription);
-      return subscription;
+      console.log('🔔 Récupération token Firebase...');
+      const token = await getToken(messaging, {
+        vapidKey: vapidKey,
+      });
+
+      if (token) {
+        console.log(
+          '✅ Token Firebase obtenu:',
+          token.substring(0, 20) + '...'
+        );
+        return { type: 'firebase', token };
+      } else {
+        console.warn(
+          '⚠️ Pas de token Firebase, fallback vers notifications locales'
+        );
+        return this.enableLocalNotifications();
+      }
     } catch (error) {
-      console.error('❌ Erreur abonnement push:', error);
-      throw error;
+      console.error('❌ Erreur token Firebase:', error);
+      console.warn('⚠️ Fallback vers notifications locales');
+      return this.enableLocalNotifications();
     }
+  }
+
+  // Activer les notifications locales comme fallback
+  static async enableLocalNotifications() {
+    if (Notification.permission !== 'granted') {
+      throw new Error('Permission requise pour les notifications');
+    }
+
+    console.log('📱 Notifications locales activées');
+    return { type: 'local', enabled: true };
   }
 
   // Vérifier le statut des notifications
@@ -58,11 +90,20 @@ export class PushNotificationService {
 
     if (permission === 'granted') {
       try {
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.getSubscription();
-        subscribed = !!subscription;
+        // Vérifier si on a un token Firebase ou des notifications locales activées
+        const vapidKey = process.env.REACT_APP_FIREBASE_VAPID_KEY;
+
+        if (vapidKey && vapidKey !== 'your_vapid_key_here' && messaging) {
+          // Essayer d'obtenir un token Firebase
+          const token = await getToken(messaging, { vapidKey });
+          subscribed = !!token;
+        } else {
+          // Mode notifications locales
+          subscribed = true; // Si permission accordée, on peut faire des notifications locales
+        }
       } catch (error) {
         console.warn('Erreur vérification abonnement:', error);
+        subscribed = true; // Mode dégradé avec notifications locales
       }
     }
 
@@ -95,22 +136,6 @@ export class PushNotificationService {
     return notification;
   }
 
-  // Convertir clé VAPID en format utilisable
-  static urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-    const base64 = (base64String + padding)
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
-
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-  }
-
   // Simuler l'envoi d'une notification (pour test)
   static async sendTestPushNotification() {
     try {
@@ -120,18 +145,15 @@ export class PushNotificationService {
         await this.requestPermission();
       }
 
-      // Pour un vrai serveur, vous enverriez les données d'abonnement à votre backend
-      // Ici on simule avec une notification locale
+      // Envoyer une notification de test locale
       this.showTestNotification(
         '🎉 Qui est dispo',
-        "Nouvelle invitation d'ami reçue !",
+        'Test de notification - tout fonctionne !',
         {
-          tag: 'friend-invitation',
+          tag: 'test-notification',
           requireInteraction: true,
-          actions: [
-            { action: 'accept', title: 'Accepter' },
-            { action: 'decline', title: 'Refuser' },
-          ],
+          icon: '/logo192.png',
+          badge: '/logo192.png',
         }
       );
 
