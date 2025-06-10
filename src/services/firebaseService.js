@@ -511,6 +511,131 @@ export class AuthService {
     }
   }
 
+  // Gérer la liaison des comptes lors de la connexion par téléphone
+  static async handlePhoneAccountLinking(phoneUser) {
+    try {
+      console.log(
+        '🔍 Vérification si le numéro existe dans un compte existant...'
+      );
+      const phoneNumber = phoneUser.phoneNumber;
+
+      // Chercher un utilisateur existant avec ce numéro de téléphone
+      const usersQuery = query(
+        collection(db, 'users'),
+        where('phone', '==', phoneNumber)
+      );
+
+      const existingUsers = await getDocs(usersQuery);
+
+      if (!existingUsers.empty) {
+        // Un compte existant a ce numéro
+        const existingUserDoc = existingUsers.docs[0];
+        const existingUserData = existingUserDoc.data();
+        const existingUserId = existingUserDoc.id;
+
+        console.log(
+          `✅ Compte existant trouvé: ${existingUserData.name} (${existingUserId})`
+        );
+
+        // Comparer les UIDs
+        if (existingUserId !== phoneUser.uid) {
+          console.log('🔄 Comptes différents détectés, liaison nécessaire...');
+
+          // Lier le numéro de téléphone au compte existant
+          await this.linkPhoneToExistingAccount(
+            phoneUser.phoneNumber,
+            existingUserId,
+            existingUserData
+          );
+
+          // Informer l'utilisateur qu'il doit se reconnecter avec son compte principal
+          console.log('✅ Numéro lié au compte existant !');
+          alert(
+            `Ce numéro appartient à votre compte "${existingUserData.name}". ` +
+              `Vous allez être redirigé vers la connexion pour vous connecter avec votre compte principal.`
+          );
+
+          // Déconnecter le compte temporaire
+          await firebaseSignOut(auth);
+
+          // Retourner un signal spécial pour indiquer qu'il faut se reconnecter
+          throw new Error('ACCOUNT_LINKING_REQUIRED');
+        } else {
+          console.log('✅ Même compte, mise à jour des infos...');
+          // C'est le même compte, juste mettre à jour
+          await this.createUserProfile(phoneUser);
+        }
+      } else {
+        console.log("📱 Nouveau numéro, création d'un nouveau compte...");
+        // Nouveau numéro, créer un nouveau profil normalement
+        await this.createUserProfile(phoneUser);
+      }
+
+      return phoneUser.uid;
+    } catch (error) {
+      if (error.message === 'ACCOUNT_LINKING_REQUIRED') {
+        // Relancer l'erreur spéciale pour la gestion dans l'UI
+        throw error;
+      }
+
+      console.error('❌ Erreur lors de la liaison des comptes:', error);
+      // En cas d'erreur, créer le profil normalement
+      await this.createUserProfile(phoneUser);
+      return phoneUser.uid;
+    }
+  }
+
+  // Lier un numéro de téléphone à un compte existant
+  static async linkPhoneToExistingAccount(
+    phoneNumber,
+    existingUserId,
+    existingUserData
+  ) {
+    try {
+      console.log(
+        `🔗 Liaison du numéro ${phoneNumber} au compte ${existingUserId}`
+      );
+
+      // Mettre à jour le compte existant avec la vérification téléphone
+      await updateDoc(doc(db, 'users', existingUserId), {
+        phoneVerified: true,
+        phone: phoneNumber, // S'assurer que le numéro est bien enregistré
+        lastLoginAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      console.log('✅ Numéro de téléphone lié au compte existant');
+    } catch (error) {
+      console.error('❌ Erreur liaison numéro au compte:', error);
+      throw error;
+    }
+  }
+
+  // Nettoyer le compte temporaire créé par Firebase Auth
+  static async cleanupTemporaryPhoneAccount(tempUid) {
+    try {
+      // Supprimer le document utilisateur temporaire s'il existe
+      const tempUserRef = doc(db, 'users', tempUid);
+      const tempUserSnap = await getDoc(tempUserRef);
+
+      if (tempUserSnap.exists()) {
+        await deleteDoc(tempUserRef);
+        console.log('🧹 Compte temporaire supprimé de Firestore');
+      }
+
+      // Note: On ne peut pas supprimer l'utilisateur Firebase Auth depuis le client
+      // Il faudrait une Cloud Function pour cela, mais ce n'est pas critique
+      console.log(
+        '⚠️ Compte Firebase Auth temporaire non supprimé (nécessite Cloud Function)'
+      );
+    } catch (error) {
+      console.warn(
+        '⚠️ Erreur nettoyage compte temporaire (non critique):',
+        error
+      );
+    }
+  }
+
   // Créer un reCAPTCHA verifier selon la documentation Firebase
   static createRecaptchaVerifier(elementId, options = {}) {
     try {
@@ -585,9 +710,9 @@ export class AuthService {
     try {
       const result = await confirmationResult.confirm(verificationCode);
 
-      // Créer le profil utilisateur
-      if (result.user) {
-        await this.createUserProfile(result.user);
+      // Vérifier si ce numéro existe déjà dans un compte existant
+      if (result.user && result.user.phoneNumber) {
+        await this.handlePhoneAccountLinking(result.user);
       }
 
       return result.user;

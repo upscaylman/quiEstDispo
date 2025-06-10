@@ -182,7 +182,15 @@ const LoginScreen = () => {
         await confirmPhoneCode(confirmationResult, verificationCode);
       }
     } catch (error) {
-      setError(error.message || 'Code incorrect. Réessayez.');
+      if (error.message === 'ACCOUNT_LINKING_REQUIRED') {
+        // Cas spécial : le numéro a été lié à un compte existant
+        // L'utilisateur a été déconnecté et doit se reconnecter avec son compte principal
+        setError('');
+        resetPhoneAuth();
+        // L'interface va se mettre à jour automatiquement car l'utilisateur est déconnecté
+      } else {
+        setError(error.message || 'Code incorrect. Réessayez.');
+      }
     }
   };
 
