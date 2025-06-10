@@ -1627,6 +1627,10 @@ export class FriendsService {
   // Créer une invitation d'amitié
   static async createFriendInvitation(fromUserId, toUserId) {
     try {
+      console.log(
+        `🔍 [DEBUG] createFriendInvitation appelée: ${fromUserId} -> ${toUserId}`
+      );
+
       // Récupérer les données de l'expéditeur
       const fromUserRef = doc(db, 'users', fromUserId);
       const fromUserSnap = await getDoc(fromUserRef);
@@ -1667,7 +1671,13 @@ export class FriendsService {
         createdAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, 'notifications'), notificationData);
+      const notificationRef = await addDoc(
+        collection(db, 'notifications'),
+        notificationData
+      );
+      console.log(
+        `🔍 [DEBUG] Notification Firestore créée: ${notificationRef.id}`
+      );
 
       // 🔔 NOUVEAU : Envoyer notification push automatiquement
       try {

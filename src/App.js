@@ -23,6 +23,7 @@ import LoginScreen from './components/LoginScreen';
 import MapView from './components/MapView';
 import MapboxMapView from './components/MapboxMapView';
 import NotificationBadge from './components/NotificationBadge';
+import NotificationTest from './components/NotificationTest';
 import ProfileEditor from './components/ProfileEditor';
 import UpdateNotification from './components/UpdateNotification';
 import WarningBanner from './components/WarningBanner';
@@ -997,6 +998,27 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
               </div>
             </div>
 
+            {/* Section Debug Notifications (temporaire) */}
+            {process.env.NODE_ENV === 'development' && (
+              <div
+                className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
+              >
+                <h3
+                  className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                >
+                  🔧 Debug Notifications (dev)
+                </h3>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setCurrentScreen('debug-notifications')}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                >
+                  🔍 Ouvrir le diagnostic
+                </motion.button>
+              </div>
+            )}
+
             {/* Section Déconnexion */}
             <div
               className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow`}
@@ -1012,6 +1034,8 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
             </div>
           </div>
         );
+      case 'debug-notifications':
+        return <NotificationTest user={user} darkMode={darkMode} />;
       default:
         return (
           <div className="min-h-screen flex flex-col">

@@ -270,16 +270,26 @@ export class PushNotificationService {
       // Vérifier si c'est l'utilisateur actuel (seul cas qu'on peut gérer)
       const currentUser = this.getCurrentUserId();
 
+      console.log(`🔍 Utilisateur actuel: ${currentUser}, Cible: ${userId}`);
+
       if (currentUser && currentUser === userId) {
         console.log("📱 Envoi notification push à l'utilisateur actuel");
 
         // Vérifier les permissions
-        if (Notification.permission !== 'granted') {
+        const permission = Notification.permission;
+        console.log(`🔍 Permission notifications: ${permission}`);
+
+        if (permission !== 'granted') {
           console.warn('⚠️ Permissions notifications non accordées');
           return { sent: false, reason: 'no_permission' };
         }
 
+        // Vérifier si les notifications sont supportées
+        const support = this.checkNotificationSupport();
+        console.log('🔍 Support notifications:', support);
+
         // Envoyer la notification locale
+        console.log('📤 Envoi de la notification...');
         await this.showTestNotification(
           notificationData.title || 'Qui est dispo',
           notificationData.body ||
@@ -298,7 +308,7 @@ export class PushNotificationService {
         return { sent: true, method: 'local' };
       } else {
         console.log(
-          'ℹ️ Notification pour autre utilisateur - stockage Firestore uniquement'
+          `ℹ️ Notification pour autre utilisateur (${userId} ≠ ${currentUser}) - stockage Firestore uniquement`
         );
         // Pour les autres utilisateurs, la notification sera visible quand ils ouvriront l'app
         return { sent: false, reason: 'other_user' };
@@ -312,9 +322,40 @@ export class PushNotificationService {
   // Obtenir l'ID de l'utilisateur actuel (helper)
   static getCurrentUserId() {
     try {
-      // Essayer de récupérer depuis Firebase Auth
-      const { auth } = require('../firebase');
-      return auth?.currentUser?.uid || null;
+      // Essayer plusieurs méthodes pour récupérer l'utilisateur actuel
+
+      // Méthode 1: Via Firebase Auth direct
+      if (
+        window.firebase &&
+        window.firebase.auth &&
+        window.firebase.auth().currentUser
+      ) {
+        console.log('🔍 Utilisateur trouvé via window.firebase');
+        return window.firebase.auth().currentUser.uid;
+      }
+
+      // Méthode 2: Via import dynamique
+      try {
+        const { auth } = require('../firebase');
+        if (auth?.currentUser?.uid) {
+          console.log('🔍 Utilisateur trouvé via require');
+          return auth.currentUser.uid;
+        }
+      } catch (requireError) {
+        console.warn('⚠️ Erreur require firebase:', requireError);
+      }
+
+      // Méthode 3: Via localStorage/sessionStorage (si disponible)
+      const storageUserId =
+        localStorage.getItem('currentUserId') ||
+        sessionStorage.getItem('currentUserId');
+      if (storageUserId) {
+        console.log('🔍 Utilisateur trouvé via storage');
+        return storageUserId;
+      }
+
+      console.warn('⚠️ Aucun utilisateur actuel trouvé');
+      return null;
     } catch (error) {
       console.warn("⚠️ Impossible de récupérer l'utilisateur actuel:", error);
       return null;
