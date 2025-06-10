@@ -5,21 +5,19 @@ import {
   Clock as ClockIcon,
   Coffee,
   Facebook,
-  FileText,
   HelpCircle,
   Instagram,
   Linkedin,
-  Mail,
   MapPin,
   Moon,
   Palette,
   Shield,
   Smartphone,
   Sun,
-  Twitter,
   UserMinus,
   UserPlus,
   Users,
+  X,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import AddFriendModal from './components/AddFriendModal';
@@ -1702,7 +1700,7 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
             </div>
 
             {/* Footer avec dégradé */}
-            <footer className="bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 px-6 py-8 border-t border-gray-200">
+            <footer className="bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 px-6 py-8 border-t border-gray-200 mt-16">
               <div className="max-w-4xl mx-auto">
                 {/* Réseaux sociaux */}
                 <div className="flex justify-center space-x-6 mb-8">
@@ -1728,7 +1726,7 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
                     rel="noopener noreferrer"
                     className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-all duration-300 hover:scale-110"
                   >
-                    <Twitter size={20} />
+                    <X size={20} />
                   </a>
                   <a
                     href="https://linkedin.com"
@@ -1751,18 +1749,16 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
                       <li>
                         <a
                           href="#"
-                          className="text-white/70 hover:text-white transition-colors flex items-center justify-center"
+                          className="text-white/70 hover:text-white transition-colors"
                         >
-                          <HelpCircle size={14} className="mr-2" />
                           Centre d'aide
                         </a>
                       </li>
                       <li>
                         <a
                           href="#"
-                          className="text-white/70 hover:text-white transition-colors flex items-center justify-center"
+                          className="text-white/70 hover:text-white transition-colors"
                         >
-                          <FileText size={14} className="mr-2" />
                           Guide d'utilisation
                         </a>
                       </li>
@@ -1818,18 +1814,14 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
                       SERVICE CLIENT
                     </h3>
                     <div className="space-y-2">
-                      <p className="text-white/70 flex items-center justify-center">
-                        <ClockIcon size={14} className="mr-2" />
-                        Du lundi au vendredi
-                      </p>
+                      <p className="text-white/70">Du lundi au vendredi</p>
                       <p className="text-white/70">
                         de 10h à 18h (Heure de Paris)
                       </p>
                       <a
                         href="mailto:contact@qui-est-dispo.com"
-                        className="text-white hover:text-white/80 transition-colors flex items-center justify-center mt-3"
+                        className="text-white hover:text-white/80 transition-colors inline-block mt-3"
                       >
-                        <Mail size={14} className="mr-2" />
                         Nous contacter
                       </a>
                     </div>
