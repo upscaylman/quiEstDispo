@@ -6,6 +6,40 @@ export class PushNotificationService {
   static isSupported =
     'serviceWorker' in navigator && 'PushManager' in window && !!messaging;
 
+  // Détecter si on est sur mobile
+  static isMobile() {
+    return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
+  }
+
+  // Vérifier le support complet des notifications
+  static checkNotificationSupport() {
+    const hasServiceWorker = 'serviceWorker' in navigator;
+    const hasNotification = 'Notification' in window;
+    const hasPushManager = 'PushManager' in window;
+    const hasMessaging = !!messaging;
+    const isMobile = this.isMobile();
+
+    console.log('🔍 Support notifications:', {
+      hasServiceWorker,
+      hasNotification,
+      hasPushManager,
+      hasMessaging,
+      isMobile,
+      userAgent: navigator.userAgent,
+    });
+
+    return {
+      hasServiceWorker,
+      hasNotification,
+      hasPushManager,
+      hasMessaging,
+      isMobile,
+      supported: hasServiceWorker && hasNotification && hasPushManager,
+    };
+  }
+
   // Demander la permission pour les notifications
   static async requestPermission() {
     if (!this.isSupported) {
@@ -77,16 +111,22 @@ export class PushNotificationService {
 
   // Vérifier le statut des notifications
   static async checkStatus() {
-    if (!this.isSupported) {
+    const support = this.checkNotificationSupport();
+
+    if (!support.supported) {
       return {
         supported: false,
         permission: 'not-supported',
         subscribed: false,
+        isMobile: support.isMobile,
+        debug: support,
       };
     }
 
     const permission = Notification.permission;
     let subscribed = false;
+
+    console.log('📱 Permission actuelle:', permission);
 
     if (permission === 'granted') {
       try {
@@ -94,15 +134,18 @@ export class PushNotificationService {
         const vapidKey = process.env.REACT_APP_FIREBASE_VAPID_KEY;
 
         if (vapidKey && vapidKey !== 'your_vapid_key_here' && messaging) {
+          console.log('🔑 Tentative récupération token Firebase...');
           // Essayer d'obtenir un token Firebase
           const token = await getToken(messaging, { vapidKey });
           subscribed = !!token;
+          console.log('🔥 Token Firebase:', subscribed ? 'Obtenu' : 'Échec');
         } else {
+          console.log('📱 Mode notifications locales (pas de VAPID)');
           // Mode notifications locales
           subscribed = true; // Si permission accordée, on peut faire des notifications locales
         }
       } catch (error) {
-        console.warn('Erreur vérification abonnement:', error);
+        console.warn('⚠️ Erreur vérification abonnement:', error);
         subscribed = true; // Mode dégradé avec notifications locales
       }
     }
@@ -111,29 +154,77 @@ export class PushNotificationService {
       supported: true,
       permission,
       subscribed,
+      isMobile: support.isMobile,
+      debug: support,
     };
   }
 
   // Envoyer une notification test locale
-  static showTestNotification(title, body, options = {}) {
+  static async showTestNotification(title, body, options = {}) {
     if (!this.isSupported || Notification.permission !== 'granted') {
       console.warn('Notifications non autorisées');
       return;
     }
 
-    const notification = new Notification(title, {
+    const notificationOptions = {
       body,
       icon: '/logo192.png',
       badge: '/logo192.png',
       ...options,
-    });
-
-    notification.onclick = () => {
-      window.focus();
-      notification.close();
     };
 
-    return notification;
+    try {
+      // Détecter si on est sur mobile/service worker requis
+      const isMobile = this.isMobile();
+      const support = this.checkNotificationSupport();
+
+      console.log(
+        `📱 Envoi notification - Mobile: ${isMobile}, Support SW: ${support.hasServiceWorker}`
+      );
+
+      if (isMobile || !window.Notification || 'serviceWorker' in navigator) {
+        // Utiliser le Service Worker (obligatoire sur mobile)
+        console.log(
+          '📱 Envoi notification via Service Worker (mobile/sécurisé)'
+        );
+
+        const registration = await navigator.serviceWorker.ready;
+        await registration.showNotification(title, notificationOptions);
+
+        console.log('✅ Notification envoyée via Service Worker');
+        return;
+      } else {
+        // Fallback pour desktop (peu probable d'arriver ici maintenant)
+        console.log('💻 Envoi notification directe (desktop)');
+
+        const notification = new Notification(title, notificationOptions);
+
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+        };
+
+        console.log('✅ Notification envoyée directement');
+        return notification;
+      }
+    } catch (error) {
+      console.error('❌ Erreur envoi notification:', error);
+
+      // Fallback ultime : essayer l'autre méthode
+      try {
+        if ('serviceWorker' in navigator) {
+          console.log('🔄 Tentative fallback via Service Worker...');
+          const registration = await navigator.serviceWorker.ready;
+          await registration.showNotification(title, notificationOptions);
+          console.log('✅ Notification fallback réussie');
+        }
+      } catch (fallbackError) {
+        console.error('❌ Échec notification fallback:', fallbackError);
+        throw new Error(
+          "Impossible d'envoyer la notification sur cet appareil"
+        );
+      }
+    }
   }
 
   // Simuler l'envoi d'une notification (pour test)
@@ -146,7 +237,7 @@ export class PushNotificationService {
       }
 
       // Envoyer une notification de test locale
-      this.showTestNotification(
+      await this.showTestNotification(
         '🎉 Qui est dispo',
         'Test de notification - tout fonctionne !',
         {
