@@ -354,7 +354,7 @@ function App() {
     if (!user) return;
 
     try {
-      const { NotificationService } = await import(
+      const { NotificationService, AvailabilityService } = await import(
         './services/firebaseService'
       );
 
@@ -378,6 +378,13 @@ function App() {
         type = 'activity_declined';
         emoji = '❌';
       }
+
+      // Enregistrer la réponse dans Firebase
+      await AvailabilityService.recordActivityResponse(
+        user.uid,
+        friendAvailability.id,
+        responseType
+      );
 
       // Créer la notification avec les paramètres corrects
       await NotificationService.createNotification(

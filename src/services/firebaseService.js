@@ -1268,8 +1268,23 @@ export class AvailabilityService {
           onSnapshot(q, async snapshot => {
             const availabilities = [];
 
+            // Récupérer les réponses déjà données par l'utilisateur
+            const responsesQuery = query(
+              collection(db, 'activity_responses'),
+              where('userId', '==', userId)
+            );
+            const responsesSnapshot = await getDocs(responsesQuery);
+            const respondedActivityIds = new Set(
+              responsesSnapshot.docs.map(doc => doc.data().activityId)
+            );
+
             for (const docSnap of snapshot.docs) {
               const availability = { id: docSnap.id, ...docSnap.data() };
+
+              // Exclure les activités auxquelles on a déjà répondu
+              if (respondedActivityIds.has(availability.id)) {
+                continue;
+              }
 
               try {
                 const friendRef = doc(db, 'users', availability.userId);
@@ -1296,6 +1311,90 @@ export class AvailabilityService {
       console.error('Error listening to friends:', error);
       callback([]);
       return () => {};
+    }
+  }
+
+  // Enregistrer une réponse à une activité
+  static async recordActivityResponse(userId, activityId, responseType) {
+    if (!isOnline()) {
+      console.warn('⚠️ Offline mode, cannot record response');
+      return;
+    }
+
+    try {
+      await retryWithBackoff(async () => {
+        // Vérifier si une réponse existe déjà
+        const existingResponseQuery = query(
+          collection(db, 'activity_responses'),
+          where('userId', '==', userId),
+          where('activityId', '==', activityId)
+        );
+
+        const existingResponses = await getDocs(existingResponseQuery);
+
+        if (existingResponses.empty) {
+          // Aucune réponse existante, créer une nouvelle
+          await addDoc(collection(db, 'activity_responses'), {
+            userId,
+            activityId,
+            responseType, // 'joined' ou 'declined'
+            createdAt: serverTimestamp(),
+          });
+        } else {
+          // Mettre à jour la réponse existante
+          const responseDoc = existingResponses.docs[0];
+          await updateDoc(responseDoc.ref, {
+            responseType,
+            updatedAt: serverTimestamp(),
+          });
+        }
+      });
+
+      console.log(
+        `💾 Réponse ${responseType} enregistrée pour activité ${activityId}`
+      );
+    } catch (error) {
+      console.error('Erreur enregistrement réponse:', error);
+      throw error;
+    }
+  }
+
+  // Nettoyer les réponses aux activités inactives (optionnel)
+  static async cleanupInactiveResponses() {
+    if (!isOnline()) return;
+
+    try {
+      // Récupérer toutes les activités inactives
+      const inactiveActivitiesQuery = query(
+        collection(db, 'availabilities'),
+        where('isActive', '==', false)
+      );
+
+      const inactiveActivities = await getDocs(inactiveActivitiesQuery);
+      const inactiveIds = inactiveActivities.docs.map(doc => doc.id);
+
+      if (inactiveIds.length === 0) return;
+
+      // Supprimer les réponses aux activités inactives
+      const responsesToCleanQuery = query(
+        collection(db, 'activity_responses'),
+        where('activityId', 'in', inactiveIds)
+      );
+
+      const responsesToClean = await getDocs(responsesToCleanQuery);
+
+      const deletePromises = responsesToClean.docs.map(doc =>
+        deleteDoc(doc.ref)
+      );
+
+      if (deletePromises.length > 0) {
+        await Promise.all(deletePromises);
+        console.log(
+          `🧹 ${deletePromises.length} réponses d'activités inactives supprimées`
+        );
+      }
+    } catch (error) {
+      console.warn('⚠️ Erreur nettoyage réponses (non critique):', error);
     }
   }
 
