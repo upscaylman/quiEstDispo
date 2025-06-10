@@ -33,6 +33,20 @@ export const useAuth = () => {
           setLoading(false);
         }
 
+        // Vérifier d'abord s'il s'agit d'un compte orphelin
+        try {
+          const wasOrphaned = await AuthService.cleanupOrphanedAuthAccount();
+          if (wasOrphaned) {
+            // Le compte orphelin a été supprimé, l'utilisateur sera déconnecté
+            console.log('🧹 Compte orphelin supprimé');
+            return;
+          }
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.warn('⚠️ Vérification compte orphelin échouée:', error);
+          // Continuer normalement
+        }
+
         // Ensuite essayer de créer/mettre à jour le profil Firestore en arrière-plan
         try {
           // eslint-disable-next-line no-console

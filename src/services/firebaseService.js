@@ -668,6 +668,26 @@ export class AuthService {
     }
   }
 
+  // Ré-authentifier l'utilisateur si nécessaire pour la suppression
+  static async reauthenticateForDeletion() {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('Aucun utilisateur connecté');
+    }
+
+    // Vérifier si l'utilisateur peut supprimer son compte
+    try {
+      // Test rapide pour vérifier les permissions
+      await currentUser.getIdToken(true);
+      return true;
+    } catch (error) {
+      if (error.code === 'auth/requires-recent-login') {
+        return false;
+      }
+      throw error;
+    }
+  }
+
   // Supprimer complètement un compte utilisateur
   static async deleteUserAccount(userId) {
     if (!isOnline()) {
@@ -676,6 +696,15 @@ export class AuthService {
 
     try {
       console.log(`🗑️ Suppression complète du compte ${userId}...`);
+
+      // 0. Vérifier d'abord si on peut supprimer le compte Auth
+      const canDelete = await this.reauthenticateForDeletion();
+      if (!canDelete) {
+        throw new Error(
+          'RECENT_LOGIN_REQUIRED: Pour des raisons de sécurité, vous devez vous reconnecter avant de supprimer votre compte. ' +
+            'Veuillez vous déconnecter et vous reconnecter, puis réessayer.'
+        );
+      }
 
       // 1. Supprimer toutes les disponibilités de l'utilisateur
       const availabilitiesQuery = query(
@@ -794,10 +823,15 @@ export class AuthService {
       console.error('❌ Erreur lors de la suppression du compte:', error);
 
       // Messages d'erreur spécifiques
+      if (error.message && error.message.startsWith('RECENT_LOGIN_REQUIRED:')) {
+        // Erreur de ré-authentification détectée avant suppression des données
+        throw new Error(error.message.replace('RECENT_LOGIN_REQUIRED: ', ''));
+      }
+
       if (error.code === 'auth/requires-recent-login') {
         throw new Error(
-          'Pour des raisons de sécurité, vous devez vous reconnecter avant de supprimer votre compte. ' +
-            'Veuillez vous déconnecter et vous reconnecter, puis réessayer.'
+          '⚠️ Données partiellement supprimées. Pour terminer la suppression du compte Firebase Auth, ' +
+            'veuillez vous déconnecter et vous reconnecter, puis réessayer.'
         );
       }
 
@@ -1711,6 +1745,47 @@ export class AuthService {
       return orphanedData;
     } catch (error) {
       console.error('❌ Erreur lors du nettoyage debug:', error);
+    }
+  }
+
+  // Nettoyer un compte Firebase Auth orphelin (sans données Firestore)
+  static async cleanupOrphanedAuthAccount() {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        console.log('ℹ️ Aucun utilisateur connecté à nettoyer');
+        return false;
+      }
+
+      // Vérifier si l'utilisateur a des données dans Firestore
+      const userRef = doc(db, 'users', currentUser.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        console.log('🧹 Compte Auth orphelin détecté, suppression...');
+
+        try {
+          await currentUser.delete();
+          console.log('✅ Compte Auth orphelin supprimé');
+          return true;
+        } catch (error) {
+          if (error.code === 'auth/requires-recent-login') {
+            console.log(
+              '⚠️ Reconnexion requise pour supprimer le compte Auth orphelin'
+            );
+            throw new Error(
+              'Compte orphelin détecté. Veuillez vous reconnecter pour terminer la suppression.'
+            );
+          }
+          throw error;
+        }
+      } else {
+        console.log('ℹ️ Compte Auth normal avec données Firestore');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Erreur nettoyage compte orphelin:', error);
+      throw error;
     }
   }
 }
