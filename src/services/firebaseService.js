@@ -1918,6 +1918,31 @@ export class AvailabilityService {
           availabilityId: null,
           updatedAt: serverTimestamp(),
         });
+
+        // 🔥 NOUVEAU: Nettoyer TOUTES les invitations PENDING de cet utilisateur
+        console.log(
+          `🧹 [DEBUG] Nettoyage invitations PENDING de ${userId} (arrêt disponibilité)`
+        );
+
+        const invitationsQuery = await getDocs(
+          query(
+            collection(db, 'invitations'),
+            where('fromUserId', '==', userId),
+            where('status', '==', 'pending')
+          )
+        );
+
+        if (invitationsQuery.size > 0) {
+          const deletePromises = invitationsQuery.docs.map(doc =>
+            deleteDoc(doc.ref)
+          );
+          await Promise.all(deletePromises);
+          console.log(
+            `🧹 [DEBUG] ✅ ${invitationsQuery.size} invitations PENDING supprimées`
+          );
+        } else {
+          console.log(`🧹 [DEBUG] ℹ️ Aucune invitation PENDING à supprimer`);
+        }
       });
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -2848,14 +2873,16 @@ export class InvitationService {
   static async checkExistingInvitation(userId1, userId2, activity) {
     try {
       console.log(
-        `🔍 [DEBUG] Vérification invitation existante: ${userId1} <-> ${userId2} pour ${activity}`
+        `🔍 [DEBUG] Vérification invitation PENDING: ${userId1} <-> ${userId2} pour ${activity}`
       );
 
-      // Créer timestamp Firebase pour la comparaison (15 minutes en arrière)
-      const cutoffTime = new Date(Date.now() - 15 * 60 * 1000);
-      console.log(`🔍 [DEBUG] Cutoff time: ${cutoffTime.toISOString()}`);
+      // 🔥 FORCE CLEANUP: Nettoyer TOUTES les invitations PENDING de userId1
+      console.log(
+        `🔥 [FORCE] Nettoyage forcé de TOUTES les invitations PENDING de ${userId1}`
+      );
+      await this.debugCleanupUserInvitations(userId1);
 
-      // Simplifier la requête - vérifier toutes les invitations actives sans contrainte de temps d'abord
+      // Maintenant re-vérifier après nettoyage
       const invitationQuery1 = await getDocs(
         query(
           collection(db, 'invitations'),
@@ -2876,46 +2903,110 @@ export class InvitationService {
         )
       );
 
-      console.log(
-        `🔍 [DEBUG] Invitations ${userId1}->${userId2}: ${invitationQuery1.size}`
-      );
-      console.log(
-        `🔍 [DEBUG] Invitations ${userId2}->${userId1}: ${invitationQuery2.size}`
-      );
-
-      // Vérifier la date manuellement pour les invitations trouvées
-      let hasValidInvitation = false;
-
-      [...invitationQuery1.docs, ...invitationQuery2.docs].forEach(doc => {
-        const data = doc.data();
-        const createdAt = data.createdAt?.toDate
-          ? data.createdAt.toDate()
-          : new Date(data.createdAt);
-        const isRecent = createdAt > cutoffTime;
-        const status = data.status;
-
-        console.log(
-          `🔍 [DEBUG] Invitation ${doc.id}: créée le ${createdAt.toISOString()}, status: ${status}, récente: ${isRecent}`
-        );
-
-        // Une invitation est valide si elle est récente ET encore pending
-        if (isRecent && status === 'pending') {
-          hasValidInvitation = true;
-          console.log(`🔍 [DEBUG] ⚠️ Invitation valide trouvée: ${doc.id}`);
-        } else {
-          console.log(
-            `🔍 [DEBUG] ✅ Invitation ignorée: ${doc.id} (${isRecent ? 'récente' : 'ancienne'}, status: ${status})`
-          );
-        }
-      });
+      const totalPending = invitationQuery1.size + invitationQuery2.size;
 
       console.log(
-        `🔍 [DEBUG] Résultat: invitation active trouvée = ${hasValidInvitation}`
+        `🔍 [DEBUG] Invitations PENDING trouvées après nettoyage: ${totalPending}`
       );
-      return hasValidInvitation;
+
+      if (totalPending > 0) {
+        console.log(`🔍 [DEBUG] ⚠️ BLOCKED: invitation PENDING existe déjà`);
+        return true; // true = invitation active = BLOQUER
+      } else {
+        console.log(`🔍 [DEBUG] ✅ AUTORISÉ: aucune invitation PENDING`);
+        return false; // false = pas d'invitation active = AUTORISER
+      }
     } catch (error) {
       console.error('❌ Erreur vérification invitation existante:', error);
       return false; // En cas d'erreur, autoriser l'invitation
+    }
+  }
+
+  // 🔥 NOUVELLE MÉTHODE: Nettoyer les anciennes invitations entre deux utilisateurs
+  static async cleanupOldInvitations(userId1, userId2, activity) {
+    try {
+      console.log(`🧹 [DEBUG] === DÉBUT NETTOYAGE ===`);
+      console.log(
+        `🧹 [DEBUG] Nettoyage ${userId1} <-> ${userId2} pour ${activity}`
+      );
+
+      const cutoffTime = new Date(Date.now() - 15 * 60 * 1000);
+      console.log(`🧹 [DEBUG] Cutoff time: ${cutoffTime.toISOString()}`);
+
+      // Chercher toutes les invitations anciennes (>15min) OU déclinées/acceptées
+      const oldInvitationsQuery1 = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('fromUserId', '==', userId1),
+          where('toUserId', '==', userId2),
+          where('activity', '==', activity)
+        )
+      );
+
+      const oldInvitationsQuery2 = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('fromUserId', '==', userId2),
+          where('toUserId', '==', userId1),
+          where('activity', '==', activity)
+        )
+      );
+
+      console.log(
+        `🧹 [DEBUG] Invitations trouvées ${userId1}->${userId2}: ${oldInvitationsQuery1.size}`
+      );
+      console.log(
+        `🧹 [DEBUG] Invitations trouvées ${userId2}->${userId1}: ${oldInvitationsQuery2.size}`
+      );
+
+      const deletePromises = [];
+      let deletedCount = 0;
+      let keptCount = 0;
+
+      [...oldInvitationsQuery1.docs, ...oldInvitationsQuery2.docs].forEach(
+        doc => {
+          const data = doc.data();
+          const createdAt = data.createdAt?.toDate
+            ? data.createdAt.toDate()
+            : new Date(data.createdAt);
+          const isOld = createdAt <= cutoffTime;
+          const status = data.status;
+
+          console.log(
+            `🧹 [DEBUG] Analyse invitation ${doc.id}: créée ${createdAt.toISOString()}, status: ${status}, ancienne: ${isOld}`
+          );
+
+          // SUPPRIMER si : ancien OU déjà répondu (declined/accepted/expired)
+          if (isOld || ['accepted', 'declined', 'expired'].includes(status)) {
+            console.log(
+              `🧹 [DEBUG] ✅ SUPPRESSION invitation: ${doc.id} (${isOld ? 'ancienne' : status})`
+            );
+            deletePromises.push(deleteDoc(doc.ref));
+            deletedCount++;
+          } else {
+            console.log(
+              `🧹 [DEBUG] ⚠️ CONSERVATION invitation: ${doc.id} (récente, ${status})`
+            );
+            keptCount++;
+          }
+        }
+      );
+
+      if (deletePromises.length > 0) {
+        await Promise.all(deletePromises);
+        console.log(
+          `🧹 [DEBUG] ✅ ${deletedCount} invitation(s) supprimée(s), ${keptCount} conservée(s)`
+        );
+      } else {
+        console.log(
+          `🧹 [DEBUG] ℹ️ Aucune invitation à supprimer (${keptCount} conservées)`
+        );
+      }
+
+      console.log(`🧹 [DEBUG] === FIN NETTOYAGE ===`);
+    } catch (error) {
+      console.error('❌ Erreur nettoyage invitations:', error);
+      // Ne pas faire échouer la vérification si le nettoyage échoue
     }
   }
 
@@ -3154,6 +3245,132 @@ export class InvitationService {
     }
   }
 
+  // 🔥 NOUVELLE MÉTHODE: Nettoyer toutes les invitations entre deux utilisateurs pour une activité
+  static async cleanupInvitationsBetweenUsers(userId1, userId2, activity) {
+    try {
+      console.log(
+        `🧹 [DEBUG] Nettoyage invitations entre ${userId1} <-> ${userId2} pour ${activity}`
+      );
+
+      // Chercher TOUTES les invitations entre ces deux utilisateurs pour cette activité
+      const invitationQuery1 = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('fromUserId', '==', userId1),
+          where('toUserId', '==', userId2),
+          where('activity', '==', activity)
+        )
+      );
+
+      const invitationQuery2 = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('fromUserId', '==', userId2),
+          where('toUserId', '==', userId1),
+          where('activity', '==', activity)
+        )
+      );
+
+      const deletePromises = [];
+      let cleanedCount = 0;
+
+      // SUPPRIMER toutes les invitations entre ces utilisateurs pour cette activité
+      [...invitationQuery1.docs, ...invitationQuery2.docs].forEach(doc => {
+        const data = doc.data();
+        const status = data.status;
+
+        console.log(`🧹 [DEBUG] Suppression invitation: ${doc.id} (${status})`);
+        deletePromises.push(deleteDoc(doc.ref));
+        cleanedCount++;
+      });
+
+      if (deletePromises.length > 0) {
+        await Promise.all(deletePromises);
+        console.log(
+          `✅ ${cleanedCount} invitation(s) supprimée(s) pour ${activity}`
+        );
+      } else {
+        console.log(`ℹ️ Aucune invitation à supprimer pour ${activity}`);
+      }
+    } catch (error) {
+      console.error('❌ Erreur nettoyage invitations:', error);
+      throw error;
+    }
+  }
+
+  // Nettoyer seulement les très anciennes invitations (1 heure) pour éviter l'accumulation
+  static async cleanupVeryOldInvitations(userId1, userId2, activity) {
+    try {
+      console.log(
+        `🧹 [DEBUG] Nettoyage très anciennes invitations ${userId1} <-> ${userId2} pour ${activity}`
+      );
+
+      // Cutoff: 1 heure en arrière
+      const cutoffTime = new Date(Date.now() - 60 * 60 * 1000);
+      console.log(`🧹 [DEBUG] Cutoff time (1h): ${cutoffTime.toISOString()}`);
+
+      // Chercher les invitations dans les deux sens
+      const invitationQuery1 = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('fromUserId', '==', userId1),
+          where('toUserId', '==', userId2),
+          where('activity', '==', activity)
+        )
+      );
+
+      const invitationQuery2 = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('fromUserId', '==', userId2),
+          where('toUserId', '==', userId1),
+          where('activity', '==', activity)
+        )
+      );
+
+      const allInvitations = [
+        ...invitationQuery1.docs,
+        ...invitationQuery2.docs,
+      ];
+
+      console.log(
+        `🧹 [DEBUG] Total invitations trouvées: ${allInvitations.length}`
+      );
+
+      // Filtrer pour ne garder que les très anciennes
+      const veryOldInvitations = allInvitations.filter(doc => {
+        const data = doc.data();
+        const createdAt = data.createdAt?.toDate
+          ? data.createdAt.toDate()
+          : new Date(data.createdAt);
+        const isVeryOld = createdAt < cutoffTime;
+
+        console.log(
+          `🧹 [DEBUG] Invitation ${doc.id}: créée ${createdAt.toISOString()}, très ancienne: ${isVeryOld}`
+        );
+
+        return isVeryOld;
+      });
+
+      if (veryOldInvitations.length === 0) {
+        console.log(
+          `🧹 [DEBUG] ℹ️ Aucune invitation très ancienne à supprimer`
+        );
+        return;
+      }
+
+      // Supprimer les très anciennes invitations
+      const deletePromises = veryOldInvitations.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+
+      console.log(
+        `🧹 [DEBUG] ✅ ${veryOldInvitations.length} très anciennes invitations supprimées`
+      );
+    } catch (error) {
+      console.error('❌ Erreur nettoyage très anciennes invitations:', error);
+    }
+  }
+
   // Créer une notification de réponse
   static async createResponseNotification(
     toUserId,
@@ -3256,6 +3473,58 @@ export class InvitationService {
       }
     } catch (error) {
       console.error('❌ Erreur nettoyage invitations:', error);
+    }
+  }
+
+  // 🔥 DEBUG: Nettoyer TOUTES les invitations PENDING d'un utilisateur
+  static async debugCleanupUserInvitations(userId) {
+    try {
+      console.log(
+        `🧹 [DEBUG] Nettoyage TOUTES invitations PENDING de ${userId}`
+      );
+
+      // Nettoyer les invitations envoyées par l'utilisateur
+      const sentQuery = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('fromUserId', '==', userId),
+          where('status', '==', 'pending')
+        )
+      );
+
+      // Nettoyer les invitations reçues par l'utilisateur
+      const receivedQuery = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('toUserId', '==', userId),
+          where('status', '==', 'pending')
+        )
+      );
+
+      const allInvitations = [...sentQuery.docs, ...receivedQuery.docs];
+
+      console.log(
+        `🧹 [DEBUG] Invitations PENDING trouvées: ${allInvitations.length}`
+      );
+
+      if (allInvitations.length > 0) {
+        const deletePromises = allInvitations.map(doc => {
+          console.log(`🧹 [DEBUG] Suppression invitation: ${doc.id}`);
+          return deleteDoc(doc.ref);
+        });
+
+        await Promise.all(deletePromises);
+        console.log(
+          `🧹 [DEBUG] ✅ ${allInvitations.length} invitations PENDING supprimées !`
+        );
+        return allInvitations.length;
+      } else {
+        console.log(`🧹 [DEBUG] ℹ️ Aucune invitation PENDING trouvée`);
+        return 0;
+      }
+    } catch (error) {
+      console.error('❌ Erreur nettoyage debug invitations:', error);
+      return 0;
     }
   }
 }

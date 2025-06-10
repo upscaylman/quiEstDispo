@@ -337,6 +337,22 @@ function App() {
     }
 
     try {
+      console.log(
+        `🔥 [DEBUG] Rejoindre ${friendAvailability.activity} avec ami:`,
+        friendAvailability.userId || friendAvailability.friend?.id
+      );
+
+      // 🔥 NOUVELLE APPROCHE: Nettoyer toutes les invitations entre ces deux utilisateurs pour cette activité
+      const { InvitationService } = await import('./services/firebaseService');
+
+      const friendId =
+        friendAvailability.userId || friendAvailability.friend?.id;
+      await InvitationService.cleanupInvitationsBetweenUsers(
+        user.uid,
+        friendId,
+        friendAvailability.activity
+      );
+
       // Démarrer la nouvelle activité
       await handleStartAvailability(friendAvailability.activity);
 
@@ -365,10 +381,36 @@ function App() {
   // Décliner l'activité d'un ami
   const handleDeclineFriendActivity = async friendAvailability => {
     try {
+      console.log(`🔥 [DEBUG] ===============================`);
+      console.log(`🔥 [DEBUG] DÉBUT DÉCLINAISON`);
+      console.log(`🔥 [DEBUG] Activité: ${friendAvailability.activity}`);
+      console.log(
+        `🔥 [DEBUG] Ami:`,
+        friendAvailability.userId || friendAvailability.friend?.id
+      );
+      console.log(`🔥 [DEBUG] User actuel:`, user.uid);
+      console.log(`🔥 [DEBUG] ===============================`);
+
+      // 🔥 NOUVELLE APPROCHE: Nettoyer toutes les invitations entre ces deux utilisateurs pour cette activité
+      const { InvitationService } = await import('./services/firebaseService');
+
+      const friendId =
+        friendAvailability.userId || friendAvailability.friend?.id;
+
+      console.log(`🔥 [DEBUG] Appel cleanupInvitationsBetweenUsers...`);
+      await InvitationService.cleanupInvitationsBetweenUsers(
+        user.uid,
+        friendId,
+        friendAvailability.activity
+      );
+      console.log(`🔥 [DEBUG] cleanupInvitationsBetweenUsers terminé !`);
+
       // Envoyer notification de déclin à l'ami
+      console.log(`🔥 [DEBUG] Envoi notification de déclin...`);
       await sendResponseNotification(friendAvailability, 'declined');
 
       // Retirer l'ami de la liste des disponibles
+      console.log(`🔥 [DEBUG] Retrait de la liste des disponibles...`);
       setAvailableFriends(prev =>
         prev.filter(friend => friend.id !== friendAvailability.id)
       );
@@ -378,11 +420,19 @@ function App() {
         friendAvailability.friend?.name ||
         friendAvailability.name ||
         'Votre ami';
+
+      console.log(`🔥 [DEBUG] ===============================`);
+      console.log(`🔥 [DEBUG] DÉCLINAISON TERMINÉE AVEC SUCCÈS`);
+      console.log(`🔥 [DEBUG] ===============================`);
+
       alert(
         `Vous avez décliné l'invitation de ${friendName} pour ${friendAvailability.activity}`
       );
     } catch (error) {
-      console.error("Erreur lors de décliner l'invitation:", error);
+      console.error(
+        "🔥 [DEBUG] ❌ ERREUR lors de décliner l'invitation:",
+        error
+      );
       alert("Erreur lors de décliner l'invitation");
     }
   };
