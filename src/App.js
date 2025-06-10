@@ -469,8 +469,8 @@ function App() {
         `📨 Envoi d'invitations ${activity} à ${friendIds.length} amis`
       );
 
-      // Envoyer les invitations
-      await InvitationService.sendInvitations(
+      // Envoyer les invitations avec vérification anti-duplication
+      const result = await InvitationService.sendInvitations(
         user.uid,
         activity,
         friendIds,
@@ -480,10 +480,24 @@ function App() {
       // Démarrer sa propre disponibilité
       await handleStartAvailability(activity);
 
-      // Message de succès
-      alert(
-        `✅ Invitations envoyées à ${friendIds.length} ami${friendIds.length > 1 ? 's' : ''} et vous êtes maintenant disponible pour ${activity} !`
-      );
+      // Message de succès adapté selon les résultats
+      let message = '';
+      if (result.count > 0) {
+        message = `✅ ${result.count} invitation${result.count > 1 ? 's' : ''} envoyée${result.count > 1 ? 's' : ''} pour ${activity}`;
+      }
+
+      if (result.blocked > 0) {
+        message += result.count > 0 ? '\n\n' : '';
+        message += `⚠️ ${result.blocked} invitation${result.blocked > 1 ? 's' : ''} bloquée${result.blocked > 1 ? 's' : ''} (invitation déjà en cours pour cette activité)`;
+      }
+
+      if (result.count === 0 && result.blocked > 0) {
+        message += '\n\nAucune nouvelle invitation envoyée.';
+      } else if (result.count > 0) {
+        message += '\n\nVous êtes maintenant disponible !';
+      }
+
+      alert(message);
     } catch (error) {
       console.error('❌ Erreur envoi invitations:', error);
       alert(`Erreur lors de l'envoi des invitations: ${error.message}`);
@@ -1870,6 +1884,7 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
             selectedActivity={currentActivity}
             isAvailable={isAvailable}
             currentUser={user}
+            onDeclineFriend={handleDeclineFriendActivity}
           />
         </div>
         {/* Navigation fixe en bas */}

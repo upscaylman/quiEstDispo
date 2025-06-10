@@ -27,7 +27,7 @@ const MapView = ({
       availableFriends: availableFriends.length,
       darkMode,
       isAvailable,
-      selectedActivity
+      selectedActivity,
     });
   }
   const [selectedFriend, setSelectedFriend] = useState(null);
@@ -440,17 +440,22 @@ const MapView = ({
 
         {/* Pin utilisateur */}
         <UserPin isAvailable={isAvailable} activity={selectedActivity} />
-        
+
         {/* Message si pas de localisation */}
         {!userLocation && (
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-            <div className={`${
-              darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-            } rounded-lg shadow-lg p-6`}>
+            <div
+              className={`${
+                darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+              } rounded-lg shadow-lg p-6`}
+            >
               <MapPinIcon size={48} className="mx-auto mb-4 text-yellow-500" />
-              <h3 className="text-lg font-semibold mb-2">Localisation requise</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                Localisation requise
+              </h3>
               <p className="text-sm opacity-75 mb-4">
-                Autorisez la géolocalisation pour voir votre position sur la carte
+                Autorisez la géolocalisation pour voir votre position sur la
+                carte
               </p>
               <button
                 onClick={() => window.location.reload()}

@@ -1,6 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Check,
   Clock,
   Coffee,
   Crosshair,
@@ -27,6 +26,7 @@ const MapboxMapView = ({
   selectedActivity,
   isAvailable = false,
   currentUser,
+  onDeclineFriend,
 }) => {
   const mapContainer = useRef(null);
   const map = useRef(null);
@@ -277,9 +277,11 @@ const MapboxMapView = ({
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 12px;
+          font-size: 10px;
+          font-weight: bold;
+          color: #374151;
         ">
-          ${friend.friend?.avatar || friend.avatar || '👤'}
+          ${(friend.friend?.name || friend.name || 'A').substring(0, 2).toUpperCase()}
         </div>
         <div style="
           position: absolute;
@@ -292,8 +294,11 @@ const MapboxMapView = ({
           border-radius: 12px;
           font-size: 11px;
           white-space: nowrap;
+          max-width: 100px;
+          overflow: hidden;
+          text-overflow: ellipsis;
         ">
-          ${friend.timeLeft || Math.floor(Math.random() * 45)}min
+          ${friend.friend?.name || friend.name || 'Ami'}
         </div>
       `;
 
@@ -495,7 +500,9 @@ const MapboxMapView = ({
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-4">
-                <div className="text-3xl">{selectedFriend.avatar}</div>
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                  {(selectedFriend.name || 'A').substring(0, 2).toUpperCase()}
+                </div>
                 <div>
                   <h3
                     className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}
@@ -573,12 +580,15 @@ const MapboxMapView = ({
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => {
+                  if (onDeclineFriend) {
+                    onDeclineFriend(selectedFriend);
+                  }
                   setSelectedFriend(null);
                 }}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-medium flex items-center space-x-2 transition-colors shadow-lg"
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-medium flex items-center space-x-2 transition-colors shadow-lg"
               >
-                <Check size={16} />
-                <span>Rejoindre</span>
+                <X size={16} />
+                <span>Décliner</span>
               </motion.button>
             </div>
           </motion.div>

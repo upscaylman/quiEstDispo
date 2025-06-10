@@ -2844,6 +2844,42 @@ export class FriendsService {
 // Service de notifications ultra-simplifié
 // Service d'invitations pour les activités
 export class InvitationService {
+  // Vérifier s'il y a déjà une invitation active entre deux utilisateurs
+  static async checkExistingInvitation(userId1, userId2, activity) {
+    try {
+      const cutoffTime = new Date(Date.now() - 15 * 60 * 1000); // 15 minutes
+
+      // Vérifier invitation de userId1 vers userId2
+      const invitationQuery1 = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('fromUserId', '==', userId1),
+          where('toUserId', '==', userId2),
+          where('activity', '==', activity),
+          where('status', '==', 'pending'),
+          where('createdAt', '>=', cutoffTime)
+        )
+      );
+
+      // Vérifier invitation de userId2 vers userId1
+      const invitationQuery2 = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('fromUserId', '==', userId2),
+          where('toUserId', '==', userId1),
+          where('activity', '==', activity),
+          where('status', '==', 'pending'),
+          where('createdAt', '>=', cutoffTime)
+        )
+      );
+
+      return !invitationQuery1.empty || !invitationQuery2.empty;
+    } catch (error) {
+      console.error('❌ Erreur vérification invitation existante:', error);
+      return false; // En cas d'erreur, autoriser l'invitation
+    }
+  }
+
   // Envoyer des invitations à plusieurs amis pour une activité
   static async sendInvitations(fromUserId, activity, friendIds, location) {
     try {
@@ -2857,8 +2893,35 @@ export class InvitationService {
 
       const batch = [];
       const invitationTime = new Date();
+      const filteredFriendIds = [];
+      const blockedFriends = [];
 
+      // Vérifier chaque ami pour les invitations en double
       for (const friendId of friendIds) {
+        const hasExisting = await this.checkExistingInvitation(
+          fromUserId,
+          friendId,
+          activity
+        );
+        if (hasExisting) {
+          console.log(
+            `⚠️ Invitation déjà active avec ${friendId} pour ${activity}`
+          );
+          blockedFriends.push(friendId);
+        } else {
+          filteredFriendIds.push(friendId);
+        }
+      }
+
+      // Informer l'utilisateur s'il y a des invitations bloquées
+      if (blockedFriends.length > 0) {
+        console.warn(
+          `⚠️ ${blockedFriends.length} invitation(s) bloquée(s) (déjà en cours pour cette activité)`
+        );
+      }
+
+      // Continuer avec les amis non bloqués
+      for (const friendId of filteredFriendIds) {
         // Créer une invitation
         const invitationData = {
           fromUserId,
@@ -2891,9 +2954,15 @@ export class InvitationService {
       await Promise.all(batch);
 
       console.log(
-        `✅ ${friendIds.length} invitations envoyées pour ${activity}`
+        `✅ ${filteredFriendIds.length} invitations envoyées pour ${activity}`
       );
-      return { success: true, count: friendIds.length };
+
+      return {
+        success: true,
+        count: filteredFriendIds.length,
+        blocked: blockedFriends.length,
+        totalRequested: friendIds.length,
+      };
     } catch (error) {
       console.error('❌ Erreur envoi invitations:', error);
       throw new Error(
