@@ -98,46 +98,67 @@ function App() {
   };
 
   useEffect(() => {
+    if (!user) return;
+
+    let unsubscribeNotifications;
+    let unsubscribeFriends;
+    let unsubscribeUserFriends;
+
     const loadDataOptimized = async () => {
-      if (user) {
+      try {
+        await retryGeolocation();
+
+        // Charger les amis initialement
+        const friendsData = await FriendsService.getFriends(user.uid);
+        setFriends(friendsData);
+
+        // Configurer le listener pour les notifications en temps réel
+        unsubscribeNotifications = NotificationService.onNotifications(
+          user.uid,
+          setNotifications
+        );
+
+        // Configurer le listener pour les amis disponibles en temps réel
+        unsubscribeFriends = AvailabilityService.onAvailableFriends(
+          user.uid,
+          setAvailableFriends
+        );
+
+        // Configurer le listener pour surveiller les changements dans la liste d'amis
+        unsubscribeUserFriends = FriendsService.onUserFriendsChange(
+          user.uid,
+          async () => {
+            console.log("📝 Liste d'amis mise à jour, rechargement...");
+            const updatedFriends = await FriendsService.getFriends(user.uid);
+            setFriends(updatedFriends);
+          }
+        );
+
+        // Vérifier le statut des notifications push directement
         try {
-          await retryGeolocation();
-
-          const [friendsData, notificationsData] = await Promise.all([
-            FriendsService.getFriends(user.uid),
-            NotificationService.getNotifications(user.uid),
-          ]);
-
-          setFriends(friendsData);
-          setNotifications(notificationsData);
-
-          // Vérifier le statut des notifications push directement
-          try {
-            const status = await PushNotificationService.checkStatus();
-            setPushNotificationStatus(status);
-            console.log('📱 Statut notifications push:', status);
-          } catch (error) {
-            console.error('Erreur vérification notifications push:', error);
-          }
-
-          await new Promise(resolve => setTimeout(resolve, 100));
-
-          const availableData = await AvailabilityService.getAvailableFriends(
-            user.uid
-          );
-          setAvailableFriends(availableData);
+          const status = await PushNotificationService.checkStatus();
+          setPushNotificationStatus(status);
+          console.log('📱 Statut notifications push:', status);
         } catch (error) {
-          console.error('Erreur chargement des données:', error);
-          if (!isOnline) {
-            const mockData = getMockDataForOfflineMode();
-            setFriends(mockData.friends);
-            setAvailableFriends(mockData.availableFriends);
-          }
+          console.error('Erreur vérification notifications push:', error);
+        }
+      } catch (error) {
+        console.error('Erreur chargement des données:', error);
+        if (!isOnline) {
+          const mockData = getMockDataForOfflineMode();
+          setFriends(mockData.friends);
+          setAvailableFriends(mockData.availableFriends);
         }
       }
     };
 
     loadDataOptimized();
+
+    return () => {
+      if (unsubscribeNotifications) unsubscribeNotifications();
+      if (unsubscribeFriends) unsubscribeFriends();
+      if (unsubscribeUserFriends) unsubscribeUserFriends();
+    };
   }, [user, isOnline, retryGeolocation]);
 
   // Détecter les changements de connexion

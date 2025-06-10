@@ -15,6 +15,7 @@ import {
   getDoc,
   getDocs,
   onSnapshot,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -1730,8 +1731,7 @@ export class FriendsService {
   // Récupérer la liste des amis
   static async getFriends(userId) {
     if (!isOnline()) {
-      // eslint-disable-next-line no-console
-      console.warn('⚠️ Offline mode, returning empty friends list');
+      console.warn('⚠️ Offline mode, no friends data');
       return [];
     }
 
@@ -1741,29 +1741,58 @@ export class FriendsService {
         const userSnap = await getDoc(userRef);
 
         if (userSnap.exists()) {
-          const friendIds = userSnap.data().friends || [];
+          const userData = userSnap.data();
+          const friendIds = userData.friends || [];
 
           if (friendIds.length === 0) {
             return [];
           }
 
-          const friendsPromises = friendIds.map(friendId =>
-            getDoc(doc(db, 'users', friendId))
-          );
+          const friendsData = [];
+          for (const friendId of friendIds) {
+            const friendRef = doc(db, 'users', friendId);
+            const friendSnap = await getDoc(friendRef);
+            if (friendSnap.exists()) {
+              friendsData.push({
+                id: friendId,
+                ...friendSnap.data(),
+              });
+            }
+          }
 
-          const friendsSnaps = await Promise.all(friendsPromises);
-
-          return friendsSnaps
-            .filter(snap => snap.exists())
-            .map(snap => ({ id: snap.id, ...snap.data() }));
+          return friendsData;
         }
-
         return [];
       });
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn('Warning: Could not fetch friends:', error);
+      console.error('❌ Erreur récupération amis:', error);
       return [];
+    }
+  }
+
+  // Écouter les changements dans la liste d'amis de l'utilisateur
+  static onUserFriendsChange(userId, callback) {
+    if (!isOnline()) {
+      console.warn('⚠️ Offline mode, no friends listener');
+      return () => {};
+    }
+
+    try {
+      const userRef = doc(db, 'users', userId);
+      return onSnapshot(userRef, doc => {
+        if (doc.exists()) {
+          const userData = doc.data();
+          const currentFriends = userData.friends || [];
+          console.log(
+            "👥 Changement détecté dans la liste d'amis:",
+            currentFriends.length
+          );
+          callback(currentFriends);
+        }
+      });
+    } catch (error) {
+      console.warn('Warning: Could not listen to user friends changes:', error);
+      return () => {};
     }
   }
 }
@@ -2065,6 +2094,32 @@ export class NotificationService {
     } catch (error) {
       // eslint-disable-next-line no-console
       console.warn('Warning: Could not create notification:', error);
+    }
+  }
+
+  // Récupérer les notifications (méthode manquante)
+  static async getNotifications(userId) {
+    if (!isOnline()) {
+      console.warn('⚠️ Offline mode, no notifications');
+      return [];
+    }
+
+    try {
+      const q = query(
+        collection(db, 'notifications'),
+        where('to', '==', userId),
+        where('read', '==', false),
+        orderBy('createdAt', 'desc')
+      );
+
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+    } catch (error) {
+      console.warn('Warning: Could not get notifications:', error);
+      return [];
     }
   }
 }
