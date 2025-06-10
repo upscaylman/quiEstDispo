@@ -45,7 +45,13 @@ try {
   // Vérifier si la clé reCAPTCHA est disponible
   const recaptchaSiteKey = process.env.REACT_APP_RECAPTCHA_V3_SITE_KEY;
 
-  if (recaptchaSiteKey && recaptchaSiteKey !== 'your_recaptcha_site_key_here') {
+  // Désactiver App Check temporairement en développement pour éviter conflits avec auth téléphone
+  const shouldInitAppCheck =
+    recaptchaSiteKey &&
+    recaptchaSiteKey !== 'your_recaptcha_site_key_here' &&
+    process.env.NODE_ENV === 'production'; // Seulement en production pour l'instant
+
+  if (shouldInitAppCheck) {
     // Configuration App Check avec reCAPTCHA v3
     appCheck = initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider(recaptchaSiteKey),
@@ -54,10 +60,16 @@ try {
     });
     console.log('✅ Firebase App Check initialized with reCAPTCHA');
   } else {
-    console.warn('⚠️ reCAPTCHA site key not configured, App Check disabled');
-    console.warn(
-      '📝 Pour activer App Check, ajoutez REACT_APP_RECAPTCHA_V3_SITE_KEY dans .env.local'
-    );
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        '⚠️ App Check désactivé en développement pour éviter conflits avec auth téléphone'
+      );
+    } else {
+      console.warn('⚠️ reCAPTCHA site key not configured, App Check disabled');
+      console.warn(
+        '📝 Pour activer App Check, ajoutez REACT_APP_RECAPTCHA_V3_SITE_KEY dans .env.local'
+      );
+    }
   }
 } catch (error) {
   console.warn(

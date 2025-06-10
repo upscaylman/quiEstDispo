@@ -844,11 +844,11 @@ export class AuthService {
     try {
       console.log('🔧 Creating reCAPTCHA verifier...');
 
-      // Activer le mode debug pour les tests selon la documentation
-      if (process.env.NODE_ENV === 'development' || options.testMode) {
-        console.log('🔧 Activation du mode debug reCAPTCHA pour les tests');
-        // Désactiver la validation d'app pour les tests selon la documentation
-        // https://firebase.google.com/docs/auth/web/phone-auth#integration_testing
+      // Désactiver App Check temporairement pour l'authentification par téléphone
+      if (process.env.NODE_ENV === 'development') {
+        console.log(
+          '🔧 Mode développement: désactivation temporaire App Check pour auth téléphone'
+        );
         auth.settings = auth.settings || {};
         auth.settings.appVerificationDisabledForTesting = true;
       }
@@ -873,26 +873,13 @@ export class AuthService {
         },
       };
 
-      // En développement, utiliser un reCAPTCHA simplifié
-      if (process.env.NODE_ENV === 'development') {
-        console.log(
-          '🔧 Mode développement: configuration reCAPTCHA simplifiée'
-        );
-        // Firebase utilisera un reCAPTCHA par défaut en mode développement
-      }
-
       const recaptchaVerifier = new RecaptchaVerifier(
         auth,
         elementId,
         recaptchaConfig
       );
 
-      // Rendu automatique en mode test selon la documentation
-      if (process.env.NODE_ENV === 'development' || options.testMode) {
-        console.log('🔧 Mode test: reCAPTCHA sera résolu automatiquement');
-        // Le reCAPTCHA se résoudra automatiquement en mode test
-      }
-
+      console.log('✅ reCAPTCHA verifier créé avec succès');
       return recaptchaVerifier;
     } catch (error) {
       console.error('❌ Error creating reCAPTCHA verifier:', error);
