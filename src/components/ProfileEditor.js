@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Camera, Check, Edit2, Phone, Save, X } from 'lucide-react';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { AuthService, FriendsService } from '../services/firebaseService';
 
@@ -15,6 +15,13 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  // État local pour l'avatar pour mise à jour immédiate
+  const [localAvatar, setLocalAvatar] = useState(user.avatar);
+
+  // Synchroniser l'avatar local avec les changements de user.avatar
+  useEffect(() => {
+    setLocalAvatar(user.avatar);
+  }, [user.avatar]);
 
   const handleSavePhone = async () => {
     if (!phoneNumber.trim()) {
@@ -141,6 +148,9 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
       const photoURL = await AuthService.uploadUserPhoto(user.uid, file);
       console.log('✅ Upload terminé, URL:', photoURL);
 
+      // Mettre à jour l'avatar local immédiatement pour un affichage instantané
+      setLocalAvatar(photoURL);
+
       setSuccess('Photo de profil mise à jour ! 🎉');
       setTimeout(() => setSuccess(''), 3000);
 
@@ -239,14 +249,18 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
         <div className="flex items-center mb-4">
           <div className="relative group">
             <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mr-4 overflow-hidden">
-              {user.avatar && user.avatar.startsWith('http') ? (
+              {(localAvatar || user.avatar) &&
+              ((localAvatar || user.avatar).startsWith('http') ||
+                (localAvatar || user.avatar).startsWith('data:')) ? (
                 <img
-                  src={user.avatar}
+                  src={localAvatar || user.avatar}
                   alt="Avatar"
                   className="w-20 h-20 rounded-full object-cover"
                 />
               ) : (
-                <span className="text-4xl">{user.avatar || '👤'}</span>
+                <span className="text-4xl">
+                  {localAvatar || user.avatar || '👤'}
+                </span>
               )}
             </div>
             {/* Overlay d'upload au centre avec transparence */}
