@@ -1058,6 +1058,178 @@ export class AuthService {
       };
     }
   }
+
+  // Créer une invitation d'amitié
+  static async createFriendInvitation(fromUserId, toUserId) {
+    try {
+      // Récupérer les données de l'expéditeur
+      const fromUserRef = doc(db, 'users', fromUserId);
+      const fromUserSnap = await getDoc(fromUserRef);
+
+      if (!fromUserSnap.exists()) {
+        throw new Error('Utilisateur expéditeur non trouvé');
+      }
+
+      const fromUserData = fromUserSnap.data();
+
+      // Créer l'invitation
+      const invitation = {
+        fromUserId,
+        toUserId,
+        status: 'pending', // pending, accepted, declined
+        createdAt: serverTimestamp(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 jours
+      };
+
+      const invitationRef = await addDoc(
+        collection(db, 'friend_invitations'),
+        invitation
+      );
+
+      // Créer la notification avec boutons d'action
+      await addDoc(collection(db, 'notifications'), {
+        to: toUserId,
+        from: fromUserId,
+        type: 'friend_invitation',
+        message: `👥 ${fromUserData.name} souhaite vous ajouter en ami`,
+        data: {
+          invitationId: invitationRef.id,
+          fromUserName: fromUserData.name,
+          fromUserId: fromUserId,
+          actions: ['accept', 'decline'],
+        },
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+
+      console.log(`✅ Invitation d'amitié créée pour ${fromUserData.name}`);
+      return invitationRef.id;
+    } catch (error) {
+      console.error('❌ Erreur création invitation:', error);
+      throw error;
+    }
+  }
+
+  // Répondre à une invitation d'amitié
+  static async respondToFriendInvitation(invitationId, response, userId) {
+    if (!['accepted', 'declined'].includes(response)) {
+      throw new Error('Réponse invalide. Utilisez "accepted" ou "declined"');
+    }
+
+    try {
+      const invitationRef = doc(db, 'friend_invitations', invitationId);
+      const invitationSnap = await getDoc(invitationRef);
+
+      if (!invitationSnap.exists()) {
+        throw new Error('Invitation non trouvée');
+      }
+
+      const invitationData = invitationSnap.data();
+
+      // Vérifier que c'est bien le destinataire qui répond
+      if (invitationData.toUserId !== userId) {
+        throw new Error('Vous ne pouvez pas répondre à cette invitation');
+      }
+
+      // Vérifier que l'invitation est encore en attente
+      if (invitationData.status !== 'pending') {
+        throw new Error('Cette invitation a déjà été traitée');
+      }
+
+      // Mettre à jour l'invitation
+      await updateDoc(invitationRef, {
+        status: response,
+        respondedAt: serverTimestamp(),
+      });
+
+      if (response === 'accepted') {
+        // Créer l'amitié mutuelle
+        await this.addMutualFriendship(
+          invitationData.fromUserId,
+          invitationData.toUserId
+        );
+
+        // Notifier l'expéditeur de l'acceptation
+        const toUserRef = doc(db, 'users', userId);
+        const toUserSnap = await getDoc(toUserRef);
+        const toUserName = toUserSnap.exists()
+          ? toUserSnap.data().name
+          : 'Un utilisateur';
+
+        await addDoc(collection(db, 'notifications'), {
+          to: invitationData.fromUserId,
+          from: userId,
+          type: 'friend_invitation_accepted',
+          message: `✅ ${toUserName} a accepté votre demande d'ami !`,
+          data: {
+            friendId: userId,
+            friendName: toUserName,
+          },
+          read: false,
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      console.log(`✅ Invitation ${response}`);
+      return { success: true, status: response };
+    } catch (error) {
+      console.error('❌ Erreur réponse invitation:', error);
+      throw error;
+    }
+  }
+
+  // Créer une amitié mutuelle (fonction existante, mais on enlève la notification automatique)
+  static async addMutualFriendship(userId1, userId2) {
+    if (!isOnline()) {
+      throw new Error('Connexion requise pour ajouter des amis');
+    }
+
+    try {
+      await retryWithBackoff(async () => {
+        const user1Ref = doc(db, 'users', userId1);
+        const user2Ref = doc(db, 'users', userId2);
+
+        const [user1Snap, user2Snap] = await Promise.all([
+          getDoc(user1Ref),
+          getDoc(user2Ref),
+        ]);
+
+        if (user1Snap.exists() && user2Snap.exists()) {
+          const user1Data = user1Snap.data();
+          const user2Data = user2Snap.data();
+          const user1Friends = user1Data.friends || [];
+          const user2Friends = user2Data.friends || [];
+
+          const updates = [];
+
+          if (!user1Friends.includes(userId2)) {
+            updates.push(
+              updateDoc(user1Ref, {
+                friends: [...user1Friends, userId2],
+                updatedAt: serverTimestamp(),
+              })
+            );
+          }
+
+          if (!user2Friends.includes(userId1)) {
+            updates.push(
+              updateDoc(user2Ref, {
+                friends: [...user2Friends, userId1],
+                updatedAt: serverTimestamp(),
+              })
+            );
+          }
+
+          await Promise.all(updates);
+          console.log(
+            `✅ Amitié créée entre ${user1Data.name} et ${user2Data.name}`
+          );
+        }
+      });
+    } catch (error) {
+      throw new Error(`Impossible de créer l'amitié: ${error.message}`);
+    }
+  }
 }
 
 // Service de disponibilité ultra-simplifié
@@ -1434,10 +1606,10 @@ export class FriendsService {
     }
   }
 
-  // Ajouter un ami par numéro de téléphone
+  // Ajouter un ami par numéro de téléphone (maintenant création d'invitation)
   static async addFriendByPhone(currentUserId, phoneNumber) {
     if (!isOnline()) {
-      throw new Error('Connexion requise pour ajouter des amis');
+      throw new Error('Connexion requise pour envoyer des invitations');
     }
 
     try {
@@ -1463,9 +1635,36 @@ export class FriendsService {
             throw new Error('Vous ne pouvez pas vous ajouter vous-même');
           }
 
-          await this.addMutualFriendship(currentUserId, friendId);
-          console.log('✅ Ami ajouté:', friendData.name);
-          return friendData;
+          // Vérifier si une invitation existe déjà
+          const existingInvitationQuery = query(
+            collection(db, 'friend_invitations'),
+            where('fromUserId', '==', currentUserId),
+            where('toUserId', '==', friendId),
+            where('status', '==', 'pending')
+          );
+          const existingInvitations = await getDocs(existingInvitationQuery);
+
+          if (!existingInvitations.empty) {
+            throw new Error(
+              'Une invitation est déjà en cours pour cet utilisateur'
+            );
+          }
+
+          // Vérifier s'ils sont déjà amis
+          const currentUserRef = doc(db, 'users', currentUserId);
+          const currentUserSnap = await getDoc(currentUserRef);
+          if (currentUserSnap.exists()) {
+            const currentUserFriends = currentUserSnap.data().friends || [];
+            if (currentUserFriends.includes(friendId)) {
+              throw new Error('Vous êtes déjà amis avec cette personne');
+            }
+          }
+
+          // Créer l'invitation d'amitié
+          await this.createFriendInvitation(currentUserId, friendId);
+
+          console.log("✅ Invitation d'amitié envoyée à:", friendData.name);
+          return { ...friendData, invitationSent: true };
         } else {
           // Essayer aussi avec des variantes du format
           const phoneVariants = [
@@ -1490,9 +1689,29 @@ export class FriendsService {
                   throw new Error('Vous ne pouvez pas vous ajouter vous-même');
                 }
 
-                await this.addMutualFriendship(currentUserId, friendId);
-                console.log('✅ Ami trouvé avec variante:', friendData.name);
-                return friendData;
+                // Même vérifications que ci-dessus
+                const existingInvitationQuery = query(
+                  collection(db, 'friend_invitations'),
+                  where('fromUserId', '==', currentUserId),
+                  where('toUserId', '==', friendId),
+                  where('status', '==', 'pending')
+                );
+                const existingInvitations = await getDocs(
+                  existingInvitationQuery
+                );
+
+                if (!existingInvitations.empty) {
+                  throw new Error(
+                    'Une invitation est déjà en cours pour cet utilisateur'
+                  );
+                }
+
+                await this.createFriendInvitation(currentUserId, friendId);
+                console.log(
+                  '✅ Invitation trouvée avec variante:',
+                  friendData.name
+                );
+                return { ...friendData, invitationSent: true };
               }
             }
           }
@@ -1503,85 +1722,8 @@ export class FriendsService {
         }
       });
     } catch (error) {
-      console.error('❌ Erreur ajout ami:', error);
-      throw new Error(`Impossible d'ajouter l'ami: ${error.message}`);
-    }
-  }
-
-  // Créer une amitié mutuelle
-  static async addMutualFriendship(userId1, userId2) {
-    if (!isOnline()) {
-      throw new Error('Connexion requise pour ajouter des amis');
-    }
-
-    try {
-      await retryWithBackoff(async () => {
-        const user1Ref = doc(db, 'users', userId1);
-        const user2Ref = doc(db, 'users', userId2);
-
-        const [user1Snap, user2Snap] = await Promise.all([
-          getDoc(user1Ref),
-          getDoc(user2Ref),
-        ]);
-
-        if (user1Snap.exists() && user2Snap.exists()) {
-          const user1Data = user1Snap.data();
-          const user2Data = user2Snap.data();
-          const user1Friends = user1Data.friends || [];
-          const user2Friends = user2Data.friends || [];
-
-          const updates = [];
-          let newFriendshipCreated = false;
-
-          if (!user1Friends.includes(userId2)) {
-            updates.push(
-              updateDoc(user1Ref, {
-                friends: [...user1Friends, userId2],
-                updatedAt: serverTimestamp(),
-              })
-            );
-            newFriendshipCreated = true;
-          }
-
-          if (!user2Friends.includes(userId1)) {
-            updates.push(
-              updateDoc(user2Ref, {
-                friends: [...user2Friends, userId1],
-                updatedAt: serverTimestamp(),
-              })
-            );
-
-            // Créer une notification pour user2 (celui qui a été ajouté)
-            if (newFriendshipCreated) {
-              const user1Name = user1Data.name || 'Un utilisateur';
-              const user1Phone = user1Data.phone || 'numéro non disponible';
-
-              // Créer la notification directement
-              await addDoc(collection(db, 'notifications'), {
-                to: userId2,
-                from: userId1,
-                type: 'friend_added',
-                message: `👥 ${user1Name} vous a ajouté en ami via le numéro ${user1Phone}`,
-                data: {
-                  friendName: user1Name,
-                  friendPhone: user1Phone,
-                  friendId: userId1,
-                },
-                read: false,
-                createdAt: serverTimestamp(),
-              });
-
-              console.log(
-                `✅ Notification d'ajout d'ami envoyée à ${user2Data.name}`
-              );
-            }
-          }
-
-          await Promise.all(updates);
-        }
-      });
-    } catch (error) {
-      throw new Error(`Impossible de créer l'amitié: ${error.message}`);
+      console.error('❌ Erreur envoi invitation:', error);
+      throw new Error(`Impossible d'envoyer l'invitation: ${error.message}`);
     }
   }
 

@@ -1,5 +1,5 @@
 // Service Worker pour "Qui est dispo" avec mise à jour automatique
-const VERSION = '1.0.13'; // Incrémenter à chaque déploiement
+const VERSION = '1.0.14'; // Incrémenter à chaque déploiement
 const CACHE_NAME = 'qui-est-dispo-v' + VERSION;
 const STATIC_CACHE = 'qui-est-dispo-static-v1';
 
@@ -163,5 +163,75 @@ self.addEventListener('message', event => {
     self.skipWaiting().then(() => {
       console.log('✅ Service Worker: skipWaiting() terminé');
     });
+  }
+});
+
+// Gestion des notifications push
+self.addEventListener('push', event => {
+  console.log('📱 Service Worker: Notification push reçue');
+
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = {
+        title: 'Qui est dispo',
+        body: event.data.text() || 'Nouvelle notification',
+      };
+    }
+  }
+
+  const options = {
+    body: data.body || 'Nouvelle notification',
+    icon: '/logo192.png',
+    badge: '/logo192.png',
+    data: data.data || {},
+    tag: data.tag || 'general',
+    requireInteraction: data.requireInteraction || false,
+    actions: data.actions || [],
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Qui est dispo', options)
+  );
+});
+
+// Gestion des clics sur les notifications
+self.addEventListener('notificationclick', event => {
+  console.log('🔔 Service Worker: Clic sur notification');
+
+  event.notification.close();
+
+  // Gérer les actions de notification (accepter/refuser invitation)
+  if (event.action) {
+    console.log('🎯 Action notification:', event.action);
+
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window' }).then(clients => {
+        // Envoyer l'action à l'application ouverte
+        if (clients.length > 0) {
+          clients[0].postMessage({
+            type: 'NOTIFICATION_ACTION',
+            action: event.action,
+            data: event.notification.data,
+          });
+          return clients[0].focus();
+        }
+        // Ouvrir l'application si elle n'est pas ouverte
+        return self.clients.openWindow('/');
+      })
+    );
+  } else {
+    // Clic sur la notification elle-même
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window' }).then(clients => {
+        // Ouvrir ou refocus l'application
+        if (clients.length > 0) {
+          return clients[0].focus();
+        }
+        return self.clients.openWindow('/');
+      })
+    );
   }
 });

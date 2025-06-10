@@ -15,7 +15,7 @@ import {
   UserPlus,
   Users,
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import AddFriendModal from './components/AddFriendModal';
 import AvailabilityButtons from './components/AvailabilityButtons';
 import InviteFriendsModal from './components/InviteFriendsModal';
@@ -34,7 +34,9 @@ import {
   InvitationService,
   NotificationService,
 } from './services/firebaseService';
+import PushNotificationService from './services/pushNotificationService';
 import { getMockDataForOfflineMode } from './utils/mockData';
+
 function App() {
   const { user, loading, signOut } = useAuth();
   const { location, error: locationError, retryGeolocation } = useGeolocation();
@@ -50,100 +52,93 @@ function App() {
   const [showAddFriendModal, setShowAddFriendModal] = useState(false);
   const [showInviteFriendsModal, setShowInviteFriendsModal] = useState(false);
   const [selectedInviteActivity, setSelectedInviteActivity] = useState(null);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    return saved !== null ? JSON.parse(saved) : false;
+  });
   const [useMapbox, setUseMapbox] = useState(true); // Utiliser MapboxMapView par défaut
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [pushNotificationStatus, setPushNotificationStatus] = useState({
+    supported: false,
+    permission: 'default',
+    subscribed: false,
+  });
 
-  // Charger les données utilisateur de manière optimisée
+  // Vérifier le statut des notifications push
+  const checkPushNotificationStatus = useCallback(async () => {
+    try {
+      const status = await PushNotificationService.checkStatus();
+      setPushNotificationStatus(status);
+      console.log('📱 Statut notifications push:', status);
+    } catch (error) {
+      console.error('Erreur vérification notifications push:', error);
+    }
+  }, []);
+
+  // Activer les notifications push
+  const enablePushNotifications = async () => {
+    try {
+      await PushNotificationService.requestPermission();
+      await checkPushNotificationStatus();
+      console.log('✅ Notifications push activées');
+    } catch (error) {
+      console.error('❌ Erreur activation notifications push:', error);
+      alert(`Erreur: ${error.message}`);
+    }
+  };
+
+  // Tester les notifications push
+  const testPushNotification = async () => {
+    try {
+      await PushNotificationService.sendTestPushNotification();
+    } catch (error) {
+      console.error('❌ Erreur test notification:', error);
+      alert(`Erreur: ${error.message}`);
+    }
+  };
+
   useEffect(() => {
-    if (!user) return;
-
-    let unsubscribeFriends;
-    let unsubscribeNotifications;
-
     const loadDataOptimized = async () => {
-      // Démarrer les listeners immédiatement (ils sont plus rapides)
-      try {
-        console.log('🔄 Setting up real-time listeners...');
+      if (user) {
+        try {
+          await retryGeolocation();
 
-        // Démarrer les listeners en parallèle
-        unsubscribeFriends = AvailabilityService.onAvailableFriends(
-          user.uid,
-          availabilities => {
-            console.log('🟢 Availabilities from Firebase:', availabilities);
-            // S'assurer que les données ont la bonne structure
-            const formattedAvailabilities = availabilities.map(avail => ({
-              ...avail,
-              lat:
-                avail.location?.lat || avail.lat || avail.friend?.location?.lat,
-              lng:
-                avail.location?.lng || avail.lng || avail.friend?.location?.lng,
-              name: avail.friend?.name || avail.name || 'Ami',
-              avatar: avail.friend?.avatar || avail.avatar || '👤',
-              timeLeft:
-                avail.timeLeft ||
-                Math.floor((new Date(avail.endTime) - new Date()) / 60000) ||
-                30,
-            }));
-            console.log(
-              '🔄 Formatted availabilities:',
-              formattedAvailabilities
-            );
-            setAvailableFriends(formattedAvailabilities);
+          const [friendsData, notificationsData] = await Promise.all([
+            FriendsService.getFriends(user.uid),
+            NotificationService.getNotifications(user.uid),
+          ]);
+
+          setFriends(friendsData);
+          setNotifications(notificationsData);
+
+          // Vérifier le statut des notifications push directement
+          try {
+            const status = await PushNotificationService.checkStatus();
+            setPushNotificationStatus(status);
+            console.log('📱 Statut notifications push:', status);
+          } catch (error) {
+            console.error('Erreur vérification notifications push:', error);
           }
-        );
 
-        unsubscribeNotifications = NotificationService.onNotifications(
-          user.uid,
-          setNotifications
-        );
+          await new Promise(resolve => setTimeout(resolve, 100));
 
-        console.log('✅ Real-time listeners active');
-      } catch (error) {
-        console.warn('⚠️ Listeners setup failed:', error);
-      }
-
-      // Charger les amis en arrière-plan
-      try {
-        console.log('🔄 Loading friends data from Firebase...');
-        const friendsData = await FriendsService.getFriends(user.uid);
-        setFriends(friendsData);
-        console.log(
-          '✅ Friends data loaded from Firebase:',
-          friendsData.length,
-          'amis'
-        );
-      } catch (error) {
-        console.warn('⚠️ Friends loading failed, using fallback:', error);
-        // Mode offline ou problème de réseau - utiliser des données d'exemple seulement en développement
-        if (process.env.NODE_ENV === 'development') {
-          console.log(
-            '📱 Basculement vers les données de test (problème de connexion)'
+          const availableData = await AvailabilityService.getAvailableFriends(
+            user.uid
           );
-          const { getMockDataForOfflineMode } = await import(
-            './utils/mockData'
-          );
-          const mockData = getMockDataForOfflineMode();
-          setFriends(mockData.friends);
-          setAvailableFriends(mockData.availableFriends);
-          setNotifications(mockData.notifications);
-          console.log('✅ Données de test chargées en fallback');
-        } else {
-          // En production, laisser vide si pas de connexion
-          setFriends([]);
+          setAvailableFriends(availableData);
+        } catch (error) {
+          console.error('Erreur chargement des données:', error);
+          if (!isOnline) {
+            const mockData = getMockDataForOfflineMode();
+            setFriends(mockData.friends);
+            setAvailableFriends(mockData.availableFriends);
+          }
         }
       }
     };
 
-    // Utiliser un délai pour ne pas bloquer le rendu initial
-    const timeoutId = setTimeout(loadDataOptimized, 100);
-
-    return () => {
-      clearTimeout(timeoutId);
-      if (unsubscribeFriends) unsubscribeFriends();
-      if (unsubscribeNotifications) unsubscribeNotifications();
-    };
-  }, [user]);
+    loadDataOptimized();
+  }, [user, isOnline, retryGeolocation]);
 
   // Détecter les changements de connexion
   useEffect(() => {
@@ -341,7 +336,37 @@ function App() {
       await NotificationService.markAsRead(notificationId);
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
     } catch (error) {
-      // Ignorer les erreurs
+      console.error('Erreur marquage notification:', error);
+    }
+  };
+
+  const handleFriendInvitationResponse = async (
+    invitationId,
+    response,
+    notificationId
+  ) => {
+    try {
+      await FriendsService.respondToFriendInvitation(
+        invitationId,
+        response,
+        user.uid
+      );
+
+      // Marquer la notification comme lue
+      await markNotificationAsRead(notificationId);
+
+      // Rafraîchir la liste des amis si accepté
+      if (response === 'accepted') {
+        const freshFriends = await FriendsService.getFriends(user.uid);
+        setFriends(freshFriends);
+      }
+
+      console.log(
+        `✅ Invitation ${response === 'accepted' ? 'acceptée' : 'refusée'}`
+      );
+    } catch (error) {
+      console.error('Erreur réponse invitation:', error);
+      alert(`Erreur: ${error.message}`);
     }
   };
 
@@ -703,8 +728,7 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
               {notifications.map(notification => (
                 <div
                   key={notification.id}
-                  className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-4 shadow cursor-pointer`}
-                  onClick={() => markNotificationAsRead(notification.id)}
+                  className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-4 shadow`}
                 >
                   <p
                     className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
@@ -717,6 +741,55 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
                     {notification.createdAt?.toDate?.()?.toLocaleTimeString() ||
                       'Maintenant'}
                   </p>
+
+                  {/* Boutons d'action pour les invitations d'amitié */}
+                  {notification.type === 'friend_invitation' &&
+                    notification.data?.actions && (
+                      <div className="flex space-x-2 mt-3">
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() =>
+                            handleFriendInvitationResponse(
+                              notification.data.invitationId,
+                              'accepted',
+                              notification.id
+                            )
+                          }
+                          className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                        >
+                          ✅ Accepter
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() =>
+                            handleFriendInvitationResponse(
+                              notification.data.invitationId,
+                              'declined',
+                              notification.id
+                            )
+                          }
+                          className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                        >
+                          ❌ Refuser
+                        </motion.button>
+                      </div>
+                    )}
+
+                  {/* Bouton simple pour les autres types de notifications */}
+                  {notification.type !== 'friend_invitation' && (
+                    <div className="mt-3">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => markNotificationAsRead(notification.id)}
+                        className="text-sm text-blue-500 hover:text-blue-600 font-medium"
+                      >
+                        Marquer comme lu
+                      </motion.button>
+                    </div>
+                  )}
                 </div>
               ))}
               {notifications.length === 0 && (
@@ -774,6 +847,106 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
                     }`}
                   />
                 </motion.button>
+              </div>
+            </div>
+
+            {/* Section Notifications Push */}
+            <div
+              className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
+            >
+              <h3
+                className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+              >
+                📱 Notifications Push
+              </h3>
+
+              <div className="space-y-4">
+                {/* Statut des notifications */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4
+                      className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                    >
+                      Statut des notifications
+                    </h4>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <div
+                        className={`w-3 h-3 rounded-full ${
+                          pushNotificationStatus.subscribed
+                            ? 'bg-green-500'
+                            : pushNotificationStatus.permission === 'granted'
+                              ? 'bg-yellow-500'
+                              : 'bg-red-500'
+                        }`}
+                      ></div>
+                      <p
+                        className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                      >
+                        {pushNotificationStatus.subscribed
+                          ? 'Activées'
+                          : pushNotificationStatus.permission === 'granted'
+                            ? 'Autorisées (non configurées)'
+                            : pushNotificationStatus.permission === 'denied'
+                              ? 'Refusées'
+                              : 'Non autorisées'}
+                      </p>
+                    </div>
+                  </div>
+                  {pushNotificationStatus.supported && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={checkPushNotificationStatus}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        darkMode
+                          ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      🔄 Vérifier
+                    </motion.button>
+                  )}
+                </div>
+
+                {/* Boutons d'action */}
+                {pushNotificationStatus.supported && (
+                  <div className="flex space-x-2">
+                    {!pushNotificationStatus.subscribed && (
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={enablePushNotifications}
+                        className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                      >
+                        🔔 Activer les notifications
+                      </motion.button>
+                    )}
+
+                    {pushNotificationStatus.subscribed && (
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={testPushNotification}
+                        className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                      >
+                        🧪 Tester notification
+                      </motion.button>
+                    )}
+                  </div>
+                )}
+
+                {!pushNotificationStatus.supported && (
+                  <div
+                    className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}
+                  >
+                    <p
+                      className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}
+                    >
+                      ⚠️ Les notifications push ne sont pas supportées sur ce
+                      navigateur
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 

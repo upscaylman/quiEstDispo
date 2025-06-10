@@ -113,8 +113,14 @@ ${currentUser?.displayName || currentUser?.name || 'Ton ami'}`;
         formattedPhone = '+33' + cleanPhone;
       }
 
-      const friend = await onAddFriend(formattedPhone);
-      setSuccess(`${friend.name || 'Ami'} ajouté avec succès !`);
+      const result = await onAddFriend(formattedPhone);
+      if (result.invitationSent) {
+        setSuccess(
+          `Invitation envoyée à ${result.name || 'cet utilisateur'} !`
+        );
+      } else {
+        setSuccess(`${result.name || 'Ami'} ajouté avec succès !`);
+      }
       setPhoneNumber('');
 
       // Fermer le modal après 2 secondes
