@@ -1629,48 +1629,48 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
                     href="https://facebook.com"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-white/70 hover:text-white transition-colors"
+                    className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-all duration-300 hover:scale-110"
                   >
-                    <Facebook size={24} />
+                    <Facebook size={20} />
                   </a>
                   <a
                     href="https://instagram.com"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-white/70 hover:text-white transition-colors"
+                    className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-all duration-300 hover:scale-110"
                   >
-                    <Instagram size={24} />
+                    <Instagram size={20} />
                   </a>
                   <a
                     href="https://x.com"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-white/70 hover:text-white transition-colors"
+                    className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-all duration-300 hover:scale-110"
                   >
-                    <Twitter size={24} />
+                    <Twitter size={20} />
                   </a>
                   <a
                     href="https://linkedin.com"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-white/70 hover:text-white transition-colors"
+                    className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-all duration-300 hover:scale-110"
                   >
-                    <Linkedin size={24} />
+                    <Linkedin size={20} />
                   </a>
                 </div>
 
                 {/* Sections du footer */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-sm">
                   {/* À PROPOS */}
-                  <div>
-                    <h3 className="font-semibold text-white mb-4 flex items-center">
+                  <div className="text-center">
+                    <h3 className="font-semibold text-white mb-4 flex items-center justify-center">
                       <HelpCircle size={16} className="mr-2" />À PROPOS
                     </h3>
                     <ul className="space-y-2">
                       <li>
                         <a
                           href="#"
-                          className="text-white/70 hover:text-white transition-colors flex items-center"
+                          className="text-white/70 hover:text-white transition-colors flex items-center justify-center"
                         >
                           <HelpCircle size={14} className="mr-2" />
                           Centre d'aide
@@ -1679,7 +1679,7 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
                       <li>
                         <a
                           href="#"
-                          className="text-white/70 hover:text-white transition-colors flex items-center"
+                          className="text-white/70 hover:text-white transition-colors flex items-center justify-center"
                         >
                           <FileText size={14} className="mr-2" />
                           Guide d'utilisation
@@ -1689,8 +1689,8 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
                   </div>
 
                   {/* LEGAL */}
-                  <div>
-                    <h3 className="font-semibold text-white mb-4 flex items-center">
+                  <div className="text-center">
+                    <h3 className="font-semibold text-white mb-4 flex items-center justify-center">
                       <Shield size={16} className="mr-2" />
                       LÉGAL
                     </h3>
@@ -1731,22 +1731,22 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
                   </div>
 
                   {/* SERVICE CLIENT */}
-                  <div>
-                    <h3 className="font-semibold text-white mb-4 flex items-center">
+                  <div className="text-center">
+                    <h3 className="font-semibold text-white mb-4 flex items-center justify-center">
                       <ClockIcon size={16} className="mr-2" />
                       SERVICE CLIENT
                     </h3>
                     <div className="space-y-2">
-                      <p className="text-white/70 flex items-center">
+                      <p className="text-white/70 flex items-center justify-center">
                         <ClockIcon size={14} className="mr-2" />
                         Du lundi au vendredi
                       </p>
-                      <p className="text-white/70 ml-6">
+                      <p className="text-white/70">
                         de 10h à 18h (Heure de Paris)
                       </p>
                       <a
                         href="mailto:contact@qui-est-dispo.com"
-                        className="text-white hover:text-white/80 transition-colors flex items-center mt-3"
+                        className="text-white hover:text-white/80 transition-colors flex items-center justify-center mt-3"
                       >
                         <Mail size={14} className="mr-2" />
                         Nous contacter
