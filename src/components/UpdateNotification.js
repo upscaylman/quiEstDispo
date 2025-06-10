@@ -92,10 +92,15 @@ const UpdateNotification = () => {
             console.log(
               `🆕 Nouvelle version détectée: ${currentVersion} → ${swVersion}`
             );
+            console.log(`🔔 Déclenchement notification de mise à jour`);
             // Éviter les doublons
             if (!showUpdate) {
               setShowUpdate(true);
             }
+          } else {
+            console.log(
+              `✅ Versions identiques, pas de mise à jour nécessaire`
+            );
           }
           currentVersion = swVersion;
         }
