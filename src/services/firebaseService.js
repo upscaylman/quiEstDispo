@@ -531,10 +531,31 @@ export class AuthService {
       const existingUsers = await getDocs(usersQuery);
 
       if (!existingUsers.empty) {
-        // Un compte existant a ce numéro
-        const existingUserDoc = existingUsers.docs[0];
-        const existingUserData = existingUserDoc.data();
-        const existingUserId = existingUserDoc.id;
+        // Plusieurs comptes peuvent avoir le même numéro, prioriser celui avec un email (compte principal)
+        let existingUserDoc = existingUsers.docs[0];
+        let existingUserData = existingUserDoc.data();
+        let existingUserId = existingUserDoc.id;
+
+        // Si plusieurs résultats, prioriser le compte avec un email
+        if (existingUsers.docs.length > 1) {
+          console.log(
+            `⚠️ ${existingUsers.docs.length} comptes trouvés avec ce numéro, sélection du compte principal...`
+          );
+
+          const accountWithEmail = existingUsers.docs.find(doc => {
+            const data = doc.data();
+            return data.email && data.email.trim() !== '';
+          });
+
+          if (accountWithEmail) {
+            existingUserDoc = accountWithEmail;
+            existingUserData = existingUserDoc.data();
+            existingUserId = existingUserDoc.id;
+            console.log(
+              `✅ Compte principal sélectionné: ${existingUserData.name} (${existingUserData.email})`
+            );
+          }
+        }
 
         console.log(
           `✅ Compte existant trouvé: ${existingUserData.name} (${existingUserId})`
@@ -559,6 +580,9 @@ export class AuthService {
 
           // Nettoyer le compte temporaire
           await this.cleanupTemporaryPhoneAccount(phoneUser.uid);
+
+          // Nettoyer les comptes doublons avec le même numéro
+          await this.cleanupDuplicatePhoneAccounts(phoneNumber, existingUserId);
 
           // Informer l'utilisateur avec un message explicatif
           alert(
@@ -1444,6 +1468,51 @@ export class AuthService {
       return existingUsers;
     } catch (error) {
       console.error('❌ Erreur debug:', error);
+    }
+  }
+
+  // Nettoyer les comptes doublons avec le même numéro de téléphone
+  static async cleanupDuplicatePhoneAccounts(phoneNumber, keepAccountId) {
+    try {
+      console.log(
+        `🧹 Nettoyage des comptes doublons pour numéro ${phoneNumber}...`
+      );
+
+      const usersQuery = query(
+        collection(db, 'users'),
+        where('phone', '==', phoneNumber)
+      );
+      const duplicateUsers = await getDocs(usersQuery);
+
+      console.log(
+        `📊 ${duplicateUsers.docs.length} comptes trouvés avec ce numéro`
+      );
+
+      for (const userDoc of duplicateUsers.docs) {
+        const userData = userDoc.data();
+        const userId = userDoc.id;
+
+        // Garder seulement le compte principal, supprimer les autres
+        if (userId !== keepAccountId) {
+          console.log(
+            `🗑️ Suppression compte doublon: ${userData.name} (${userId})`
+          );
+
+          // Supprimer le document Firestore
+          await deleteDoc(userDoc.ref);
+
+          // Note: On ne peut pas supprimer l'utilisateur Firebase Auth depuis le client
+          // Il faudrait une Cloud Function pour cela
+        } else {
+          console.log(
+            `✅ Compte principal conservé: ${userData.name} (${userId})`
+          );
+        }
+      }
+
+      console.log('🎉 Nettoyage des doublons terminé');
+    } catch (error) {
+      console.warn('⚠️ Erreur nettoyage doublons (non critique):', error);
     }
   }
 }
