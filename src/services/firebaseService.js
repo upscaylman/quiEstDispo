@@ -2928,9 +2928,6 @@ export class InvitationService {
       const filteredFriendIds = [];
       const blockedFriends = [];
 
-      // Nettoyer les anciennes invitations expirées d'abord
-      await this.cleanupExpiredInvitations();
-
       // Vérifier chaque ami pour les invitations en double
       for (const friendId of friendIds) {
         console.log(`🔍 [DEBUG] Vérification ami ${friendId} pour ${activity}`);

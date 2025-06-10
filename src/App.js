@@ -477,8 +477,10 @@ function App() {
         location
       );
 
-      // Démarrer sa propre disponibilité
-      await handleStartAvailability(activity);
+      // Démarrer sa propre disponibilité SEULEMENT si au moins une invitation a été envoyée
+      if (result.count > 0) {
+        await handleStartAvailability(activity);
+      }
 
       // Message de succès adapté selon les résultats
       let message = '';
@@ -492,7 +494,8 @@ function App() {
       }
 
       if (result.count === 0 && result.blocked > 0) {
-        message += '\n\nAucune nouvelle invitation envoyée.';
+        message +=
+          "\n\nAucune nouvelle invitation envoyée. Vous n'êtes pas devenu disponible.";
       } else if (result.count > 0) {
         message += '\n\nVous êtes maintenant disponible !';
       }
