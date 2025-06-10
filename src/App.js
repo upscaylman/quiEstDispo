@@ -11,7 +11,11 @@ import {
   Linkedin,
   Mail,
   MapPin,
+  Moon,
+  Palette,
   Shield,
+  Smartphone,
+  Sun,
   Twitter,
   UserPlus,
   Users,
@@ -504,8 +508,8 @@ function App() {
 
   // Header commun avec notifications et profil
   const renderHeader = () => {
-    // Header spécial pour la page Paramètres
-    if (currentScreen === 'settings') {
+    // Header spécial pour les pages Paramètres et Notifications
+    if (currentScreen === 'settings' || currentScreen === 'notifications') {
       return (
         <div
           className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm p-4 sticky top-0 z-10`}
@@ -529,10 +533,14 @@ function App() {
               <h1
                 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}
               >
-                Paramètres
+                {currentScreen === 'settings' && 'Paramètres'}
+                {currentScreen === 'notifications' && 'Notifications'}
               </h1>
               <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Gérer votre profil et préférences
+                {currentScreen === 'settings' &&
+                  'Gérer votre profil et préférences'}
+                {currentScreen === 'notifications' &&
+                  `${notifications.length} notifications`}
                 {!isOnline && (
                   <span className="text-orange-500 text-xs ml-2">
                     • Mode hors ligne
@@ -559,7 +567,6 @@ function App() {
                 `Salut ${user.name?.split(' ')[0]}! 👋`}
               {currentScreen === 'map' && 'Carte'}
               {currentScreen === 'friends' && 'Mes Amis'}
-              {currentScreen === 'notifications' && 'Notifications'}
             </h1>
             <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
               {currentScreen === 'home' &&
@@ -567,8 +574,6 @@ function App() {
                   ? `Tu es dispo pour ${currentActivity === 'coffee' ? 'Coffee ☕' : currentActivity === 'lunch' ? 'Lunch 🍽️' : currentActivity === 'drinks' ? 'Drinks 🍻' : currentActivity === 'chill' ? 'Chill 😎' : currentActivity}`
                   : 'Que veux-tu faire ?')}
               {currentScreen === 'friends' && `${friends.length} amis`}
-              {currentScreen === 'notifications' &&
-                `${notifications.length} notifications`}
               {!isOnline && (
                 <span className="text-orange-500 text-xs ml-2">
                   • Mode hors ligne
@@ -778,7 +783,7 @@ function App() {
                                   window.location.reload();
                                 } else {
                                   console.log(
-                                    "📝 Aucune amitié créée (normal si pas d'autres utilisateurs)"
+                                    "�� Aucune amitié créée (normal si pas d'autres utilisateurs)"
                                   );
                                   alert(
                                     'Aucun autre utilisateur trouvé pour créer des amitiés'
@@ -950,68 +955,118 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
               >
                 🎨 Apparence
               </h3>
-              <div>
-                <h4
-                  className={`font-medium mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                >
-                  Thème
-                </h4>
-                <div className="space-y-2">
-                  {[
-                    {
-                      value: 'light',
-                      label: '☀️ Clair',
-                      desc: 'Thème clair en permanence',
-                    },
-                    {
-                      value: 'dark',
-                      label: '🌙 Sombre',
-                      desc: 'Thème sombre en permanence',
-                    },
-                    {
-                      value: 'auto',
-                      label: '📱 Auto',
-                      desc: 'Suit le thème de votre appareil',
-                    },
-                  ].map(option => (
-                    <motion.button
-                      key={option.value}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => setThemeMode(option.value)}
-                      className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                        themeMode === option.value
-                          ? darkMode
-                            ? 'border-blue-500 bg-blue-500/10 text-blue-400'
-                            : 'border-blue-500 bg-blue-50 text-blue-600'
+
+              {/* Toggle Thème Clair/Sombre */}
+              <div
+                className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} pt-4`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    <Palette
+                      size={18}
+                      className={`mr-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                    />
+                    <div>
+                      <h5
+                        className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                      >
+                        Thème
+                      </h5>
+                      <p
+                        className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                      >
+                        {themeMode === 'auto'
+                          ? 'Géré automatiquement par votre appareil'
+                          : themeMode === 'dark'
+                            ? 'Interface sombre activée'
+                            : 'Interface claire activée'}
+                      </p>
+                    </div>
+                  </div>
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() =>
+                      themeMode !== 'auto' &&
+                      setThemeMode(themeMode === 'dark' ? 'light' : 'dark')
+                    }
+                    disabled={themeMode === 'auto'}
+                    className={`w-14 h-8 rounded-full p-1 transition-colors ${
+                      themeMode === 'auto'
+                        ? darkMode
+                          ? 'bg-gray-600 opacity-50'
+                          : 'bg-gray-300 opacity-50'
+                        : themeMode === 'dark'
+                          ? 'bg-blue-500'
                           : darkMode
-                            ? 'border-gray-600 hover:border-gray-500 text-gray-300'
-                            : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                            ? 'bg-gray-600'
+                            : 'bg-gray-300'
+                    }`}
+                  >
+                    <div
+                      className={`w-6 h-6 rounded-full transition-transform flex items-center justify-center ${
+                        themeMode === 'auto'
+                          ? 'bg-gray-400 translate-x-3'
+                          : themeMode === 'dark'
+                            ? 'bg-white translate-x-6'
+                            : 'bg-white translate-x-0'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium">{option.label}</div>
-                          <div
-                            className={`text-sm ${
-                              themeMode === option.value
-                                ? darkMode
-                                  ? 'text-blue-300'
-                                  : 'text-blue-500'
-                                : darkMode
-                                  ? 'text-gray-400'
-                                  : 'text-gray-500'
-                            }`}
-                          >
-                            {option.desc}
-                          </div>
-                        </div>
-                        {themeMode === option.value && (
-                          <div className="text-blue-500">✓</div>
-                        )}
-                      </div>
-                    </motion.button>
-                  ))}
+                      {themeMode === 'auto' ? (
+                        <Smartphone size={12} className="text-gray-600" />
+                      ) : themeMode === 'dark' ? (
+                        <Moon size={12} className="text-gray-600" />
+                      ) : (
+                        <Sun size={12} className="text-gray-600" />
+                      )}
+                    </div>
+                  </motion.button>
+                </div>
+              </div>
+
+              {/* Toggle Thème Automatique */}
+              <div
+                className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} pt-4 mt-4`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    <Smartphone
+                      size={18}
+                      className={`mr-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                    />
+                    <div>
+                      <h5
+                        className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                      >
+                        Thème automatique
+                      </h5>
+                      <p
+                        className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                      >
+                        {themeMode === 'auto'
+                          ? 'Suit automatiquement votre appareil'
+                          : 'Désactivé - thème manuel'}
+                      </p>
+                    </div>
+                  </div>
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() =>
+                      setThemeMode(themeMode === 'auto' ? 'light' : 'auto')
+                    }
+                    className={`w-14 h-8 rounded-full p-1 transition-colors ${
+                      themeMode === 'auto'
+                        ? 'bg-purple-500'
+                        : darkMode
+                          ? 'bg-gray-600'
+                          : 'bg-gray-300'
+                    }`}
+                  >
+                    <div
+                      className={`w-6 h-6 rounded-full bg-white transition-transform ${
+                        themeMode === 'auto' ? 'translate-x-6' : 'translate-x-0'
+                      }`}
+                    />
+                  </motion.button>
                 </div>
               </div>
             </div>
@@ -1026,93 +1081,128 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
                 📱 Notifications Push
               </h3>
 
-              <div className="space-y-4">
-                {/* Statut des notifications */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4
-                      className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                    >
-                      Statut des notifications
-                    </h4>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <div
-                        className={`w-3 h-3 rounded-full ${
-                          pushNotificationStatus.subscribed
-                            ? 'bg-green-500'
-                            : pushNotificationStatus.permission === 'granted'
-                              ? 'bg-yellow-500'
-                              : 'bg-red-500'
-                        }`}
-                      ></div>
+              {/* Notifications Push Toggle */}
+              <div
+                className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} pt-4`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    <Bell
+                      size={18}
+                      className={`mr-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                    />
+                    <div>
+                      <h5
+                        className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                      >
+                        Notifications Push
+                      </h5>
                       <p
-                        className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                        className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
                       >
                         {pushNotificationStatus.subscribed
-                          ? 'Activées'
+                          ? 'Activées et fonctionnelles'
                           : pushNotificationStatus.permission === 'granted'
-                            ? 'Autorisées (non configurées)'
+                            ? 'Autorisées mais non configurées'
                             : pushNotificationStatus.permission === 'denied'
-                              ? 'Refusées'
-                              : 'Non autorisées'}
+                              ? 'Refusées par le navigateur'
+                              : pushNotificationStatus.supported
+                                ? 'Disponibles sur ce navigateur'
+                                : 'Non supportées sur ce navigateur'}
                       </p>
                     </div>
                   </div>
+
                   {pushNotificationStatus.supported && (
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={checkPushNotificationStatus}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        darkMode
-                          ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                      }`}
-                    >
-                      🔄 Vérifier
-                    </motion.button>
+                    <div className="flex items-center space-x-2">
+                      {/* Toggle Switch */}
+                      <motion.button
+                        whileTap={{ scale: 0.95 }}
+                        onClick={
+                          pushNotificationStatus.subscribed
+                            ? null
+                            : enablePushNotifications
+                        }
+                        disabled={pushNotificationStatus.subscribed}
+                        className={`w-14 h-8 rounded-full p-1 transition-colors ${
+                          pushNotificationStatus.subscribed
+                            ? 'bg-green-500'
+                            : pushNotificationStatus.permission === 'denied'
+                              ? 'bg-red-500'
+                              : darkMode
+                                ? 'bg-gray-600'
+                                : 'bg-gray-300'
+                        }`}
+                      >
+                        <div
+                          className={`w-6 h-6 rounded-full bg-white transition-transform ${
+                            pushNotificationStatus.subscribed
+                              ? 'translate-x-6'
+                              : 'translate-x-0'
+                          }`}
+                        />
+                      </motion.button>
+
+                      {/* Bouton Test (si activé) */}
+                      {pushNotificationStatus.subscribed && (
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={testPushNotification}
+                          className={`p-2 rounded-full ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
+                          title="Tester les notifications"
+                        >
+                          <Bell
+                            size={16}
+                            className={
+                              darkMode ? 'text-gray-300' : 'text-gray-600'
+                            }
+                          />
+                        </motion.button>
+                      )}
+
+                      {/* Bouton Vérifier */}
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={checkPushNotificationStatus}
+                        className={`p-2 rounded-full ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
+                        title="Vérifier le statut"
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path d="M21 12c-1 0-3-1-3-3s2-3 3-3 3 1 3 3-2 3-3 3"></path>
+                          <path d="M6 12c1 0 3-1 3-3s-2-3-3-3-3 1-3 3 2 3 3 3"></path>
+                          <path d="M13 12h1"></path>
+                        </svg>
+                      </motion.button>
+                    </div>
+                  )}
+
+                  {/* Si non supporté */}
+                  {!pushNotificationStatus.supported && (
+                    <div className="text-red-500">
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M15 9l-6 6"></path>
+                        <path d="M9 9l6 6"></path>
+                      </svg>
+                    </div>
                   )}
                 </div>
-
-                {/* Boutons d'action */}
-                {pushNotificationStatus.supported && (
-                  <div className="flex space-x-2">
-                    {!pushNotificationStatus.subscribed && (
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={enablePushNotifications}
-                        className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
-                      >
-                        🔔 Activer les notifications
-                      </motion.button>
-                    )}
-
-                    {pushNotificationStatus.subscribed && (
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={testPushNotification}
-                        className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
-                      >
-                        🧪 Tester notification
-                      </motion.button>
-                    )}
-                  </div>
-                )}
-
-                {!pushNotificationStatus.supported && (
-                  <div
-                    className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}
-                  >
-                    <p
-                      className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}
-                    >
-                      ⚠️ Les notifications push ne sont pas supportées sur ce
-                      navigateur
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
 
