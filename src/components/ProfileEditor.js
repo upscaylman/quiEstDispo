@@ -318,70 +318,27 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
           {/* Nom et email */}
           <div className="flex-1">
             {/* Section nom avec édition */}
-            {isEditingName ? (
-              <div className="mb-1">
-                <div className="flex items-center space-x-2 flex-wrap">
-                  <input
-                    type="text"
-                    value={userName}
-                    onChange={e => setUserName(e.target.value)}
-                    placeholder="Votre nom"
-                    className={`flex-1 min-w-0 max-w-48 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      darkMode
-                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                    }`}
-                    disabled={isLoading}
+            <div className="flex items-center justify-between mb-1">
+              <h4
+                className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}
+              >
+                {user.name || 'Utilisateur'}
+              </h4>
+              {!isEditingName && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsEditingName(true)}
+                  className={`p-2 rounded-full ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
+                  title="Modifier le nom"
+                >
+                  <Edit2
+                    size={16}
+                    className={darkMode ? 'text-gray-300' : 'text-gray-600'}
                   />
-                  <div className="flex items-center space-x-1">
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={handleSaveName}
-                      disabled={isLoading}
-                      className="p-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white rounded-lg transition-colors"
-                    >
-                      <Save size={16} />
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={handleCancelName}
-                      disabled={isLoading}
-                      className={`p-2 rounded-lg transition-colors ${
-                        darkMode
-                          ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                          : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                      }`}
-                    >
-                      <X size={16} />
-                    </motion.button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center">
-                  <h4
-                    className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                  >
-                    {user.name || 'Utilisateur'}
-                  </h4>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setIsEditingName(true)}
-                    className={`ml-2 p-2 rounded-full ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
-                    title="Modifier le nom"
-                  >
-                    <Edit2
-                      size={16}
-                      className={darkMode ? 'text-gray-300' : 'text-gray-600'}
-                    />
-                  </motion.button>
-                </div>
-              </div>
-            )}
+                </motion.button>
+              )}
+            </div>
             <p
               className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} truncate`}
               title={user.email}
@@ -390,6 +347,64 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
             </p>
           </div>
         </div>
+
+        {/* Edition du nom */}
+        {isEditingName && (
+          <div className="mt-4 space-y-3">
+            <div>
+              <input
+                type="text"
+                value={userName}
+                onChange={e => setUserName(e.target.value)}
+                placeholder="Votre nom"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  darkMode
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                }`}
+                disabled={isLoading}
+              />
+              <p
+                className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+              >
+                Choisissez un nom que vos amis pourront facilement reconnaître
+              </p>
+            </div>
+
+            <div className="flex space-x-2">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleSaveName}
+                disabled={isLoading}
+                className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center"
+              >
+                {isLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                ) : (
+                  <>
+                    <Save size={16} className="mr-2" />
+                    Enregistrer
+                  </>
+                )}
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleCancelName}
+                disabled={isLoading}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center ${
+                  darkMode
+                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                }`}
+              >
+                <X size={16} />
+              </motion.button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Section numéro de téléphone */}
