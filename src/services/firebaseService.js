@@ -2892,13 +2892,20 @@ export class InvitationService {
           ? data.createdAt.toDate()
           : new Date(data.createdAt);
         const isRecent = createdAt > cutoffTime;
+        const status = data.status;
 
         console.log(
-          `🔍 [DEBUG] Invitation ${doc.id}: créée le ${createdAt.toISOString()}, récente: ${isRecent}`
+          `🔍 [DEBUG] Invitation ${doc.id}: créée le ${createdAt.toISOString()}, status: ${status}, récente: ${isRecent}`
         );
 
-        if (isRecent) {
+        // Une invitation est valide si elle est récente ET encore pending
+        if (isRecent && status === 'pending') {
           hasValidInvitation = true;
+          console.log(`🔍 [DEBUG] ⚠️ Invitation valide trouvée: ${doc.id}`);
+        } else {
+          console.log(
+            `🔍 [DEBUG] ✅ Invitation ignorée: ${doc.id} (${isRecent ? 'récente' : 'ancienne'}, status: ${status})`
+          );
         }
       });
 
@@ -2954,9 +2961,32 @@ export class InvitationService {
         console.warn(
           `⚠️ ${blockedFriends.length} invitation(s) bloquée(s) (déjà en cours pour cette activité)`
         );
+        console.log(`🔍 [DEBUG] Amis bloqués:`, blockedFriends);
       }
 
+      console.log(`🔍 [DEBUG] Amis filtrés pour envoi:`, filteredFriendIds);
+      console.log(
+        `🔍 [DEBUG] Nombre d'invitations à envoyer: ${filteredFriendIds.length}`
+      );
+
       // Continuer avec les amis non bloqués
+      for (const friendId of filteredFriendIds) {
+        console.log(`🔍 [DEBUG] Création invitation pour ${friendId}`);
+      }
+
+      // ARRÊTER ICI si aucune invitation à envoyer
+      if (filteredFriendIds.length === 0) {
+        console.log(
+          `🚫 [DEBUG] Aucune invitation à envoyer, arrêt du processus`
+        );
+        return {
+          success: true,
+          count: 0,
+          blocked: blockedFriends.length,
+          totalRequested: friendIds.length,
+        };
+      }
+
       for (const friendId of filteredFriendIds) {
         // Créer une invitation
         const invitationData = {
@@ -3010,8 +3040,9 @@ export class InvitationService {
   // Créer une notification pour une invitation
   static async createInvitationNotification(toUserId, fromUserId, activity) {
     try {
+      console.log(`🔔 [DEBUG] === DÉBUT CRÉATION NOTIFICATION ===`);
       console.log(
-        `🔍 [DEBUG] createInvitationNotification appelée: ${fromUserId} -> ${toUserId} pour ${activity}`
+        `🔔 [DEBUG] createInvitationNotification appelée: ${fromUserId} -> ${toUserId} pour ${activity}`
       );
 
       // Récupérer le nom de l'expéditeur
@@ -3049,8 +3080,9 @@ export class InvitationService {
       );
 
       console.log(
-        `🔍 [DEBUG] Notification d'invitation créée: ${result.id} pour ${activityLabel}`
+        `🔔 [DEBUG] Notification d'invitation créée: ${result.id} pour ${activityLabel}`
       );
+      console.log(`🔔 [DEBUG] === FIN CRÉATION NOTIFICATION ===`);
 
       // 🔔 NOUVEAU : Envoyer notification push automatiquement
       try {
