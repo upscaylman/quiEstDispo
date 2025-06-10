@@ -2758,6 +2758,100 @@ export class FriendsService {
       throw new Error(`Impossible de créer l'amitié: ${error.message}`);
     }
   }
+
+  // Supprimer une amitié (bidirectionnelle)
+  static async removeFriend(currentUserId, friendId) {
+    if (!isOnline()) {
+      throw new Error('Connexion requise pour supprimer des amis');
+    }
+
+    try {
+      await retryWithBackoff(async () => {
+        const currentUserRef = doc(db, 'users', currentUserId);
+        const friendRef = doc(db, 'users', friendId);
+
+        const [currentUserSnap, friendSnap] = await Promise.all([
+          getDoc(currentUserRef),
+          getDoc(friendRef),
+        ]);
+
+        if (currentUserSnap.exists() && friendSnap.exists()) {
+          const currentUserData = currentUserSnap.data();
+          const friendData = friendSnap.data();
+
+          // Supprimer l'ami de la liste de l'utilisateur actuel
+          const currentUserFriends = (currentUserData.friends || []).filter(
+            id => id !== friendId
+          );
+
+          // Supprimer l'utilisateur actuel de la liste de l'ami
+          const friendFriends = (friendData.friends || []).filter(
+            id => id !== currentUserId
+          );
+
+          // Mettre à jour les deux utilisateurs
+          await Promise.all([
+            updateDoc(currentUserRef, {
+              friends: currentUserFriends,
+              updatedAt: serverTimestamp(),
+            }),
+            updateDoc(friendRef, {
+              friends: friendFriends,
+              updatedAt: serverTimestamp(),
+            }),
+          ]);
+
+          // Créer une notification pour informer l'ami supprimé
+          const notificationData = {
+            to: friendId,
+            from: currentUserId,
+            type: 'friend_removed',
+            message: `👋 ${currentUserData.name} vous a retiré de sa liste d'amis`,
+            data: {
+              removedByUserId: currentUserId,
+              removedByUserName: currentUserData.name,
+            },
+            read: false,
+            createdAt: serverTimestamp(),
+          };
+
+          await addDoc(collection(db, 'notifications'), notificationData);
+
+          // 🔔 Envoyer notification push
+          try {
+            const { default: PushNotificationService } = await import(
+              './pushNotificationService'
+            );
+
+            await PushNotificationService.sendPushToUser(friendId, {
+              title: '👋 Amitié supprimée',
+              body: `${currentUserData.name} vous a retiré de sa liste d'amis`,
+              tag: 'friend-removed',
+              data: {
+                type: 'friend_removed',
+                removedByUserId: currentUserId,
+                removedByUserName: currentUserData.name,
+              },
+              requireInteraction: false,
+            });
+
+            console.log("🔔 Notification push envoyée pour suppression d'ami");
+          } catch (pushError) {
+            console.warn(
+              '⚠️ Erreur notification push (non critique):',
+              pushError
+            );
+          }
+
+          console.log(
+            `✅ Amitié supprimée entre ${currentUserData.name} et ${friendData.name}`
+          );
+        }
+      });
+    } catch (error) {
+      throw new Error(`Impossible de supprimer l'amitié: ${error.message}`);
+    }
+  }
 }
 
 // Service de notifications ultra-simplifié

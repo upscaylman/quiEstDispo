@@ -17,6 +17,7 @@ import {
   Smartphone,
   Sun,
   Twitter,
+  UserMinus,
   UserPlus,
   Users,
 } from 'lucide-react';
@@ -565,6 +566,29 @@ function App() {
     }
   };
 
+  const handleRemoveFriend = async (friendId, friendName) => {
+    if (
+      !window.confirm(
+        `Êtes-vous sûr de vouloir supprimer ${friendName} de vos amis ?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await FriendsService.removeFriend(user.uid, friendId);
+
+      // Rafraîchir la liste des amis
+      const updatedFriends = await FriendsService.getFriends(user.uid);
+      setFriends(updatedFriends);
+
+      console.log(`✅ ${friendName} supprimé de la liste d'amis`);
+    } catch (error) {
+      console.error('Erreur suppression ami:', error);
+      alert(`Erreur lors de la suppression: ${error.message}`);
+    }
+  };
+
   const handleSignOut = async () => {
     console.log('🚪 Tentative de déconnexion...');
 
@@ -812,6 +836,19 @@ function App() {
                       {friend.isOnline ? '🟢 En ligne' : '⚫ Hors ligne'}
                     </p>
                   </div>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => handleRemoveFriend(friend.id, friend.name)}
+                    className={`p-2 rounded-full ${
+                      darkMode
+                        ? 'bg-red-700 hover:bg-red-600 text-red-300'
+                        : 'bg-red-100 hover:bg-red-200 text-red-600'
+                    } transition-colors ml-2`}
+                    title={`Supprimer ${friend.name} de vos amis`}
+                  >
+                    <UserMinus size={16} />
+                  </motion.button>
                 </div>
               ))}
               {friends.length === 0 && (
