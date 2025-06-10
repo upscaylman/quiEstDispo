@@ -2847,33 +2847,65 @@ export class InvitationService {
   // Vérifier s'il y a déjà une invitation active entre deux utilisateurs
   static async checkExistingInvitation(userId1, userId2, activity) {
     try {
-      const cutoffTime = new Date(Date.now() - 15 * 60 * 1000); // 15 minutes
+      console.log(
+        `🔍 [DEBUG] Vérification invitation existante: ${userId1} <-> ${userId2} pour ${activity}`
+      );
 
-      // Vérifier invitation de userId1 vers userId2
+      // Créer timestamp Firebase pour la comparaison (15 minutes en arrière)
+      const cutoffTime = new Date(Date.now() - 15 * 60 * 1000);
+      console.log(`🔍 [DEBUG] Cutoff time: ${cutoffTime.toISOString()}`);
+
+      // Simplifier la requête - vérifier toutes les invitations actives sans contrainte de temps d'abord
       const invitationQuery1 = await getDocs(
         query(
           collection(db, 'invitations'),
           where('fromUserId', '==', userId1),
           where('toUserId', '==', userId2),
           where('activity', '==', activity),
-          where('status', '==', 'pending'),
-          where('createdAt', '>=', cutoffTime)
+          where('status', '==', 'pending')
         )
       );
 
-      // Vérifier invitation de userId2 vers userId1
       const invitationQuery2 = await getDocs(
         query(
           collection(db, 'invitations'),
           where('fromUserId', '==', userId2),
           where('toUserId', '==', userId1),
           where('activity', '==', activity),
-          where('status', '==', 'pending'),
-          where('createdAt', '>=', cutoffTime)
+          where('status', '==', 'pending')
         )
       );
 
-      return !invitationQuery1.empty || !invitationQuery2.empty;
+      console.log(
+        `🔍 [DEBUG] Invitations ${userId1}->${userId2}: ${invitationQuery1.size}`
+      );
+      console.log(
+        `🔍 [DEBUG] Invitations ${userId2}->${userId1}: ${invitationQuery2.size}`
+      );
+
+      // Vérifier la date manuellement pour les invitations trouvées
+      let hasValidInvitation = false;
+
+      [...invitationQuery1.docs, ...invitationQuery2.docs].forEach(doc => {
+        const data = doc.data();
+        const createdAt = data.createdAt?.toDate
+          ? data.createdAt.toDate()
+          : new Date(data.createdAt);
+        const isRecent = createdAt > cutoffTime;
+
+        console.log(
+          `🔍 [DEBUG] Invitation ${doc.id}: créée le ${createdAt.toISOString()}, récente: ${isRecent}`
+        );
+
+        if (isRecent) {
+          hasValidInvitation = true;
+        }
+      });
+
+      console.log(
+        `🔍 [DEBUG] Résultat: invitation active trouvée = ${hasValidInvitation}`
+      );
+      return hasValidInvitation;
     } catch (error) {
       console.error('❌ Erreur vérification invitation existante:', error);
       return false; // En cas d'erreur, autoriser l'invitation
@@ -2896,8 +2928,12 @@ export class InvitationService {
       const filteredFriendIds = [];
       const blockedFriends = [];
 
+      // Nettoyer les anciennes invitations expirées d'abord
+      await this.cleanupExpiredInvitations();
+
       // Vérifier chaque ami pour les invitations en double
       for (const friendId of friendIds) {
+        console.log(`🔍 [DEBUG] Vérification ami ${friendId} pour ${activity}`);
         const hasExisting = await this.checkExistingInvitation(
           fromUserId,
           friendId,
@@ -2909,6 +2945,9 @@ export class InvitationService {
           );
           blockedFriends.push(friendId);
         } else {
+          console.log(
+            `✅ Pas d'invitation active avec ${friendId} pour ${activity}`
+          );
           filteredFriendIds.push(friendId);
         }
       }
