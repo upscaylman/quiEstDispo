@@ -53,10 +53,13 @@ function App() {
   const [showAddFriendModal, setShowAddFriendModal] = useState(false);
   const [showInviteFriendsModal, setShowInviteFriendsModal] = useState(false);
   const [selectedInviteActivity, setSelectedInviteActivity] = useState(null);
-  const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('darkMode');
-    return saved !== null ? JSON.parse(saved) : false;
+  // Gestion du thème avec support du mode système
+  const [themeMode, setThemeMode] = useState(() => {
+    const saved = localStorage.getItem('themeMode');
+    return saved || 'light'; // 'light', 'dark', 'auto'
   });
+
+  const [darkMode, setDarkMode] = useState(false);
   const [useMapbox, setUseMapbox] = useState(true); // Utiliser MapboxMapView par défaut
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pushNotificationStatus, setPushNotificationStatus] = useState({
@@ -97,6 +100,44 @@ function App() {
       alert(`Erreur: ${error.message}`);
     }
   };
+
+  // Gérer le thème automatique et la sauvegarde
+  useEffect(() => {
+    const updateTheme = () => {
+      let shouldBeDark = false;
+
+      if (themeMode === 'dark') {
+        shouldBeDark = true;
+      } else if (themeMode === 'auto') {
+        // Détecter le thème du système
+        shouldBeDark = window.matchMedia(
+          '(prefers-color-scheme: dark)'
+        ).matches;
+      }
+      // Si themeMode === 'light', shouldBeDark reste false
+
+      setDarkMode(shouldBeDark);
+    };
+
+    // Appliquer le thème immédiatement
+    updateTheme();
+
+    // Sauvegarder dans localStorage
+    localStorage.setItem('themeMode', themeMode);
+
+    // Écouter les changements du thème système si en mode auto
+    let mediaQuery;
+    if (themeMode === 'auto') {
+      mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      mediaQuery.addEventListener('change', updateTheme);
+    }
+
+    return () => {
+      if (mediaQuery) {
+        mediaQuery.removeEventListener('change', updateTheme);
+      }
+    };
+  }, [themeMode]);
 
   useEffect(() => {
     if (!user) return;
@@ -867,34 +908,71 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
               <h3
                 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
               >
-                Apparence
+                🎨 Apparence
               </h3>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4
-                    className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                  >
-                    Thème sombre
-                  </h4>
-                  <p
-                    className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                  >
-                    Basculer entre le thème clair et sombre
-                  </p>
-                </div>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setDarkMode(!darkMode)}
-                  className={`w-14 h-8 rounded-full p-1 transition-colors ${
-                    darkMode ? 'bg-blue-500' : 'bg-gray-300'
-                  }`}
+              <div>
+                <h4
+                  className={`font-medium mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}
                 >
-                  <div
-                    className={`w-6 h-6 rounded-full bg-white transition-transform ${
-                      darkMode ? 'translate-x-6' : 'translate-x-0'
-                    }`}
-                  />
-                </motion.button>
+                  Thème
+                </h4>
+                <div className="space-y-2">
+                  {[
+                    {
+                      value: 'light',
+                      label: '☀️ Clair',
+                      desc: 'Thème clair en permanence',
+                    },
+                    {
+                      value: 'dark',
+                      label: '🌙 Sombre',
+                      desc: 'Thème sombre en permanence',
+                    },
+                    {
+                      value: 'auto',
+                      label: '📱 Auto',
+                      desc: 'Suit le thème de votre appareil',
+                    },
+                  ].map(option => (
+                    <motion.button
+                      key={option.value}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setThemeMode(option.value)}
+                      className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                        themeMode === option.value
+                          ? darkMode
+                            ? 'border-blue-500 bg-blue-500/10 text-blue-400'
+                            : 'border-blue-500 bg-blue-50 text-blue-600'
+                          : darkMode
+                            ? 'border-gray-600 hover:border-gray-500 text-gray-300'
+                            : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium">{option.label}</div>
+                          <div
+                            className={`text-sm ${
+                              themeMode === option.value
+                                ? darkMode
+                                  ? 'text-blue-300'
+                                  : 'text-blue-500'
+                                : darkMode
+                                  ? 'text-gray-400'
+                                  : 'text-gray-500'
+                            }`}
+                          >
+                            {option.desc}
+                          </div>
+                        </div>
+                        {themeMode === option.value && (
+                          <div className="text-blue-500">✓</div>
+                        )}
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
               </div>
             </div>
 
