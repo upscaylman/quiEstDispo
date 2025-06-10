@@ -636,6 +636,129 @@ export class AuthService {
     }
   }
 
+  // Supprimer complètement un compte utilisateur
+  static async deleteUserAccount(userId) {
+    if (!isOnline()) {
+      throw new Error('Connexion internet requise pour supprimer le compte');
+    }
+
+    try {
+      console.log(`🗑️ Suppression complète du compte ${userId}...`);
+
+      // 1. Supprimer toutes les disponibilités de l'utilisateur
+      const availabilitiesQuery = query(
+        collection(db, 'availabilities'),
+        where('userId', '==', userId)
+      );
+      const availabilitiesSnapshot = await getDocs(availabilitiesQuery);
+      for (const doc of availabilitiesSnapshot.docs) {
+        await deleteDoc(doc.ref);
+      }
+      console.log('✅ Disponibilités supprimées');
+
+      // 2. Supprimer toutes les réponses aux activités
+      const responsesQuery = query(
+        collection(db, 'activity_responses'),
+        where('userId', '==', userId)
+      );
+      const responsesSnapshot = await getDocs(responsesQuery);
+      for (const doc of responsesSnapshot.docs) {
+        await deleteDoc(doc.ref);
+      }
+      console.log('✅ Réponses aux activités supprimées');
+
+      // 3. Supprimer toutes les notifications envoyées et reçues
+      const notificationsToQuery = query(
+        collection(db, 'notifications'),
+        where('to', '==', userId)
+      );
+      const notificationsFromQuery = query(
+        collection(db, 'notifications'),
+        where('from', '==', userId)
+      );
+
+      const [notificationsToSnapshot, notificationsFromSnapshot] =
+        await Promise.all([
+          getDocs(notificationsToQuery),
+          getDocs(notificationsFromQuery),
+        ]);
+
+      for (const doc of [
+        ...notificationsToSnapshot.docs,
+        ...notificationsFromSnapshot.docs,
+      ]) {
+        await deleteDoc(doc.ref);
+      }
+      console.log('✅ Notifications supprimées');
+
+      // 4. Supprimer toutes les invitations d'amitié
+      const friendInvitationsToQuery = query(
+        collection(db, 'friend_invitations'),
+        where('toUserId', '==', userId)
+      );
+      const friendInvitationsFromQuery = query(
+        collection(db, 'friend_invitations'),
+        where('fromUserId', '==', userId)
+      );
+
+      const [invitationsToSnapshot, invitationsFromSnapshot] =
+        await Promise.all([
+          getDocs(friendInvitationsToQuery),
+          getDocs(friendInvitationsFromQuery),
+        ]);
+
+      for (const doc of [
+        ...invitationsToSnapshot.docs,
+        ...invitationsFromSnapshot.docs,
+      ]) {
+        await deleteDoc(doc.ref);
+      }
+      console.log("✅ Invitations d'amitié supprimées");
+
+      // 5. Retirer l'utilisateur de toutes les listes d'amis
+      const allUsersQuery = query(
+        collection(db, 'users'),
+        where('friends', 'array-contains', userId)
+      );
+      const usersWithFriendship = await getDocs(allUsersQuery);
+
+      for (const userDoc of usersWithFriendship.docs) {
+        const userData = userDoc.data();
+        const updatedFriends = userData.friends.filter(
+          friendId => friendId !== userId
+        );
+        await updateDoc(userDoc.ref, { friends: updatedFriends });
+      }
+      console.log('✅ Amitiés supprimées des autres utilisateurs');
+
+      // 6. Supprimer le document utilisateur principal
+      const userRef = doc(db, 'users', userId);
+      await deleteDoc(userRef);
+      console.log('✅ Document utilisateur supprimé');
+
+      // 7. Supprimer l'utilisateur Firebase Auth
+      const currentUser = auth.currentUser;
+      if (currentUser && currentUser.uid === userId) {
+        await currentUser.delete();
+        console.log('✅ Compte Firebase Auth supprimé');
+      }
+
+      console.log('🎉 Compte supprimé complètement !');
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression du compte:', error);
+
+      // Messages d'erreur spécifiques
+      if (error.code === 'auth/requires-recent-login') {
+        throw new Error(
+          'Pour des raisons de sécurité, vous devez vous reconnecter avant de supprimer votre compte. ' +
+            'Veuillez vous déconnecter et vous reconnecter, puis réessayer.'
+        );
+      }
+
+      throw new Error(`Erreur lors de la suppression: ${error.message}`);
+    }
+  }
+
   // Créer un reCAPTCHA verifier selon la documentation Firebase
   static createRecaptchaVerifier(elementId, options = {}) {
     try {
