@@ -1,14 +1,18 @@
 import { motion } from 'framer-motion';
-import { Check, Edit2, Phone, Save, X } from 'lucide-react';
-import React, { useState } from 'react';
+import { Camera, Check, Edit2, Phone, Save, X } from 'lucide-react';
+import React, { useRef, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { AuthService, FriendsService } from '../services/firebaseService';
 
 const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
   const { refreshUserData } = useAuth();
+  const fileInputRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState(user.phone || '');
+  const [userName, setUserName] = useState(user.name || '');
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -60,6 +64,87 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
     setPhoneNumber(user.phone || '');
     setIsEditing(false);
     setError('');
+  };
+
+  const handleCancelName = () => {
+    setUserName(user.name || '');
+    setIsEditingName(false);
+    setError('');
+  };
+
+  const handleSaveName = async () => {
+    if (!userName.trim()) {
+      setError('Veuillez saisir un nom');
+      return;
+    }
+
+    if (userName.trim().length < 2) {
+      setError('Le nom doit contenir au moins 2 caractères');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      await AuthService.updateUserName(user.uid, userName.trim());
+
+      setSuccess('Nom mis à jour avec succès ! 🎉');
+      setIsEditingName(false);
+
+      setTimeout(() => setSuccess(''), 3000);
+      await refreshUserData();
+
+      if (onProfileUpdate) {
+        await onProfileUpdate({ ...user, name: userName.trim() });
+      }
+    } catch (error) {
+      console.error('Erreur mise à jour nom:', error);
+      setError(error.message || 'Erreur lors de la mise à jour');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePhotoUpload = async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Vérifications du fichier
+    if (!file.type.startsWith('image/')) {
+      setError('Veuillez sélectionner une image');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("L'image doit faire moins de 5MB");
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    setError('');
+
+    try {
+      const photoURL = await AuthService.uploadUserPhoto(user.uid, file);
+
+      setSuccess('Photo de profil mise à jour ! 🎉');
+      setTimeout(() => setSuccess(''), 3000);
+
+      await refreshUserData();
+
+      if (onProfileUpdate) {
+        await onProfileUpdate({ ...user, avatar: photoURL });
+      }
+    } catch (error) {
+      console.error('Erreur upload photo:', error);
+      setError(error.message || "Erreur lors de l'upload");
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   const handleDebug = async () => {
@@ -123,29 +208,115 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
       </h3>
 
       {/* Informations de base */}
-      <div className="flex items-center mb-6">
-        <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mr-4">
-          {user.avatar && user.avatar.startsWith('http') ? (
-            <img
-              src={user.avatar}
-              alt="Avatar"
-              className="w-20 h-20 rounded-full object-cover"
+      <div className="mb-6">
+        {/* Photo de profil */}
+        <div className="flex items-center mb-4">
+          <div className="relative group">
+            <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mr-4 overflow-hidden">
+              {user.avatar && user.avatar.startsWith('http') ? (
+                <img
+                  src={user.avatar}
+                  alt="Avatar"
+                  className="w-20 h-20 rounded-full object-cover"
+                />
+              ) : (
+                <span className="text-4xl">{user.avatar || '👤'}</span>
+              )}
+            </div>
+            {/* Overlay d'upload au centre avec transparence */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={triggerFileInput}
+              disabled={isUploadingPhoto}
+              className="absolute inset-0 w-20 h-20 mr-4 rounded-full flex items-center justify-center transition-all duration-200 bg-black/0 hover:bg-black/50 text-transparent hover:text-white group-hover:bg-black/40 group-hover:text-white"
+              title="Changer la photo"
+            >
+              {isUploadingPhoto ? (
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white" />
+              ) : (
+                <Camera size={20} />
+              )}
+            </motion.button>
+            {/* Input file caché */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              className="hidden"
             />
-          ) : (
-            <span className="text-4xl">{user.avatar || '👤'}</span>
-          )}
-        </div>
-        <div>
-          <h4
-            className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}
-          >
-            {user.name || 'Utilisateur'}
-          </h4>
-          <p
-            className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-          >
-            {user.email}
-          </p>
+          </div>
+
+          {/* Nom et email */}
+          <div className="flex-1">
+            {/* Section nom avec édition */}
+            <div className="flex items-center justify-between mb-1">
+              {isEditingName ? (
+                <div className="flex-1 flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={userName}
+                    onChange={e => setUserName(e.target.value)}
+                    placeholder="Votre nom"
+                    className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      darkMode
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                    }`}
+                    disabled={isLoading}
+                  />
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleSaveName}
+                    disabled={isLoading}
+                    className="p-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white rounded-lg transition-colors"
+                  >
+                    <Save size={16} />
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleCancelName}
+                    disabled={isLoading}
+                    className={`p-2 rounded-lg transition-colors ${
+                      darkMode
+                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                    }`}
+                  >
+                    <X size={16} />
+                  </motion.button>
+                </div>
+              ) : (
+                <div className="flex items-center">
+                  <h4
+                    className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                  >
+                    {user.name || 'Utilisateur'}
+                  </h4>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsEditingName(true)}
+                    className={`ml-2 p-2 rounded-full ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
+                    title="Modifier le nom"
+                  >
+                    <Edit2
+                      size={16}
+                      className={darkMode ? 'text-gray-300' : 'text-gray-600'}
+                    />
+                  </motion.button>
+                </div>
+              )}
+            </div>
+            <p
+              className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+            >
+              {user.email}
+            </p>
+          </div>
         </div>
       </div>
 

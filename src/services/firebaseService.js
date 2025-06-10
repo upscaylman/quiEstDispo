@@ -979,6 +979,99 @@ export class AuthService {
     }
   }
 
+  // Mettre à jour le nom d'un utilisateur
+  static async updateUserName(userId, userName) {
+    console.log('🔄 updateUserName appelée avec:', { userId, userName });
+
+    if (!isOnline()) {
+      throw new Error('Connexion requise pour mettre à jour le nom');
+    }
+
+    try {
+      await retryWithBackoff(async () => {
+        console.log('📝 Mise à jour du nom dans Firestore...');
+
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, {
+          name: userName,
+          updatedAt: serverTimestamp(),
+        });
+
+        // Mettre à jour aussi dans Firebase Auth si c'est l'utilisateur connecté
+        if (auth.currentUser && auth.currentUser.uid === userId) {
+          const { updateProfile } = await import('firebase/auth');
+          await updateProfile(auth.currentUser, {
+            displayName: userName,
+          });
+        }
+
+        console.log('✅ Nom mis à jour avec succès:', userName);
+      });
+    } catch (error) {
+      console.error('❌ Erreur mise à jour nom:', error);
+      throw new Error(`Impossible de mettre à jour le nom: ${error.message}`);
+    }
+  }
+
+  // Upload d'une photo de profil
+  static async uploadUserPhoto(userId, file) {
+    console.log('📷 uploadUserPhoto appelée avec:', {
+      userId,
+      fileSize: file.size,
+      fileType: file.type,
+    });
+
+    if (!isOnline()) {
+      throw new Error('Connexion requise pour uploader la photo');
+    }
+
+    try {
+      // Import dynamique Firebase Storage
+      const { getStorage, ref, uploadBytes, getDownloadURL } = await import(
+        'firebase/storage'
+      );
+      const storage = getStorage();
+
+      // Créer une référence unique pour la photo
+      const timestamp = Date.now();
+      const photoRef = ref(storage, `users/${userId}/profile_${timestamp}.jpg`);
+
+      console.log('⬆️ Upload du fichier...');
+
+      // Upload du fichier
+      const snapshot = await uploadBytes(photoRef, file);
+      console.log('✅ Fichier uploadé:', snapshot.metadata.fullPath);
+
+      // Récupérer l'URL de téléchargement
+      const downloadURL = await getDownloadURL(photoRef);
+      console.log('🔗 URL de téléchargement obtenue:', downloadURL);
+
+      await retryWithBackoff(async () => {
+        // Mettre à jour Firestore
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, {
+          avatar: downloadURL,
+          updatedAt: serverTimestamp(),
+        });
+
+        // Mettre à jour Firebase Auth si c'est l'utilisateur connecté
+        if (auth.currentUser && auth.currentUser.uid === userId) {
+          const { updateProfile } = await import('firebase/auth');
+          await updateProfile(auth.currentUser, {
+            photoURL: downloadURL,
+          });
+        }
+
+        console.log('✅ Photo de profil mise à jour avec succès');
+      });
+
+      return downloadURL;
+    } catch (error) {
+      console.error('❌ Erreur upload photo:', error);
+      throw new Error(`Impossible d'uploader la photo: ${error.message}`);
+    }
+  }
+
   /**
    * Effectuer une requête sécurisée vers un backend personnalisé avec App Check
    * Selon la documentation Firebase : https://firebase.google.com/docs/app-check/web/custom-resource

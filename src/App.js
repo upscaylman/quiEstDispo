@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import {
+  ArrowLeft,
   Bell,
   Clock as ClockIcon,
   Coffee,
@@ -503,6 +504,48 @@ function App() {
 
   // Header commun avec notifications et profil
   const renderHeader = () => {
+    // Header spécial pour la page Paramètres
+    if (currentScreen === 'settings') {
+      return (
+        <div
+          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm p-4 sticky top-0 z-10`}
+        >
+          <div className="flex items-center">
+            {/* Flèche de retour */}
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setCurrentScreen('home')}
+              className={`p-2 rounded-full mr-3 transition-colors ${
+                darkMode
+                  ? 'hover:bg-gray-700 text-gray-300'
+                  : 'hover:bg-gray-100 text-gray-600'
+              }`}
+            >
+              <ArrowLeft size={20} />
+            </motion.button>
+
+            {/* Titre */}
+            <div>
+              <h1
+                className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}
+              >
+                Paramètres
+              </h1>
+              <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                Gérer votre profil et préférences
+                {!isOnline && (
+                  <span className="text-orange-500 text-xs ml-2">
+                    • Mode hors ligne
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Header normal pour les autres pages
     return (
       <div
         className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm p-4 sticky top-0 z-10`}
@@ -517,7 +560,6 @@ function App() {
               {currentScreen === 'map' && 'Carte'}
               {currentScreen === 'friends' && 'Mes Amis'}
               {currentScreen === 'notifications' && 'Notifications'}
-              {currentScreen === 'settings' && 'Paramètres'}
             </h1>
             <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
               {currentScreen === 'home' &&
@@ -527,8 +569,6 @@ function App() {
               {currentScreen === 'friends' && `${friends.length} amis`}
               {currentScreen === 'notifications' &&
                 `${notifications.length} notifications`}
-              {currentScreen === 'settings' &&
-                'Gérer votre profil et préférences'}
               {!isOnline && (
                 <span className="text-orange-500 text-xs ml-2">
                   • Mode hors ligne
