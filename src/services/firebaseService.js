@@ -1360,9 +1360,13 @@ export class AuthService {
       );
       const storage = getStorage();
 
+      // Vérifier que Storage est initialisé
+      console.log('🔥 Firebase Storage initialisé:', !!storage);
+
       // Créer une référence unique pour la photo
       const timestamp = Date.now();
-      const photoRef = ref(storage, `users/${userId}/profile_${timestamp}.jpg`);
+      const fileName = `profile_${timestamp}.${file.type.split('/')[1] || 'jpg'}`;
+      const photoRef = ref(storage, `users/${userId}/${fileName}`);
 
       console.log('⬆️ Upload du fichier...');
 

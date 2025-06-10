@@ -131,7 +131,13 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
     setError('');
 
     try {
-      console.log('🚀 Début upload photo...');
+      console.log('🚀 Début upload photo...', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        userId: user.uid,
+      });
+
       const photoURL = await AuthService.uploadUserPhoto(user.uid, file);
       console.log('✅ Upload terminé, URL:', photoURL);
 
@@ -271,45 +277,49 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
           {/* Nom et email */}
           <div className="flex-1">
             {/* Section nom avec édition */}
-            <div className="flex items-center justify-between mb-1">
-              {isEditingName ? (
-                <div className="flex items-center space-x-2 max-w-xs">
+            {isEditingName ? (
+              <div className="mb-1">
+                <div className="flex items-center space-x-2 flex-wrap">
                   <input
                     type="text"
                     value={userName}
                     onChange={e => setUserName(e.target.value)}
                     placeholder="Votre nom"
-                    className={`w-48 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`flex-1 min-w-0 max-w-48 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       darkMode
                         ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
                         : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
                     }`}
                     disabled={isLoading}
                   />
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleSaveName}
-                    disabled={isLoading}
-                    className="p-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white rounded-lg transition-colors"
-                  >
-                    <Save size={16} />
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleCancelName}
-                    disabled={isLoading}
-                    className={`p-2 rounded-lg transition-colors ${
-                      darkMode
-                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                        : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                    }`}
-                  >
-                    <X size={16} />
-                  </motion.button>
+                  <div className="flex items-center space-x-1">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleSaveName}
+                      disabled={isLoading}
+                      className="p-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white rounded-lg transition-colors"
+                    >
+                      <Save size={16} />
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleCancelName}
+                      disabled={isLoading}
+                      className={`p-2 rounded-lg transition-colors ${
+                        darkMode
+                          ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                          : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                      }`}
+                    >
+                      <X size={16} />
+                    </motion.button>
+                  </div>
                 </div>
-              ) : (
+              </div>
+            ) : (
+              <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center">
                   <h4
                     className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}
@@ -329,8 +339,8 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
                     />
                   </motion.button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
             <p
               className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} truncate`}
               title={user.email}
