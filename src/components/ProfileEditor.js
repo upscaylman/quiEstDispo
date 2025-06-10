@@ -115,40 +115,48 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
 
   const handlePhotoUpload = async event => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.log('❌ Aucun fichier sélectionné');
+      return;
+    }
 
     // Éviter les uploads multiples
     if (isUploadingPhoto) {
-      console.log('Upload déjà en cours, ignoré');
+      console.log('❌ Upload déjà en cours, ignoré');
       return;
     }
 
     // Vérifications du fichier
     if (!file.type.startsWith('image/')) {
+      console.log('❌ Type de fichier invalide:', file.type);
       setError('Veuillez sélectionner une image');
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
+      console.log('❌ Fichier trop volumineux:', file.size);
       setError("L'image doit faire moins de 5MB");
       return;
     }
 
     setIsUploadingPhoto(true);
     setError('');
+    console.log('🚀 Début handlePhotoUpload...', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      userId: user.uid,
+      currentAvatar: user.avatar,
+      localAvatar: localAvatar,
+    });
 
     try {
-      console.log('🚀 Début upload photo...', {
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type,
-        userId: user.uid,
-      });
-
+      console.log('📞 Appel AuthService.uploadUserPhoto...');
       const photoURL = await AuthService.uploadUserPhoto(user.uid, file);
-      console.log('✅ Upload terminé, URL:', photoURL);
+      console.log('✅ Upload terminé, nouvelle URL:', photoURL);
 
       // Mettre à jour l'avatar local immédiatement pour un affichage instantané
+      console.log('🔄 Mise à jour localAvatar:', localAvatar, '->', photoURL);
       setLocalAvatar(photoURL);
 
       setSuccess('Photo de profil mise à jour ! 🎉');
@@ -156,19 +164,23 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
 
       // Mettre à jour l'état local immédiatement pour éviter la boucle
       if (onProfileUpdate) {
+        console.log('📤 Appel onProfileUpdate...');
         await onProfileUpdate({ ...user, avatar: photoURL });
+      } else {
+        console.log('⚠️ onProfileUpdate non disponible');
       }
 
       // Rafraîchir les données de manière différée pour éviter la boucle
       setTimeout(async () => {
         try {
+          console.log('🔄 Refresh userData différé...');
           await refreshUserData();
         } catch (error) {
           console.warn('⚠️ Erreur refresh userData après upload:', error);
         }
       }, 1000);
     } catch (error) {
-      console.error('Erreur upload photo:', error);
+      console.error('❌ Erreur dans handlePhotoUpload:', error);
       setError(error.message || "Erreur lors de l'upload");
     } finally {
       setIsUploadingPhoto(false);
@@ -176,6 +188,7 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+      console.log('🏁 Fin handlePhotoUpload, isUploadingPhoto:', false);
     }
   };
 
@@ -249,19 +262,42 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
         <div className="flex items-center mb-4">
           <div className="relative group">
             <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mr-4 overflow-hidden">
-              {(localAvatar || user.avatar) &&
-              ((localAvatar || user.avatar).startsWith('http') ||
-                (localAvatar || user.avatar).startsWith('data:')) ? (
-                <img
-                  src={localAvatar || user.avatar}
-                  alt="Avatar"
-                  className="w-20 h-20 rounded-full object-cover"
-                />
-              ) : (
-                <span className="text-4xl">
-                  {localAvatar || user.avatar || '👤'}
-                </span>
-              )}
+              {(() => {
+                const avatarToShow = localAvatar || user.avatar;
+                console.log('🖼️ Rendu avatar:', {
+                  localAvatar: localAvatar
+                    ? localAvatar.substring(0, 50) + '...'
+                    : null,
+                  userAvatar: user.avatar
+                    ? user.avatar.substring(0, 50) + '...'
+                    : null,
+                  avatarToShow: avatarToShow
+                    ? avatarToShow.substring(0, 50) + '...'
+                    : null,
+                  isImage:
+                    avatarToShow &&
+                    (avatarToShow.startsWith('http') ||
+                      avatarToShow.startsWith('data:')),
+                });
+
+                return avatarToShow &&
+                  (avatarToShow.startsWith('http') ||
+                    avatarToShow.startsWith('data:')) ? (
+                  <img
+                    src={avatarToShow}
+                    alt="Avatar"
+                    className="w-20 h-20 rounded-full object-cover"
+                    onLoad={() =>
+                      console.log('🖼️ Image avatar chargée avec succès')
+                    }
+                    onError={e =>
+                      console.log('❌ Erreur chargement image avatar:', e)
+                    }
+                  />
+                ) : (
+                  <span className="text-4xl">{avatarToShow || '👤'}</span>
+                );
+              })()}
             </div>
             {/* Overlay d'upload au centre avec transparence */}
             <motion.button
