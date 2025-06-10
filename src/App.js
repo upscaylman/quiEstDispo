@@ -5,11 +5,13 @@ import {
   Clock as ClockIcon,
   Coffee,
   Facebook,
+  Film,
   HelpCircle,
   Instagram,
   Linkedin,
   MapPin,
   Moon,
+  Music,
   Palette,
   Shield,
   Smartphone,
@@ -881,7 +883,7 @@ function App() {
               <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                 {currentScreen === 'home' &&
                   (isAvailable
-                    ? `Tu es dispo pour ${currentActivity === 'coffee' ? 'Coffee ☕' : currentActivity === 'lunch' ? 'Lunch 🍽️' : currentActivity === 'drinks' ? 'Drinks 🍻' : currentActivity === 'chill' ? 'Chill 😎' : currentActivity}`
+                    ? `Tu es dispo pour ${currentActivity === 'coffee' ? 'Coffee' : currentActivity === 'lunch' ? 'Lunch' : currentActivity === 'drinks' ? 'Drinks' : currentActivity === 'chill' ? 'Chill' : currentActivity === 'clubbing' ? 'Clubbing' : currentActivity === 'cinema' ? 'Cinema' : currentActivity}`
                     : 'Que veux-tu faire ?')}
                 {currentScreen === 'friends' && `${friends.length} amis`}
                 {!isOnline && (
@@ -1743,9 +1745,32 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
                                   }
                                 />
                               )}
-                              {!['coffee', 'lunch', 'drinks', 'chill'].includes(
-                                availability.activity
-                              ) && <span className="text-sm">📍</span>}
+                              {availability.activity === 'clubbing' && (
+                                <Music
+                                  size={16}
+                                  className={
+                                    darkMode ? 'text-gray-300' : 'text-gray-600'
+                                  }
+                                />
+                              )}
+                              {availability.activity === 'cinema' && (
+                                <Film
+                                  size={16}
+                                  className={
+                                    darkMode ? 'text-gray-300' : 'text-gray-600'
+                                  }
+                                />
+                              )}
+                              {![
+                                'coffee',
+                                'lunch',
+                                'drinks',
+                                'chill',
+                                'clubbing',
+                                'cinema',
+                              ].includes(availability.activity) && (
+                                <span className="text-sm">📍</span>
+                              )}
                             </div>
                           </div>
                         </div>

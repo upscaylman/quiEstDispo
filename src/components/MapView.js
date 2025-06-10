@@ -3,9 +3,11 @@ import {
   Clock,
   Coffee,
   Crosshair,
+  Film,
   Filter,
   MapPin as MapPinIcon,
   Minus,
+  Music,
   Plus,
   Users,
   UtensilsCrossed,
@@ -69,6 +71,20 @@ const MapView = ({
       icon: Users,
       color: '#3b82f6',
       gradient: 'from-blue-400 to-indigo-500',
+    },
+    {
+      id: 'clubbing',
+      name: 'Clubbing',
+      icon: Music,
+      color: '#ec4899',
+      gradient: 'from-pink-400 to-rose-500',
+    },
+    {
+      id: 'cinema',
+      name: 'Cinema',
+      icon: Film,
+      color: '#6366f1',
+      gradient: 'from-indigo-400 to-purple-500',
     },
   ];
 

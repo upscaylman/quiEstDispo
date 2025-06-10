@@ -3141,10 +3141,12 @@ export class InvitationService {
       const fromUserName = fromUser.exists() ? fromUser.data().name : 'Un ami';
 
       const activities = {
-        coffee: 'Coffee ☕',
-        lunch: 'Lunch 🍽️',
-        drinks: 'Drinks 🍻',
-        chill: 'Chill 😎',
+        coffee: 'Coffee',
+        lunch: 'Lunch',
+        drinks: 'Drinks',
+        chill: 'Chill',
+        clubbing: 'Clubbing',
+        cinema: 'Cinema',
       };
 
       const activityLabel = activities[activity] || activity;
@@ -3383,10 +3385,12 @@ export class InvitationService {
       const fromUserName = fromUser.exists() ? fromUser.data().name : 'Un ami';
 
       const activities = {
-        coffee: 'Coffee ☕',
-        lunch: 'Lunch 🍽️',
-        drinks: 'Drinks 🍻',
-        chill: 'Chill 😎',
+        coffee: 'Coffee',
+        lunch: 'Lunch',
+        drinks: 'Drinks',
+        chill: 'Chill',
+        clubbing: 'Clubbing',
+        cinema: 'Cinema',
       };
 
       const activityLabel = activities[activity] || activity;

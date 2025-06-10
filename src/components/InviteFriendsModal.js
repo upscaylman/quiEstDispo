@@ -1,5 +1,14 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, Coffee, Users, Utensils, Wine, X } from 'lucide-react';
+import {
+  Check,
+  Coffee,
+  Film,
+  Music,
+  Users,
+  Utensils,
+  Wine,
+  X,
+} from 'lucide-react';
 import React, { useState } from 'react';
 
 const InviteFriendsModal = ({
@@ -14,10 +23,12 @@ const InviteFriendsModal = ({
   const [isLoading, setIsLoading] = useState(false);
 
   const activities = {
-    coffee: { label: 'Coffee ☕', icon: Coffee, color: 'bg-amber-500' },
-    lunch: { label: 'Lunch 🍽️', icon: Utensils, color: 'bg-green-500' },
-    drinks: { label: 'Drinks 🍻', icon: Wine, color: 'bg-purple-500' },
-    chill: { label: 'Chill 😎', icon: Users, color: 'bg-blue-500' },
+    coffee: { label: 'Coffee', icon: Coffee, color: 'bg-amber-500' },
+    lunch: { label: 'Lunch', icon: Utensils, color: 'bg-green-500' },
+    drinks: { label: 'Drinks', icon: Wine, color: 'bg-purple-500' },
+    chill: { label: 'Chill', icon: Users, color: 'bg-blue-500' },
+    clubbing: { label: 'Clubbing', icon: Music, color: 'bg-pink-500' },
+    cinema: { label: 'Cinema', icon: Film, color: 'bg-indigo-500' },
   };
 
   const currentActivity = activities[activity] || activities.chill;

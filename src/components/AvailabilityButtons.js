@@ -1,5 +1,14 @@
 import { motion } from 'framer-motion';
-import { Clock, Coffee, MapPin, Users, Utensils, Wine } from 'lucide-react';
+import {
+  Clock,
+  Coffee,
+  Film,
+  MapPin,
+  Music,
+  Users,
+  Utensils,
+  Wine,
+} from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 const AvailabilityButtons = ({
@@ -48,31 +57,45 @@ const AvailabilityButtons = ({
   const activities = [
     {
       id: 'coffee',
-      label: 'Coffee ☕',
+      label: 'Coffee',
       icon: Coffee,
       color: 'bg-amber-500',
       hoverColor: 'hover:bg-amber-600',
     },
     {
       id: 'lunch',
-      label: 'Lunch 🍽️',
+      label: 'Lunch',
       icon: Utensils,
       color: 'bg-green-500',
       hoverColor: 'hover:bg-green-600',
     },
     {
       id: 'drinks',
-      label: 'Drinks 🍻',
+      label: 'Drinks',
       icon: Wine,
       color: 'bg-purple-500',
       hoverColor: 'hover:bg-purple-600',
     },
     {
       id: 'chill',
-      label: 'Chill 😎',
+      label: 'Chill',
       icon: Users,
       color: 'bg-blue-500',
       hoverColor: 'hover:bg-blue-600',
+    },
+    {
+      id: 'clubbing',
+      label: 'Clubbing',
+      icon: Music,
+      color: 'bg-pink-500',
+      hoverColor: 'hover:bg-pink-600',
+    },
+    {
+      id: 'cinema',
+      label: 'Cinema',
+      icon: Film,
+      color: 'bg-indigo-500',
+      hoverColor: 'hover:bg-indigo-600',
     },
   ];
 
@@ -94,8 +117,10 @@ const AvailabilityButtons = ({
             Tu es disponible !
           </h3>
           <p className="text-gray-600 mb-4">
-            Activité : <span className="font-semibold">
-              {activities.find(a => a.id === currentActivity)?.label || currentActivity}
+            Activité :{' '}
+            <span className="font-semibold">
+              {activities.find(a => a.id === currentActivity)?.label ||
+                currentActivity}
             </span>
           </p>
 
@@ -193,7 +218,7 @@ const AvailabilityButtons = ({
         <p className="text-gray-600">Partage ta disponibilité avec tes amis</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         {activities.map(activity => {
           const Icon = activity.icon;
           return (
@@ -204,7 +229,7 @@ const AvailabilityButtons = ({
               onClick={() => {
                 onStartAvailability(activity.id);
               }}
-              className={`${activity.color} ${activity.hoverColor} text-white p-4 rounded-xl font-medium transition-all duration-200 shadow-lg cursor-pointer`}
+              className={`${activity.color} ${activity.hoverColor} text-white p-6 rounded-xl font-medium transition-all duration-200 shadow-lg cursor-pointer aspect-square flex items-center justify-center`}
             >
               <div className="flex flex-col items-center space-y-2">
                 <Icon size={24} />

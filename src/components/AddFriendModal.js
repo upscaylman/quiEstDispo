@@ -43,7 +43,7 @@ ${currentUser?.displayName || currentUser?.name || 'Ton ami'}`;
   // Message de partage social
   const shareMessage = `🎉 Découvre "Qui Est Dispo" - l'app parfaite pour organiser tes sorties spontanées entre amis !
 
-☕ Coffee • 🍽️ Lunch • 🍻 Drinks • 😎 Chill
+Coffee • Lunch • Drinks • Chill • Clubbing • Cinema
 
 📱 https://qui-est-dispo.vercel.app/
 
