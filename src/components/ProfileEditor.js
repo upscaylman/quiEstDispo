@@ -312,7 +312,8 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
               )}
             </div>
             <p
-              className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+              className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} truncate`}
+              title={user.email}
             >
               {user.email}
             </p>

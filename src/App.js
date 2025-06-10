@@ -298,15 +298,107 @@ function App() {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
-    // Démarrer la nouvelle activité
-    await handleStartAvailability(friendAvailability.activity);
+    try {
+      // Démarrer la nouvelle activité
+      await handleStartAvailability(friendAvailability.activity);
 
-    // Message de confirmation
-    const friendName =
-      friendAvailability.friend?.name || friendAvailability.name || 'Votre ami';
-    alert(
-      `✅ Vous êtes maintenant disponible pour ${friendAvailability.activity} comme ${friendName} !`
-    );
+      // Envoyer notification de réponse à l'ami
+      await sendResponseNotification(friendAvailability, 'joined');
+
+      // Retirer l'ami de la liste des disponibles (on a répondu)
+      setAvailableFriends(prev =>
+        prev.filter(friend => friend.id !== friendAvailability.id)
+      );
+
+      // Message de confirmation
+      const friendName =
+        friendAvailability.friend?.name ||
+        friendAvailability.name ||
+        'Votre ami';
+      alert(
+        `✅ Vous êtes maintenant disponible pour ${friendAvailability.activity} comme ${friendName} !`
+      );
+    } catch (error) {
+      console.error("Erreur lors de rejoindre l'activité:", error);
+      alert("Erreur lors de rejoindre l'activité");
+    }
+  };
+
+  // Décliner l'activité d'un ami
+  const handleDeclineFriendActivity = async friendAvailability => {
+    try {
+      // Envoyer notification de déclin à l'ami
+      await sendResponseNotification(friendAvailability, 'declined');
+
+      // Retirer l'ami de la liste des disponibles
+      setAvailableFriends(prev =>
+        prev.filter(friend => friend.id !== friendAvailability.id)
+      );
+
+      // Message de confirmation
+      const friendName =
+        friendAvailability.friend?.name ||
+        friendAvailability.name ||
+        'Votre ami';
+      alert(
+        `Vous avez décliné l'invitation de ${friendName} pour ${friendAvailability.activity}`
+      );
+    } catch (error) {
+      console.error("Erreur lors de décliner l'invitation:", error);
+      alert("Erreur lors de décliner l'invitation");
+    }
+  };
+
+  // Envoyer une notification de réponse à un ami
+  const sendResponseNotification = async (friendAvailability, responseType) => {
+    if (!user) return;
+
+    try {
+      const { NotificationService } = await import(
+        './services/firebaseService'
+      );
+
+      const friendId =
+        friendAvailability.friend?.id || friendAvailability.userId;
+      if (!friendId) {
+        console.error("ID de l'ami introuvable");
+        return;
+      }
+
+      const userName = user.displayName || user.name || 'Un ami';
+      const activityName = friendAvailability.activity;
+
+      let message, type, emoji;
+      if (responseType === 'joined') {
+        message = `${userName} a rejoint votre activité ${activityName} !`;
+        type = 'activity_joined';
+        emoji = '✅';
+      } else {
+        message = `${userName} a décliné votre invitation pour ${activityName}`;
+        type = 'activity_declined';
+        emoji = '❌';
+      }
+
+      // Créer la notification avec les paramètres corrects
+      await NotificationService.createNotification(
+        friendId,
+        user.uid,
+        type,
+        `${emoji} ${message}`,
+        {
+          activityId: friendAvailability.id,
+          activity: activityName,
+          responseType: responseType,
+          fromUserName: userName,
+        }
+      );
+
+      console.log(
+        `📬 Notification envoyée: ${responseType} pour ${activityName}`
+      );
+    } catch (error) {
+      console.error('Erreur envoi notification de réponse:', error);
+    }
   };
 
   // Gérer le clic sur un bouton d'activité (nouveau comportement)
@@ -1350,10 +1442,9 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
                     {availableFriends.map(availability => (
                       <motion.div
                         key={availability.id}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleJoinFriendActivity(availability)}
-                        className={`${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'} rounded-lg p-3 shadow cursor-pointer transition-all border ${darkMode ? 'border-gray-700 hover:border-blue-500' : 'border-gray-200 hover:border-blue-300'}`}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-3 shadow transition-all border ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
@@ -1392,15 +1483,20 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
                             </div>
                           </div>
 
-                          {/* Bouton visuel pour indiquer l'action */}
-                          <div className="flex flex-col items-center">
+                          {/* Icône de l'activité */}
+                          <div className="flex items-center mr-3">
                             <div
                               className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                                darkMode ? 'bg-blue-600' : 'bg-blue-500'
-                              } text-white`}
+                                darkMode ? 'bg-gray-700' : 'bg-gray-100'
+                              }`}
                             >
                               {availability.activity === 'coffee' && (
-                                <Coffee size={16} />
+                                <Coffee
+                                  size={16}
+                                  className={
+                                    darkMode ? 'text-gray-300' : 'text-gray-600'
+                                  }
+                                />
                               )}
                               {availability.activity === 'lunch' && (
                                 <span className="text-sm">🍽️</span>
@@ -1409,18 +1505,42 @@ Note: Ces données sont temporaires et ne sont pas sauvegardées`);
                                 <span className="text-sm">🍷</span>
                               )}
                               {availability.activity === 'chill' && (
-                                <Users size={16} />
+                                <Users
+                                  size={16}
+                                  className={
+                                    darkMode ? 'text-gray-300' : 'text-gray-600'
+                                  }
+                                />
                               )}
                               {!['coffee', 'lunch', 'drinks', 'chill'].includes(
                                 availability.activity
                               ) && <span className="text-sm">📍</span>}
                             </div>
-                            <span
-                              className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                            >
-                              Rejoindre
-                            </span>
                           </div>
+                        </div>
+
+                        {/* Boutons d'action */}
+                        <div className="flex space-x-2 mt-3">
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() =>
+                              handleJoinFriendActivity(availability)
+                            }
+                            className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center"
+                          >
+                            ✅ Rejoindre
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() =>
+                              handleDeclineFriendActivity(availability)
+                            }
+                            className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center"
+                          >
+                            ❌ Décliner
+                          </motion.button>
                         </div>
                       </motion.div>
                     ))}
