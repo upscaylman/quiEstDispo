@@ -110,6 +110,12 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Éviter les uploads multiples
+    if (isUploadingPhoto) {
+      console.log('Upload déjà en cours, ignoré');
+      return;
+    }
+
     // Vérifications du fichier
     if (!file.type.startsWith('image/')) {
       setError('Veuillez sélectionner une image');
@@ -125,21 +131,35 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
     setError('');
 
     try {
+      console.log('🚀 Début upload photo...');
       const photoURL = await AuthService.uploadUserPhoto(user.uid, file);
+      console.log('✅ Upload terminé, URL:', photoURL);
 
       setSuccess('Photo de profil mise à jour ! 🎉');
       setTimeout(() => setSuccess(''), 3000);
 
-      await refreshUserData();
-
+      // Mettre à jour l'état local immédiatement pour éviter la boucle
       if (onProfileUpdate) {
         await onProfileUpdate({ ...user, avatar: photoURL });
       }
+
+      // Rafraîchir les données de manière différée pour éviter la boucle
+      setTimeout(async () => {
+        try {
+          await refreshUserData();
+        } catch (error) {
+          console.warn('⚠️ Erreur refresh userData après upload:', error);
+        }
+      }, 1000);
     } catch (error) {
       console.error('Erreur upload photo:', error);
       setError(error.message || "Erreur lors de l'upload");
     } finally {
       setIsUploadingPhoto(false);
+      // Réinitialiser l'input file pour permettre de re-sélectionner le même fichier
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -253,13 +273,13 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
             {/* Section nom avec édition */}
             <div className="flex items-center justify-between mb-1">
               {isEditingName ? (
-                <div className="flex-1 flex items-center space-x-2">
+                <div className="flex items-center space-x-2 max-w-xs">
                   <input
                     type="text"
                     value={userName}
                     onChange={e => setUserName(e.target.value)}
                     placeholder="Votre nom"
-                    className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-48 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       darkMode
                         ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
                         : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
