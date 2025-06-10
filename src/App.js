@@ -830,72 +830,86 @@ function App() {
         className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm p-4 sticky top-0 z-10`}
       >
         <div className="flex items-center justify-between">
-          <div>
-            <h1
-              className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}
-            >
-              {currentScreen === 'home' &&
-                `Salut ${user.name?.split(' ')[0]}! 👋`}
-              {currentScreen === 'map' && 'Carte'}
-              {currentScreen === 'friends' && 'Mes Amis'}
-            </h1>
-            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              {currentScreen === 'home' &&
-                (isAvailable
-                  ? `Tu es dispo pour ${currentActivity === 'coffee' ? 'Coffee ☕' : currentActivity === 'lunch' ? 'Lunch 🍽️' : currentActivity === 'drinks' ? 'Drinks 🍻' : currentActivity === 'chill' ? 'Chill 😎' : currentActivity}`
-                  : 'Que veux-tu faire ?')}
-              {currentScreen === 'friends' && `${friends.length} amis`}
-              {!isOnline && (
-                <span className="text-orange-500 text-xs ml-2">
-                  • Mode hors ligne
-                </span>
-              )}
-            </p>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            {/* Bouton notifications */}
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setCurrentScreen('notifications')}
-              className={`relative p-2 rounded-full transition-colors ${
-                currentScreen === 'notifications'
-                  ? 'bg-blue-500 text-white'
-                  : darkMode
-                    ? 'hover:bg-gray-700 text-gray-300'
-                    : 'hover:bg-gray-100 text-gray-600'
-              }`}
-            >
-              <Bell size={20} />
-              {notifications.length > 0 && (
-                <NotificationBadge count={notifications.length} />
-              )}
-            </motion.button>
-
-            {/* Avatar profil */}
+          {/* Avatar profil à gauche */}
+          <div className="flex items-center">
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => setCurrentScreen('settings')}
-              className={`w-10 h-10 ${
-                currentScreen === 'settings'
-                  ? 'bg-blue-500'
-                  : darkMode
-                    ? 'bg-gray-700 hover:bg-gray-600'
-                    : 'bg-gray-200 hover:bg-gray-300'
-              } rounded-full flex items-center justify-center cursor-pointer transition-colors`}
+              className="relative mr-3 cursor-pointer"
               title="Paramètres"
             >
-              {user.avatar && user.avatar.startsWith('http') ? (
-                <img
-                  src={user.avatar}
-                  alt="Avatar"
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-              ) : (
-                <span className="text-xl">{user.avatar || '👤'}</span>
-              )}
+              {/* Contour dégradé circulaire */}
+              <div
+                className={`w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-0.5 transition-all ${
+                  currentScreen === 'settings'
+                    ? 'shadow-lg shadow-blue-500/25'
+                    : 'hover:shadow-lg hover:shadow-purple-500/20'
+                }`}
+              >
+                <div
+                  className={`w-full h-full ${
+                    currentScreen === 'settings'
+                      ? 'bg-blue-500'
+                      : darkMode
+                        ? 'bg-gray-700 hover:bg-gray-600'
+                        : 'bg-gray-200 hover:bg-gray-300'
+                  } rounded-full flex items-center justify-center transition-all`}
+                >
+                  {user.avatar && user.avatar.startsWith('http') ? (
+                    <img
+                      src={user.avatar}
+                      alt="Avatar"
+                      className="w-9 h-9 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-lg">{user.avatar || '👤'}</span>
+                  )}
+                </div>
+              </div>
             </motion.button>
+
+            {/* Titres */}
+            <div>
+              <h1
+                className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}
+              >
+                {currentScreen === 'home' &&
+                  `Salut ${user.name?.split(' ')[0]}! 👋`}
+                {currentScreen === 'map' && 'Carte'}
+                {currentScreen === 'friends' && 'Mes Amis'}
+              </h1>
+              <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                {currentScreen === 'home' &&
+                  (isAvailable
+                    ? `Tu es dispo pour ${currentActivity === 'coffee' ? 'Coffee ☕' : currentActivity === 'lunch' ? 'Lunch 🍽️' : currentActivity === 'drinks' ? 'Drinks 🍻' : currentActivity === 'chill' ? 'Chill 😎' : currentActivity}`
+                    : 'Que veux-tu faire ?')}
+                {currentScreen === 'friends' && `${friends.length} amis`}
+                {!isOnline && (
+                  <span className="text-orange-500 text-xs ml-2">
+                    • Mode hors ligne
+                  </span>
+                )}
+              </p>
+            </div>
           </div>
+
+          {/* Bouton notifications à droite */}
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setCurrentScreen('notifications')}
+            className={`relative p-2 rounded-full transition-colors ${
+              currentScreen === 'notifications'
+                ? 'bg-blue-500 text-white'
+                : darkMode
+                  ? 'hover:bg-gray-700 text-gray-300'
+                  : 'hover:bg-gray-100 text-gray-600'
+            }`}
+          >
+            <Bell size={20} />
+            {notifications.length > 0 && (
+              <NotificationBadge count={notifications.length} />
+            )}
+          </motion.button>
         </div>
       </div>
     );

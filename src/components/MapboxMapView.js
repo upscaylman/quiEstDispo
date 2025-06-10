@@ -163,8 +163,13 @@ const MapboxMapView = ({
           align-items: center;
           justify-content: center;
           font-size: 24px;
+          overflow: hidden;
         ">
-          😊
+          ${
+            currentUser?.avatar && currentUser.avatar.startsWith('http')
+              ? `<img src="${currentUser.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" alt="Avatar" />`
+              : `<span style="font-size: 20px;">${currentUser?.avatar || '😊'}</span>`
+          }
         </div>
         ${
           isAvailable
@@ -280,8 +285,14 @@ const MapboxMapView = ({
           font-size: 10px;
           font-weight: bold;
           color: #374151;
+          overflow: hidden;
         ">
-          ${(friend.friend?.name || friend.name || 'A').substring(0, 2).toUpperCase()}
+          ${
+            (friend.friend?.avatar || friend.avatar) &&
+            (friend.friend?.avatar || friend.avatar).startsWith('http')
+              ? `<img src="${friend.friend?.avatar || friend.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" alt="Avatar" />`
+              : `<span style="font-size: 8px;">${friend.friend?.avatar || friend.avatar || (friend.friend?.name || friend.name || 'A').substring(0, 2).toUpperCase()}</span>`
+          }
         </div>
         <div style="
           position: absolute;
@@ -500,8 +511,22 @@ const MapboxMapView = ({
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                  {(selectedFriend.name || 'A').substring(0, 2).toUpperCase()}
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg overflow-hidden">
+                  {selectedFriend.avatar &&
+                  selectedFriend.avatar.startsWith('http') ? (
+                    <img
+                      src={selectedFriend.avatar}
+                      alt="Avatar"
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-lg">
+                      {selectedFriend.avatar ||
+                        (selectedFriend.name || 'A')
+                          .substring(0, 2)
+                          .toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <h3
