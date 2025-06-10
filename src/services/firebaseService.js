@@ -519,6 +519,9 @@ export class AuthService {
       );
       const phoneNumber = phoneUser.phoneNumber;
 
+      // DEBUG TEMPORAIRE
+      await this.debugPhoneAccountLinking(phoneNumber);
+
       // Chercher un utilisateur existant avec ce numéro de téléphone
       const usersQuery = query(
         collection(db, 'users'),
@@ -1406,6 +1409,41 @@ export class AuthService {
         blazeEnabled: null,
         message: `❓ Statut inconnu: ${error.message}`,
       };
+    }
+  }
+
+  // Debug temporaire : vérifier tous les comptes existants
+  static async debugPhoneAccountLinking(phoneNumber) {
+    try {
+      console.log('🔍 DEBUG: Recherche de compte avec numéro:', phoneNumber);
+
+      // 1. Lister tous les utilisateurs pour voir leurs numéros
+      const allUsersSnapshot = await getDocs(collection(db, 'users'));
+      console.log('📊 Tous les comptes dans la base:');
+
+      allUsersSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        console.log(
+          `- ${doc.id}: name="${data.name}", phone="${data.phone}", email="${data.email}"`
+        );
+      });
+
+      // 2. Recherche spécifique par numéro
+      const usersQuery = query(
+        collection(db, 'users'),
+        where('phone', '==', phoneNumber)
+      );
+      const existingUsers = await getDocs(usersQuery);
+
+      console.log(
+        `🔍 Recherche pour numéro ${phoneNumber}:`,
+        existingUsers.size,
+        'résultats'
+      );
+
+      return existingUsers;
+    } catch (error) {
+      console.error('❌ Erreur debug:', error);
     }
   }
 }
