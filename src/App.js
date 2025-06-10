@@ -367,6 +367,32 @@ function App() {
     notificationId
   ) => {
     try {
+      console.log(
+        '🔍 Debug - FriendsService disponible:',
+        typeof FriendsService
+      );
+      console.log(
+        '🔍 Debug - Méthode respondToFriendInvitation disponible:',
+        typeof FriendsService?.respondToFriendInvitation
+      );
+
+      // Vérification de sécurité
+      if (
+        !FriendsService ||
+        typeof FriendsService.respondToFriendInvitation !== 'function'
+      ) {
+        console.error(
+          "❌ FriendsService.respondToFriendInvitation n'est pas disponible"
+        );
+
+        // Fallback : marquer juste la notification comme lue
+        await markNotificationAsRead(notificationId);
+        alert(
+          'Erreur technique, mais la notification a été marquée comme lue. Veuillez réessayer.'
+        );
+        return;
+      }
+
       await FriendsService.respondToFriendInvitation(
         invitationId,
         response,
