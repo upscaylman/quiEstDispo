@@ -254,6 +254,116 @@ export class PushNotificationService {
       throw error;
     }
   }
+
+  // Envoyer une notification push à un utilisateur spécifique
+  static async sendPushToUser(userId, notificationData) {
+    try {
+      console.log(
+        `📱 Tentative envoi push à l'utilisateur ${userId}:`,
+        notificationData
+      );
+
+      // Pour l'instant, on ne peut envoyer que des notifications locales
+      // car on n'a pas de backend pour gérer les tokens utilisateurs
+      // TODO: Implémenter un système de tokens utilisateurs côté serveur
+
+      // Vérifier si c'est l'utilisateur actuel (seul cas qu'on peut gérer)
+      const currentUser = this.getCurrentUserId();
+
+      if (currentUser && currentUser === userId) {
+        console.log("📱 Envoi notification push à l'utilisateur actuel");
+
+        // Vérifier les permissions
+        if (Notification.permission !== 'granted') {
+          console.warn('⚠️ Permissions notifications non accordées');
+          return { sent: false, reason: 'no_permission' };
+        }
+
+        // Envoyer la notification locale
+        await this.showTestNotification(
+          notificationData.title || 'Qui est dispo',
+          notificationData.body ||
+            notificationData.message ||
+            'Nouvelle notification',
+          {
+            tag: notificationData.tag || 'app-notification',
+            icon: '/logo192.png',
+            badge: '/logo192.png',
+            data: notificationData.data || {},
+            requireInteraction: notificationData.requireInteraction || false,
+          }
+        );
+
+        console.log("✅ Notification push envoyée à l'utilisateur actuel");
+        return { sent: true, method: 'local' };
+      } else {
+        console.log(
+          'ℹ️ Notification pour autre utilisateur - stockage Firestore uniquement'
+        );
+        // Pour les autres utilisateurs, la notification sera visible quand ils ouvriront l'app
+        return { sent: false, reason: 'other_user' };
+      }
+    } catch (error) {
+      console.error('❌ Erreur envoi notification push:', error);
+      return { sent: false, reason: 'error', error: error.message };
+    }
+  }
+
+  // Obtenir l'ID de l'utilisateur actuel (helper)
+  static getCurrentUserId() {
+    try {
+      // Essayer de récupérer depuis Firebase Auth
+      const { auth } = require('../firebase');
+      return auth?.currentUser?.uid || null;
+    } catch (error) {
+      console.warn("⚠️ Impossible de récupérer l'utilisateur actuel:", error);
+      return null;
+    }
+  }
+
+  // Méthode unifiée pour créer notification Firestore + Push
+  static async createNotificationWithPush(notificationData) {
+    try {
+      console.log(
+        '📱 Création notification complète (Firestore + Push):',
+        notificationData
+      );
+
+      // 1. Créer la notification dans Firestore (via NotificationService)
+      const { NotificationService } = await import('./firebaseService');
+
+      await NotificationService.createNotification(
+        notificationData.toUserId,
+        notificationData.fromUserId,
+        notificationData.type,
+        notificationData.message,
+        notificationData.data || {}
+      );
+
+      // 2. Envoyer notification push si possible
+      const pushResult = await this.sendPushToUser(notificationData.toUserId, {
+        title: notificationData.title,
+        body: notificationData.message,
+        tag: notificationData.type,
+        data: notificationData.data,
+        requireInteraction: notificationData.requireInteraction || false,
+      });
+
+      console.log('✅ Notification complète créée:', {
+        firestore: true,
+        push: pushResult,
+      });
+
+      return {
+        success: true,
+        firestore: true,
+        push: pushResult,
+      };
+    } catch (error) {
+      console.error('❌ Erreur création notification complète:', error);
+      throw error;
+    }
+  }
 }
 
 export default PushNotificationService;

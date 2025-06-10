@@ -1652,7 +1652,7 @@ export class FriendsService {
       );
 
       // Créer la notification avec boutons d'action
-      await addDoc(collection(db, 'notifications'), {
+      const notificationData = {
         to: toUserId,
         from: fromUserId,
         type: 'friend_invitation',
@@ -1665,7 +1665,9 @@ export class FriendsService {
         },
         read: false,
         createdAt: serverTimestamp(),
-      });
+      };
+
+      await addDoc(collection(db, 'notifications'), notificationData);
 
       console.log(`✅ Invitation d'amitié créée pour ${fromUserData.name}`);
       return invitationRef.id;
@@ -1721,7 +1723,7 @@ export class FriendsService {
           ? toUserSnap.data().name
           : 'Un utilisateur';
 
-        await addDoc(collection(db, 'notifications'), {
+        const acceptNotificationData = {
           to: invitationData.fromUserId,
           from: userId,
           type: 'friend_invitation_accepted',
@@ -1732,7 +1734,38 @@ export class FriendsService {
           },
           read: false,
           createdAt: serverTimestamp(),
-        });
+        };
+
+        await addDoc(collection(db, 'notifications'), acceptNotificationData);
+
+        // 🔔 NOUVEAU : Envoyer notification push automatiquement
+        try {
+          const { default: PushNotificationService } = await import(
+            './pushNotificationService'
+          );
+
+          await PushNotificationService.sendPushToUser(
+            invitationData.fromUserId,
+            {
+              title: "✅ Demande d'ami acceptée !",
+              body: `${toUserName} a accepté votre demande d'ami`,
+              tag: 'friend-accepted',
+              data: {
+                type: 'friend_invitation_accepted',
+                friendId: userId,
+                friendName: toUserName,
+              },
+              requireInteraction: false,
+            }
+          );
+
+          console.log("🔔 Notification push envoyée pour acceptation d'ami");
+        } catch (pushError) {
+          console.warn(
+            '⚠️ Erreur notification push (non critique):',
+            pushError
+          );
+        }
       }
 
       console.log(`✅ Invitation ${response}`);
@@ -1890,7 +1923,38 @@ export class InvitationService {
         createdAt: serverTimestamp(),
       };
 
-      return await addDoc(collection(db, 'notifications'), notification);
+      const result = await addDoc(
+        collection(db, 'notifications'),
+        notification
+      );
+
+      // 🔔 NOUVEAU : Envoyer notification push automatiquement
+      try {
+        const { default: PushNotificationService } = await import(
+          './pushNotificationService'
+        );
+
+        await PushNotificationService.sendPushToUser(toUserId, {
+          title: `🎉 Invitation pour ${activityLabel}`,
+          body: `${fromUserName} vous invite pour ${activityLabel}`,
+          tag: 'activity-invitation',
+          data: {
+            type: 'invitation',
+            activity,
+            fromUserId,
+            fromUserName,
+          },
+          requireInteraction: true,
+        });
+
+        console.log(
+          `🔔 Notification push envoyée pour invitation ${activityLabel}`
+        );
+      } catch (pushError) {
+        console.warn('⚠️ Erreur notification push (non critique):', pushError);
+      }
+
+      return result;
     } catch (error) {
       console.error('❌ Erreur création notification invitation:', error);
       // Ne pas faire échouer l'invitation si la notification échoue
@@ -1974,6 +2038,37 @@ export class InvitationService {
       };
 
       await addDoc(collection(db, 'notifications'), notification);
+
+      // 🔔 NOUVEAU : Envoyer notification push automatiquement
+      try {
+        const { default: PushNotificationService } = await import(
+          './pushNotificationService'
+        );
+
+        const title = accepted
+          ? '✅ Invitation acceptée !'
+          : '❌ Invitation déclinée';
+
+        await PushNotificationService.sendPushToUser(toUserId, {
+          title,
+          body: message,
+          tag: 'invitation-response',
+          data: {
+            type: 'invitation_response',
+            activity,
+            accepted,
+            fromUserId,
+            fromUserName,
+          },
+          requireInteraction: false,
+        });
+
+        console.log(
+          `🔔 Notification push envoyée pour réponse ${accepted ? 'acceptée' : 'déclinée'}`
+        );
+      } catch (pushError) {
+        console.warn('⚠️ Erreur notification push (non critique):', pushError);
+      }
     } catch (error) {
       console.error('❌ Erreur notification réponse:', error);
     }
