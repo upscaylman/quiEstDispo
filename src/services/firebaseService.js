@@ -1928,6 +1928,10 @@ export class InvitationService {
   // Créer une notification pour une invitation
   static async createInvitationNotification(toUserId, fromUserId, activity) {
     try {
+      console.log(
+        `🔍 [DEBUG] createInvitationNotification appelée: ${fromUserId} -> ${toUserId} pour ${activity}`
+      );
+
       // Récupérer le nom de l'expéditeur
       const fromUser = await getDoc(doc(db, 'users', fromUserId));
       const fromUserName = fromUser.exists() ? fromUser.data().name : 'Un ami';
@@ -1942,8 +1946,8 @@ export class InvitationService {
       const activityLabel = activities[activity] || activity;
 
       const notification = {
-        toUserId,
-        fromUserId,
+        to: toUserId, // 🔧 CORRECTION: utiliser 'to' au lieu de 'toUserId'
+        from: fromUserId, // 🔧 CORRECTION: utiliser 'from' au lieu de 'fromUserId'
         type: 'invitation',
         title: 'Nouvelle invitation !',
         message: `${fromUserName} vous invite pour ${activityLabel}. Rejoignez l'app : https://qui-est-dispo-app.vercel.app`,
@@ -1960,6 +1964,10 @@ export class InvitationService {
       const result = await addDoc(
         collection(db, 'notifications'),
         notification
+      );
+
+      console.log(
+        `🔍 [DEBUG] Notification d'invitation créée: ${result.id} pour ${activityLabel}`
       );
 
       // 🔔 NOUVEAU : Envoyer notification push automatiquement
@@ -2056,8 +2064,8 @@ export class InvitationService {
         : `${fromUserName} a décliné votre invitation pour ${activityLabel}`;
 
       const notification = {
-        toUserId,
-        fromUserId,
+        to: toUserId, // 🔧 CORRECTION: utiliser 'to' au lieu de 'toUserId'
+        from: fromUserId, // 🔧 CORRECTION: utiliser 'from' au lieu de 'fromUserId'
         type: 'invitation_response',
         title: accepted ? 'Invitation acceptée !' : 'Invitation déclinée',
         message,
