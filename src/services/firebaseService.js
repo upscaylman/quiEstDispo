@@ -1945,17 +1945,17 @@ export class InvitationService {
 
       const activityLabel = activities[activity] || activity;
 
+      // 🔧 COPIER EXACTEMENT LE SCHÉMA DES INVITATIONS D'AMITIÉ (qui fonctionnent)
       const notification = {
-        to: toUserId, // 🔧 CORRECTION: utiliser 'to' au lieu de 'toUserId'
-        from: fromUserId, // 🔧 CORRECTION: utiliser 'from' au lieu de 'fromUserId'
+        to: toUserId,
+        from: fromUserId,
         type: 'invitation',
-        title: 'Nouvelle invitation !',
-        message: `${fromUserName} vous invite pour ${activityLabel}. Rejoignez l'app : https://qui-est-dispo-app.vercel.app`,
+        message: `🎉 ${fromUserName} vous invite pour ${activityLabel}`,
         data: {
           activity,
           fromUserId,
           fromUserName,
-          appUrl: 'https://qui-est-dispo-app.vercel.app',
+          activityLabel,
         },
         read: false,
         createdAt: serverTimestamp(),
@@ -2063,17 +2063,18 @@ export class InvitationService {
         ? `${fromUserName} a accepté votre invitation pour ${activityLabel} !`
         : `${fromUserName} a décliné votre invitation pour ${activityLabel}`;
 
+      // 🔧 COPIER EXACTEMENT LE SCHÉMA DES INVITATIONS D'AMITIÉ (qui fonctionnent)
       const notification = {
-        to: toUserId, // 🔧 CORRECTION: utiliser 'to' au lieu de 'toUserId'
-        from: fromUserId, // 🔧 CORRECTION: utiliser 'from' au lieu de 'fromUserId'
+        to: toUserId,
+        from: fromUserId,
         type: 'invitation_response',
-        title: accepted ? 'Invitation acceptée !' : 'Invitation déclinée',
         message,
         data: {
           activity,
           accepted,
           fromUserId,
           fromUserName,
+          activityLabel,
         },
         read: false,
         createdAt: serverTimestamp(),
