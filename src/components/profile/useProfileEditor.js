@@ -29,6 +29,7 @@ export const useProfileEditor = (user, onProfileUpdate) => {
       return;
     }
 
+    // Validation basique du numéro de téléphone
     const phoneRegex = /^(\+33|0)[1-9](\d{8})$/;
     if (!phoneRegex.test(phoneNumber.replace(/\s/g, ''))) {
       setError('Format invalide. Utilisez 06 12 34 56 78 ou +33 6 12 34 56 78');
@@ -39,15 +40,22 @@ export const useProfileEditor = (user, onProfileUpdate) => {
     setError('');
 
     try {
+      // Normaliser le numéro
       const normalizedPhone = FriendsService.normalizePhoneNumber(phoneNumber);
+
+      // Vérifier que le numéro n'est pas déjà utilisé par un autre utilisateur
       await AuthService.updateUserPhone(user.uid, normalizedPhone);
 
       setSuccess('Numéro de téléphone ajouté avec succès ! 🎉');
       setIsEditing(false);
 
+      // Effacer le message de succès après 3 secondes
       setTimeout(() => setSuccess(''), 3000);
+
+      // Recharger les données utilisateur depuis Firebase
       await refreshUserData();
 
+      // Mettre à jour l'état local si la fonction est fournie
       if (onProfileUpdate) {
         await onProfileUpdate({ ...user, phone: normalizedPhone });
       }
@@ -60,20 +68,37 @@ export const useProfileEditor = (user, onProfileUpdate) => {
   };
 
   const handleRemovePhone = async () => {
+    if (
+      !window.confirm(
+        'Êtes-vous sûr de vouloir supprimer votre numéro de téléphone ?'
+      )
+    ) {
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
     try {
-      await AuthService.updateUserPhone(user.uid, null);
-      setSuccess('Numéro de téléphone supprimé ! 🎉');
+      console.log('🗑️ Suppression du numéro de téléphone...');
+      await AuthService.removeUserPhone(user.uid);
+
+      setSuccess('✅ Numéro de téléphone supprimé !');
+      setPhoneNumber('');
+      setIsEditing(false);
+
+      // Effacer le message de succès après 3 secondes
       setTimeout(() => setSuccess(''), 3000);
+
+      // Recharger les données utilisateur depuis Firebase
       await refreshUserData();
 
+      // Mettre à jour l'état local si la fonction est fournie
       if (onProfileUpdate) {
-        await onProfileUpdate({ ...user, phone: null });
+        await onProfileUpdate({ ...user, phone: '' });
       }
     } catch (error) {
-      console.error('Erreur suppression téléphone:', error);
+      console.error('❌ Erreur suppression numéro:', error);
       setError(error.message || 'Erreur lors de la suppression');
     } finally {
       setIsLoading(false);

@@ -39,19 +39,52 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
         darkMode ? 'bg-gray-800' : 'bg-white'
       } w-full max-w-md mx-auto`}
     >
-      {/* Header avec avatar et nom */}
-      <div className="flex items-start space-x-4 mb-6">
-        <AvatarUploader
-          user={user}
-          localAvatar={localAvatar}
-          forceRefresh={forceRefresh}
-          isUploadingPhoto={isUploadingPhoto}
-          onPhotoUpload={handlePhotoUpload}
-          darkMode={darkMode}
-        />
+      <h3
+        className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+      >
+        Mon Profil
+      </h3>
 
-        {/* Section nom/email - contenu principal */}
-        <div className="flex-1">
+      {/* Informations de base */}
+      <div className="mb-6">
+        {/* Photo de profil */}
+        <div className="flex items-center mb-4">
+          <AvatarUploader
+            user={user}
+            localAvatar={localAvatar}
+            forceRefresh={forceRefresh}
+            isUploadingPhoto={isUploadingPhoto}
+            onPhotoUpload={handlePhotoUpload}
+            darkMode={darkMode}
+          />
+
+          {/* Nom et email */}
+          <div className="flex-1">
+            <ProfileForm
+              user={user}
+              isEditing={isEditing}
+              setIsEditing={setIsEditing}
+              isEditingName={isEditingName}
+              setIsEditingName={setIsEditingName}
+              phoneNumber={phoneNumber}
+              setPhoneNumber={setPhoneNumber}
+              userName={userName}
+              setUserName={setUserName}
+              isLoading={isLoading}
+              onSavePhone={handleSavePhone}
+              onRemovePhone={handleRemovePhone}
+              onCancel={handleCancel}
+              onSaveName={handleSaveName}
+              onCancelName={handleCancelName}
+              onDebug={handleDebug}
+              darkMode={darkMode}
+              showOnlyNameSection={true}
+            />
+          </div>
+        </div>
+
+        {/* Edition du nom (si en cours) */}
+        {isEditingName && (
           <ProfileForm
             user={user}
             isEditing={isEditing}
@@ -70,9 +103,32 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
             onCancelName={handleCancelName}
             onDebug={handleDebug}
             darkMode={darkMode}
+            showOnlyNameEdit={true}
           />
-        </div>
+        )}
       </div>
+
+      {/* Section numéro de téléphone */}
+      <ProfileForm
+        user={user}
+        isEditing={isEditing}
+        setIsEditing={setIsEditing}
+        isEditingName={isEditingName}
+        setIsEditingName={setIsEditingName}
+        phoneNumber={phoneNumber}
+        setPhoneNumber={setPhoneNumber}
+        userName={userName}
+        setUserName={setUserName}
+        isLoading={isLoading}
+        onSavePhone={handleSavePhone}
+        onRemovePhone={handleRemovePhone}
+        onCancel={handleCancel}
+        onSaveName={handleSaveName}
+        onCancelName={handleCancelName}
+        onDebug={handleDebug}
+        darkMode={darkMode}
+        showOnlyPhoneSection={true}
+      />
 
       {/* Messages d'erreur et de succès */}
       {error && (

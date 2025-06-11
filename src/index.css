@@ -28,13 +28,59 @@ body {
 
 /* Animations personnalisées */
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
 }
 
 .animate-shake {
   animation: shake 0.5s ease-in-out;
+}
+
+/* Animations pour les marqueurs de carte */
+@keyframes gps-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+@keyframes availability-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-gps-pulse {
+  animation: gps-pulse 2s infinite;
+}
+
+.animate-availability-pulse {
+  animation: availability-pulse 2s infinite;
 }
 
 /* Styles pour les notifications */
@@ -105,7 +151,12 @@ body {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
   transition: left 0.5s;
 }
 
@@ -142,7 +193,8 @@ body {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -186,7 +238,7 @@ body {
   .hover\:scale-105:hover {
     transform: scale(1);
   }
-  
+
   .btn-haptic:active {
     transform: scale(0.95);
   }

@@ -8,7 +8,8 @@ import reportWebVitals from './reportWebVitals';
 import './utils/errorHandler';
 
 // Enregistrement du Service Worker avec détection automatique des mises à jour
-if ('serviceWorker' in navigator) {
+// Désactivé temporairement en développement pour éviter les erreurs de cache
+if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')
@@ -27,6 +28,8 @@ if ('serviceWorker' in navigator) {
         console.log('❌ Erreur Service Worker:', registrationError);
       });
   });
+} else if (process.env.NODE_ENV === 'development') {
+  console.log('🔧 Service Worker désactivé en développement');
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
