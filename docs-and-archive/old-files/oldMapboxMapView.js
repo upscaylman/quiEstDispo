@@ -29,6 +29,7 @@ const MapboxMapView = ({
   isAvailable = false,
   currentUser,
   onDeclineFriend,
+  showControls = true,
 }) => {
   const mapContainer = useRef(null);
   const map = useRef(null);
@@ -409,37 +410,39 @@ const MapboxMapView = ({
         <div ref={mapContainer} className="w-full h-full" />
 
         {/* Contrôles sur la carte */}
-        <div className="absolute top-4 right-4 flex flex-col space-y-2">
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowFilters(!showFilters)}
-            className={`w-10 h-10 rounded-lg shadow-lg flex items-center justify-center transition-colors ${
-              activityFilter !== 'all' || showFilters
-                ? 'bg-blue-500 text-white'
-                : darkMode
+        {showControls && (
+          <div className="absolute top-4 right-4 flex flex-col space-y-2">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowFilters(!showFilters)}
+              className={`w-10 h-10 rounded-lg shadow-lg flex items-center justify-center transition-colors ${
+                activityFilter !== 'all' || showFilters
+                  ? 'bg-blue-500 text-white'
+                  : darkMode
+                    ? 'bg-gray-800 text-white hover:bg-gray-700'
+                    : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <Filter size={20} />
+            </motion.button>
+
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={centerOnUser}
+              className={`w-10 h-10 rounded-lg shadow-lg flex items-center justify-center transition-colors ${
+                darkMode
                   ? 'bg-gray-800 text-white hover:bg-gray-700'
                   : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Filter size={20} />
-          </motion.button>
-
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={centerOnUser}
-            className={`w-10 h-10 rounded-lg shadow-lg flex items-center justify-center transition-colors ${
-              darkMode
-                ? 'bg-gray-800 text-white hover:bg-gray-700'
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Crosshair size={20} />
-          </motion.button>
-        </div>
+              }`}
+            >
+              <Crosshair size={20} />
+            </motion.button>
+          </div>
+        )}
 
         {/* Panel de filtres */}
         <AnimatePresence>
-          {showFilters && (
+          {showControls && showFilters && (
             <motion.div
               initial={{ x: -300, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}

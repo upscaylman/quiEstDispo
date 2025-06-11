@@ -17,6 +17,7 @@ const InviteFriendsModal = ({
   onSendInvitations,
   activity,
   friends = [],
+  notifications = [],
   darkMode = false,
 }) => {
   const [selectedFriends, setSelectedFriends] = useState(new Set());
@@ -34,7 +35,36 @@ const InviteFriendsModal = ({
   const currentActivity = activities[activity] || activities.chill;
   const Icon = currentActivity.icon;
 
+  const friendsWhoInvitedUs = new Set(
+    notifications
+      .filter(notif => {
+        const isInvitation = notif.type === 'invitation';
+        const sameActivity = notif.data?.activity === activity;
+        const unread = !notif.read;
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🔍 [DEBUG] Notification check:`, {
+            id: notif.id,
+            type: notif.type,
+            isInvitation,
+            notifActivity: notif.data?.activity,
+            currentActivity: activity,
+            sameActivity,
+            unread,
+            shouldGray: isInvitation && sameActivity && unread,
+          });
+        }
+
+        return isInvitation && sameActivity && unread;
+      })
+      .map(notif => notif.from)
+  );
+
   const toggleFriend = friendId => {
+    if (friendsWhoInvitedUs.has(friendId)) {
+      return;
+    }
+
     const newSelected = new Set(selectedFriends);
     if (newSelected.has(friendId)) {
       newSelected.delete(friendId);
@@ -143,62 +173,101 @@ const InviteFriendsModal = ({
                     Sélectionnez les amis à inviter ({selectedFriends.size}{' '}
                     sélectionné{selectedFriends.size > 1 ? 's' : ''})
                   </p>
+                  {friendsWhoInvitedUs.size > 0 && (
+                    <p
+                      className={`text-xs mt-2 ${darkMode ? 'text-amber-400' : 'text-amber-600'} bg-amber-50 dark:bg-amber-900/20 p-2 rounded`}
+                    >
+                      💡 Les amis grisés vous ont déjà invité pour cette
+                      activité
+                    </p>
+                  )}
                 </div>
 
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {friends.map(friend => (
-                    <motion.div
-                      key={friend.id}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => toggleFriend(friend.id)}
-                      className={`flex items-center p-3 rounded-lg cursor-pointer transition-all ${
-                        selectedFriends.has(friend.id)
-                          ? darkMode
-                            ? 'bg-blue-600 bg-opacity-20 border border-blue-500'
-                            : 'bg-blue-50 border border-blue-300'
-                          : darkMode
-                            ? 'bg-gray-700 hover:bg-gray-600'
-                            : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                    >
-                      <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                        {friend.avatar && friend.avatar.startsWith('http') ? (
-                          <img
-                            src={friend.avatar}
-                            alt="Avatar"
-                            className="w-12 h-12 rounded-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-2xl">
-                            {friend.avatar || '👤'}
-                          </span>
-                        )}
-                      </div>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {friends.map(friend => {
+                    const hasInvitedUs = friendsWhoInvitedUs.has(friend.id);
+                    const isDisabled = hasInvitedUs;
 
-                      <div className="flex-1">
-                        <p className="font-medium">{friend.name}</p>
-                        <p
-                          className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
-                        >
-                          {friend.isOnline ? '🟢 En ligne' : '⚫ Hors ligne'}
-                        </p>
-                      </div>
-
-                      <div
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                          selectedFriends.has(friend.id)
-                            ? 'bg-blue-500 border-blue-500'
-                            : darkMode
-                              ? 'border-gray-500'
-                              : 'border-gray-300'
+                    return (
+                      <motion.div
+                        key={friend.id}
+                        whileTap={!isDisabled ? { scale: 0.98 } : {}}
+                        onClick={() => !isDisabled && toggleFriend(friend.id)}
+                        className={`flex items-center p-3 rounded-lg transition-all ${
+                          isDisabled
+                            ? // Grisé si désactivé
+                              darkMode
+                              ? 'bg-gray-800 cursor-not-allowed opacity-60'
+                              : 'bg-gray-100 cursor-not-allowed opacity-60'
+                            : selectedFriends.has(friend.id)
+                              ? // Sélectionné
+                                darkMode
+                                ? 'bg-blue-600 bg-opacity-20 border border-blue-500 cursor-pointer'
+                                : 'bg-blue-50 border border-blue-300 cursor-pointer'
+                              : // Normal
+                                darkMode
+                                ? 'bg-gray-700 hover:bg-gray-600 cursor-pointer'
+                                : 'bg-gray-50 hover:bg-gray-100 cursor-pointer'
                         }`}
                       >
-                        {selectedFriends.has(friend.id) && (
-                          <Check size={16} className="text-white" />
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
+                        <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mr-3">
+                          {friend.avatar && friend.avatar.startsWith('http') ? (
+                            <img
+                              src={friend.avatar}
+                              alt="Avatar"
+                              className="w-12 h-12 rounded-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-2xl">
+                              {friend.avatar || '👤'}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex-1">
+                          <p
+                            className={`font-medium ${isDisabled ? 'text-gray-500' : ''}`}
+                          >
+                            {friend.name}
+                          </p>
+                          <p
+                            className={`text-sm ${
+                              isDisabled
+                                ? 'text-gray-400'
+                                : darkMode
+                                  ? 'text-gray-400'
+                                  : 'text-gray-600'
+                            }`}
+                          >
+                            {hasInvitedUs
+                              ? '📨 Vous a déjà invité'
+                              : friend.isOnline
+                                ? '🟢 En ligne'
+                                : '⚫ Hors ligne'}
+                          </p>
+                        </div>
+
+                        <div
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                            isDisabled
+                              ? // Désactivé
+                                'border-gray-400 bg-gray-300'
+                              : selectedFriends.has(friend.id)
+                                ? // Sélectionné
+                                  'bg-blue-500 border-blue-500'
+                                : // Normal
+                                  darkMode
+                                  ? 'border-gray-500'
+                                  : 'border-gray-300'
+                          }`}
+                        >
+                          {!isDisabled && selectedFriends.has(friend.id) && (
+                            <Check size={16} className="text-white" />
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </>
             )}

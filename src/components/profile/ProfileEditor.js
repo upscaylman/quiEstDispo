@@ -1,7 +1,8 @@
+import { motion } from 'framer-motion';
 import React from 'react';
-import AvatarUploader from './profile/AvatarUploader';
-import ProfileForm from './profile/ProfileForm';
-import { useProfileEditor } from './profile/useProfileEditor';
+import AvatarUploader from './AvatarUploader';
+import ProfileForm from './ProfileForm';
+import { useProfileEditor } from './useProfileEditor';
 
 const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
   const {
@@ -34,7 +35,9 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
 
   return (
     <div
-      className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
+      className={`p-6 rounded-xl shadow-lg ${
+        darkMode ? 'bg-gray-800' : 'bg-white'
+      } w-full max-w-md mx-auto`}
     >
       <h3
         className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
@@ -52,7 +55,6 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
             forceRefresh={forceRefresh}
             isUploadingPhoto={isUploadingPhoto}
             onPhotoUpload={handlePhotoUpload}
-            onAvatarError={() => setError('')}
             darkMode={darkMode}
           />
 
@@ -126,9 +128,28 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
         onDebug={handleDebug}
         darkMode={darkMode}
         showOnlyPhoneSection={true}
-        error={error}
-        success={success}
       />
+
+      {/* Messages d'erreur et de succès */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-3 p-3 bg-red-100 border border-red-300 rounded-lg"
+        >
+          <p className="text-red-700 text-sm font-medium">{error}</p>
+        </motion.div>
+      )}
+
+      {success && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-3 p-3 bg-green-100 border border-green-300 rounded-lg"
+        >
+          <p className="text-green-700 text-sm font-medium">{success}</p>
+        </motion.div>
+      )}
     </div>
   );
 };

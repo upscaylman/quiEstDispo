@@ -25,6 +25,60 @@ const LoginScreen = () => {
   const [showRedirectOption, setShowRedirectOption] = useState(false);
   const [showFacebookRedirect, setShowFacebookRedirect] = useState(false);
 
+  // Fonction pour formater le numéro de téléphone au fur et à mesure de la saisie
+  const formatPhoneInput = value => {
+    // Supprimer tous les caractères non-numériques sauf +
+    let cleaned = value.replace(/[^\d+]/g, '');
+
+    // Si l'utilisateur commence par 0, remplacer par +33
+    if (cleaned.startsWith('0')) {
+      cleaned = '+33' + cleaned.substring(1);
+    }
+    // Si l'utilisateur ne commence pas par +, ajouter +33
+    else if (cleaned.length > 0 && !cleaned.startsWith('+')) {
+      cleaned = '+33' + cleaned;
+    }
+
+    // Formater avec des espaces pour la lisibilité : +33 6 12 34 56 78
+    if (cleaned.startsWith('+33') && cleaned.length > 3) {
+      const number = cleaned.substring(3);
+      let formatted = '+33';
+
+      for (let i = 0; i < number.length; i++) {
+        if (i === 1 || i === 3 || i === 5 || i === 7) {
+          formatted += ' ';
+        }
+        formatted += number[i];
+      }
+
+      return formatted;
+    }
+
+    return cleaned;
+  };
+
+  // Fonction pour valider le numéro avant envoi
+  const validatePhoneNumber = phone => {
+    const cleaned = phone.replace(/[^\d+]/g, '');
+
+    if (!cleaned) {
+      throw new Error('Numéro de téléphone requis');
+    }
+
+    // Vérifier le format français
+    if (cleaned.startsWith('+33')) {
+      const frenchNumber = cleaned.substring(3);
+      if (frenchNumber.length !== 9) {
+        throw new Error('Le numéro français doit avoir 9 chiffres');
+      }
+      if (!frenchNumber.match(/^[1-7][0-9]{8}$/)) {
+        throw new Error('Numéro français invalide (doit commencer par 01-07)');
+      }
+    }
+
+    return cleaned;
+  };
+
   const handleGoogleSignIn = async (useRedirect = false) => {
     try {
       setError('');
@@ -97,42 +151,25 @@ const LoginScreen = () => {
   const handlePhoneSignIn = async () => {
     try {
       setError('');
-      console.log('🔄 Starting phone sign-in process...');
+      setLoading(true);
 
-      // Créer le reCAPTCHA verifier s'il n'existe pas
+      // Valider le numéro de téléphone avant envoi
+      const validatedPhone = validatePhoneNumber(phoneNumber);
+      console.log('📱 Numéro validé:', validatedPhone);
+
+      // Créer un nouveau verifier si nécessaire
       if (!recaptchaVerifier) {
-        console.log('🔧 Creating new reCAPTCHA verifier...');
-
         try {
+          console.log('🔐 Creating reCAPTCHA verifier...');
           const verifier = createRecaptchaVerifier('recaptcha-container', {
-            size: 'invisible', // Invisible pour éviter les problèmes de configuration
-            onSuccess: () => {
-              console.log('✅ reCAPTCHA résolu avec succès');
-            },
-            onExpired: () => {
-              console.log('⚠️ reCAPTCHA expiré');
-              setError('reCAPTCHA expiré. Veuillez réessayer.');
-              setLoading(false); // Important: arrêter le loading
-            },
-            onError: error => {
-              console.error('❌ reCAPTCHA error:', error);
-              setLoading(false); // Important: arrêter le loading
-              if (error.message && error.message.includes('sitekey')) {
-                setError(
-                  'Mode développement: utilisez le bouton de test SMS ci-dessous'
-                );
-              } else {
-                setError('Erreur reCAPTCHA. Rechargez la page.');
-              }
-            },
+            size: 'invisible',
           });
-
           setRecaptchaVerifier(verifier);
           console.log('✅ reCAPTCHA verifier created');
 
           // Procéder directement à l'envoi SMS sans rendre manuellement
-          console.log('📱 Sending SMS with phone number:', phoneNumber);
-          const result = await signInWithPhone(phoneNumber, verifier);
+          console.log('📱 Sending SMS with phone number:', validatedPhone);
+          const result = await signInWithPhone(validatedPhone, verifier);
           console.log('✅ SMS sent, confirmation result:', result);
           setConfirmationResult(result);
           return;
@@ -155,7 +192,7 @@ const LoginScreen = () => {
 
       // Envoyer le SMS avec le verifier existant
       console.log('📱 Sending SMS with existing verifier...');
-      const result = await signInWithPhone(phoneNumber, recaptchaVerifier);
+      const result = await signInWithPhone(validatedPhone, recaptchaVerifier);
       console.log('✅ SMS sent successfully');
       setConfirmationResult(result);
     } catch (error) {
@@ -330,11 +367,16 @@ const LoginScreen = () => {
                       <input
                         type="tel"
                         value={phoneNumber}
-                        onChange={e => setPhoneNumber(e.target.value)}
+                        onChange={e =>
+                          setPhoneNumber(formatPhoneInput(e.target.value))
+                        }
                         placeholder="+33 6 12 34 56 78"
                         className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Format accepté : +33 6 12 34 56 78 ou 06 12 34 56 78
+                    </p>
                   </div>
                   <div id="recaptcha-container"></div>
                   <motion.button

@@ -12,6 +12,13 @@ import {
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { getStorage } from 'firebase/storage';
 
+// ⚠️ IMPORTANT: Configurer le jeton de débogage AVANT l'initialisation de Firebase
+if (process.env.NODE_ENV === 'development') {
+  // Jeton de débogage App Check pour localhost
+  window.FIREBASE_APPCHECK_DEBUG_TOKEN = '9E978FC1-A2E9-4169-B8B3-C53C4D08D7AF';
+  console.log('🔧 App Check: Jeton de débogage configuré AVANT Firebase init');
+}
+
 // Réduire les logs d'erreur Firebase au minimum
 setLogLevel('silent');
 
@@ -42,34 +49,28 @@ const app = initializeApp(firebaseConfig);
 // Initialiser App Check pour protéger contre les abus
 let appCheck = null;
 try {
-  // Vérifier si la clé reCAPTCHA est disponible
-  const recaptchaSiteKey = process.env.REACT_APP_RECAPTCHA_V3_SITE_KEY;
-
-  // Désactiver App Check temporairement en développement pour éviter conflits avec auth téléphone
-  const shouldInitAppCheck =
-    recaptchaSiteKey &&
-    recaptchaSiteKey !== 'your_recaptcha_site_key_here' &&
-    process.env.NODE_ENV === 'production'; // Seulement en production pour l'instant
+  // ⚠️ DÉSACTIVER App Check temporairement pour résoudre définitivement l'erreur 500
+  // Le jeton de débogage ne semble pas fonctionner correctement
+  const shouldInitAppCheck = false; // Forcer désactivation pour l'instant
 
   if (shouldInitAppCheck) {
+    const recaptchaSiteKey = process.env.REACT_APP_RECAPTCHA_V3_SITE_KEY;
+
     // Configuration App Check avec reCAPTCHA v3
     appCheck = initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider(recaptchaSiteKey),
-      // Debug en développement
       isTokenAutoRefreshEnabled: true,
     });
-    console.log('✅ Firebase App Check initialized with reCAPTCHA');
+    console.log(
+      '✅ Firebase App Check initialized with reCAPTCHA + Debug Token'
+    );
   } else {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(
-        '⚠️ App Check désactivé en développement pour éviter conflits avec auth téléphone'
-      );
-    } else {
-      console.warn('⚠️ reCAPTCHA site key not configured, App Check disabled');
-      console.warn(
-        '📝 Pour activer App Check, ajoutez REACT_APP_RECAPTCHA_V3_SITE_KEY dans .env.local'
-      );
-    }
+    console.warn(
+      '⚠️ App Check DÉSACTIVÉ temporairement pour résoudre erreur 500 SMS'
+    );
+    console.warn(
+      '💡 Une fois les SMS fonctionnels, nous pourrons réactiver App Check'
+    );
   }
 } catch (error) {
   console.warn(

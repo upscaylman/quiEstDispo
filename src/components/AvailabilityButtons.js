@@ -20,6 +20,7 @@ const AvailabilityButtons = ({
   locationError,
   availabilityStartTime,
   retryGeolocation, // Nouvelle prop pour retry sans recharger
+  darkMode,
 }) => {
   const [timeLeft, setTimeLeft] = useState(45 * 60);
 
@@ -107,7 +108,7 @@ const AvailabilityButtons = ({
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-xl p-6 shadow-lg border-2 border-green-200"
+        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border-2 border-green-200`}
       >
         <div className="text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -116,7 +117,7 @@ const AvailabilityButtons = ({
           <h3 className="text-xl font-bold text-green-700 mb-2">
             Tu es disponible !
           </h3>
-          <p className="text-gray-600 mb-4">
+          <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-4`}>
             Activité :{' '}
             <span className="font-semibold">
               {activities.find(a => a.id === currentActivity)?.label ||
@@ -148,7 +149,7 @@ const AvailabilityButtons = ({
             </div>
 
             <p
-              className={`text-sm ${isUrgent ? 'text-red-600' : 'text-gray-500'}`}
+              className={`text-sm ${isUrgent ? 'text-red-600' : darkMode ? 'text-gray-400' : 'text-gray-500'}`}
             >
               {isUrgent ? '⚠️ Bientôt expiré !' : 'Temps restant'}
             </p>
@@ -167,13 +168,21 @@ const AvailabilityButtons = ({
 
   if (locationError) {
     return (
-      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+      <div
+        className={`${darkMode ? 'bg-yellow-900/20 border-yellow-700' : 'bg-yellow-50 border-yellow-200'} border rounded-xl p-6`}
+      >
         <div className="text-center">
           <MapPin className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-yellow-700 mb-2">
+          <h3
+            className={`text-lg font-semibold text-yellow-700 mb-2 ${darkMode ? 'text-yellow-300' : ''}`}
+          >
             Localisation requise
           </h3>
-          <p className="text-yellow-600 text-sm mb-4">{locationError}</p>
+          <p
+            className={`${darkMode ? 'text-yellow-200' : 'text-yellow-600'} text-sm mb-4`}
+          >
+            {locationError}
+          </p>
           <button
             onClick={() => {
               if (retryGeolocation) {
@@ -186,7 +195,9 @@ const AvailabilityButtons = ({
           >
             Réessayer la localisation
           </button>
-          <p className="text-xs text-gray-500">
+          <p
+            className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+          >
             1. Vérifiez que Chrome a l'autorisation
             <br />
             2. Cliquez sur l'icône 🔒 dans l'URL
@@ -200,10 +211,14 @@ const AvailabilityButtons = ({
 
   if (!location) {
     return (
-      <div className="bg-gray-50 rounded-xl p-6">
+      <div
+        className={`${darkMode ? 'bg-gray-800' : 'bg-gray-50'} rounded-xl p-6`}
+      >
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Obtention de ta position...</p>
+          <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            Obtention de ta position...
+          </p>
         </div>
       </div>
     );
@@ -212,10 +227,14 @@ const AvailabilityButtons = ({
   return (
     <div className="space-y-4">
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">
+        <h2
+          className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mb-2`}
+        >
           Que veux-tu faire ?
         </h2>
-        <p className="text-gray-600">Partage ta disponibilité avec tes amis</p>
+        <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+          Partage ta disponibilité avec tes amis
+        </p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -240,7 +259,9 @@ const AvailabilityButtons = ({
         })}
       </div>
 
-      <div className="flex items-center justify-center text-xs text-gray-500 mt-4">
+      <div
+        className={`flex items-center justify-center text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-4`}
+      >
         <MapPin size={12} className="mr-1" />
         <span>Ta position sera partagée avec tes amis</span>
       </div>

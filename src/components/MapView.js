@@ -22,6 +22,7 @@ const MapView = ({
   darkMode = false,
   selectedActivity,
   isAvailable = false,
+  showControls = true,
 }) => {
   if (process.env.NODE_ENV === 'development') {
     console.log('🌐 MapView rendered with:', {
@@ -485,29 +486,31 @@ const MapView = ({
       </div>
 
       {/* Contrôles de zoom */}
-      <div className="absolute top-4 right-4 z-40 flex flex-col space-y-2">
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setZoom(Math.min(18, zoom + 1))}
-          className={`w-10 h-10 ${
-            darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-700'
-          } rounded-lg shadow-lg flex items-center justify-center`}
-        >
-          <Plus size={20} />
-        </motion.button>
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setZoom(Math.max(10, zoom - 1))}
-          className={`w-10 h-10 ${
-            darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-700'
-          } rounded-lg shadow-lg flex items-center justify-center`}
-        >
-          <Minus size={20} />
-        </motion.button>
-      </div>
+      {showControls && (
+        <div className="absolute top-4 right-4 z-40 flex flex-col space-y-2">
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setZoom(Math.min(18, zoom + 1))}
+            className={`w-10 h-10 ${
+              darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-700'
+            } rounded-lg shadow-lg flex items-center justify-center`}
+          >
+            <Plus size={20} />
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setZoom(Math.max(10, zoom - 1))}
+            className={`w-10 h-10 ${
+              darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-700'
+            } rounded-lg shadow-lg flex items-center justify-center`}
+          >
+            <Minus size={20} />
+          </motion.button>
+        </div>
+      )}
 
       {/* Bouton centrer sur utilisateur */}
-      {userLocation && (
+      {showControls && userLocation && (
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={() => {
@@ -527,23 +530,25 @@ const MapView = ({
       )}
 
       {/* Bouton filtres */}
-      <motion.button
-        whileTap={{ scale: 0.9 }}
-        onClick={() => setShowFilters(!showFilters)}
-        className={`absolute top-4 left-4 z-40 w-10 h-10 ${
-          showFilters
-            ? 'bg-blue-500 text-white'
-            : darkMode
-              ? 'bg-gray-800 text-white'
-              : 'bg-white text-gray-700'
-        } rounded-lg shadow-lg flex items-center justify-center`}
-      >
-        <Filter size={20} />
-      </motion.button>
+      {showControls && (
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setShowFilters(!showFilters)}
+          className={`absolute top-4 left-4 z-40 w-10 h-10 ${
+            showFilters
+              ? 'bg-blue-500 text-white'
+              : darkMode
+                ? 'bg-gray-800 text-white'
+                : 'bg-white text-gray-700'
+          } rounded-lg shadow-lg flex items-center justify-center`}
+        >
+          <Filter size={20} />
+        </motion.button>
+      )}
 
       {/* Panel de filtres */}
       <AnimatePresence>
-        {showFilters && (
+        {showControls && showFilters && (
           <motion.div
             initial={{ x: -300, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
