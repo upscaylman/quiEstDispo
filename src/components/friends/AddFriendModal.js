@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion';
 import { Mail, Phone, QrCode, Share2, UserPlus, X } from 'lucide-react';
 import React, { useState } from 'react';
-import FriendInviteForm from './friends/FriendInviteForm';
-import PhoneSearch from './friends/PhoneSearch';
-import QRCodeScanner from './friends/QRCodeScanner';
+import FriendInviteForm from './FriendInviteForm';
+import PhoneSearch from './PhoneSearch';
+import QRCodeScanner from './QRCodeScanner';
 
 const AddFriendModal = ({ isOpen, onClose, onAddFriend, currentUser }) => {
   const [method, setMethod] = useState('phone'); // 'phone', 'qr', 'mail', ou 'share'
