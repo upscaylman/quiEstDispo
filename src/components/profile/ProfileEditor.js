@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion';
 import React from 'react';
-import AvatarUploader from './profile/AvatarUploader';
-import ProfileForm from './profile/ProfileForm';
-import { useProfileEditor } from './profile/useProfileEditor';
+import AvatarUploader from './AvatarUploader';
+import ProfileForm from './ProfileForm';
+import { useProfileEditor } from './useProfileEditor';
 
 const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
   const {
