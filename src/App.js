@@ -1,6 +1,6 @@
 // Application refactorisée avec AppShell et components modulaires
 import React, { useEffect, useState } from 'react';
-import ActivitySelectorModal from './components/ActivitySelectorModal';
+
 import AddFriendModal from './components/AddFriendModal';
 import AppShell from './components/AppShell';
 import CookieConsent from './components/CookieConsent';
@@ -50,8 +50,6 @@ function App() {
   const [showInviteFriendsModal, setShowInviteFriendsModal] = useState(false);
   const [selectedInviteActivity, setSelectedInviteActivity] = useState(null);
   const [showPhoneRequiredModal, setShowPhoneRequiredModal] = useState(false);
-  const [showActivitySelectorModal, setShowActivitySelectorModal] =
-    useState(false);
 
   // Fonction pour gérer le changement d'écran avec logique notifications
   const handleScreenChange = screen => {
@@ -524,12 +522,8 @@ function App() {
 
   // Handler pour ouvrir le sélecteur d'activité simple
   const handleOpenActivitySelector = () => {
-    setShowActivitySelectorModal(true);
-  };
-
-  // Handler pour quand une activité est sélectionnée depuis le sélecteur
-  const handleActivitySelected = activityId => {
-    handleActivityClick(activityId);
+    // Rediriger vers l'accueil
+    handleScreenChange('home');
   };
 
   // Handler pour rediriger vers les paramètres depuis le modal PhoneRequired
@@ -1193,14 +1187,6 @@ function App() {
           onGoToSettings={handleGoToSettings}
           darkMode={darkMode}
         />
-
-        {/* Modal sélecteur d'activité */}
-        <ActivitySelectorModal
-          isOpen={showActivitySelectorModal}
-          onClose={() => setShowActivitySelectorModal(false)}
-          onSelectActivity={handleActivitySelected}
-          darkMode={darkMode}
-        />
       </div>
     );
   }
@@ -1285,14 +1271,6 @@ function App() {
         isOpen={showPhoneRequiredModal}
         onClose={() => setShowPhoneRequiredModal(false)}
         onGoToSettings={handleGoToSettings}
-        darkMode={darkMode}
-      />
-
-      {/* Modal sélecteur d'activité */}
-      <ActivitySelectorModal
-        isOpen={showActivitySelectorModal}
-        onClose={() => setShowActivitySelectorModal(false)}
-        onSelectActivity={handleActivitySelected}
         darkMode={darkMode}
       />
     </>

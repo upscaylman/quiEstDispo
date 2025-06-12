@@ -266,7 +266,7 @@ export class InvitationService {
         });
 
         // Créer une notification de réponse pour l'expéditeur
-        await NotificationService.createResponseNotification(
+        await InvitationService.createResponseNotification(
           invitationData.fromUserId,
           userId,
           invitationData.activity,
