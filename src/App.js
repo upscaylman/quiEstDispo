@@ -1,5 +1,4 @@
 // Application refactorisée avec AppShell et components modulaires
-import { Users } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import AddFriendModal from './components/AddFriendModal';
 import AppShell from './components/AppShell';
@@ -10,7 +9,6 @@ import MapboxMapView from './components/map/MapboxMapView';
 import PhoneRequiredModal from './components/PhoneRequiredModal';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import UpdateNotification from './components/UpdateNotification';
-import WarningBanner from './components/WarningBanner';
 import { useAuth } from './hooks/useAuth';
 import { useGeolocation } from './hooks/useGeolocation';
 import { CookieService } from './services/cookieService';
@@ -1076,22 +1074,11 @@ function App() {
   // Structure spéciale pour la carte
   if (currentScreen === 'map') {
     const MapComponent = useMapbox ? MapboxMapView : MapView;
+
     return (
       <div
         className={`h-screen flex flex-col ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}
       >
-        {/* Bandeau d'avertissement si aucun ami disponible */}
-        {availableFriends.length === 0 && (
-          <div className="p-4">
-            <WarningBanner
-              icon={Users}
-              title="Aucun ami disponible"
-              message="Vos amis ne sont pas disponibles pour le moment. Invitez-les à partager leur statut !"
-              darkMode={darkMode}
-            />
-          </div>
-        )}
-
         <div className="flex-1 relative overflow-hidden">
           <MapComponent
             userLocation={location}
@@ -1100,6 +1087,7 @@ function App() {
             selectedActivity={currentActivity}
             isAvailable={isAvailable}
             currentUser={user}
+            showControls={true}
           />
         </div>
 

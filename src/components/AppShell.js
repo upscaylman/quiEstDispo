@@ -4,6 +4,7 @@ import { ArrowLeft, Bell, Coffee, MapPin, Users } from 'lucide-react';
 import React from 'react';
 import InviteFriendsModal from './InviteFriendsModal';
 import NotificationBadge from './NotificationBadge';
+import WarningBanner from './WarningBanner';
 
 // Import des composants screens
 import FriendsScreen from './screens/FriendsScreen';
@@ -301,6 +302,10 @@ const AppShell = ({
                     (isAvailable
                       ? `Tu es dispo pour ${currentActivity === 'coffee' ? 'Coffee' : currentActivity === 'lunch' ? 'Lunch' : currentActivity === 'drinks' ? 'Drinks' : currentActivity === 'chill' ? 'Chill' : currentActivity === 'clubbing' ? 'Clubbing' : currentActivity === 'cinema' ? 'Cinema' : currentActivity}`
                       : 'Que veux-tu faire ?')}
+                  {currentScreen === 'map' &&
+                    (availableFriends.length > 0
+                      ? `${availableFriends.length} ami${availableFriends.length > 1 ? 's' : ''} disponible${availableFriends.length > 1 ? 's' : ''}`
+                      : 'Explorer autour de vous')}
                   {currentScreen === 'friends' && `${friends.length} amis`}
                   {currentScreen === 'notifications' &&
                     `${notifications.length} notifications`}
@@ -462,6 +467,32 @@ const AppShell = ({
     >
       {/* Header */}
       {renderHeader()}
+
+      {/* Bandeau informatif pour la page carte si aucun ami */}
+      {currentScreen === 'map' && friends.length === 0 && (
+        <WarningBanner
+          icon={Users}
+          title="Aucun ami ajouté."
+          message="Invitez-les à vous rejoindre !"
+          darkMode={darkMode}
+          onInviteClick={onAddFriend}
+        />
+      )}
+
+      {/* Bandeau informatif si des amis mais aucun disponible */}
+      {currentScreen === 'map' &&
+        friends.length > 0 &&
+        availableFriends.length === 0 && (
+          <WarningBanner
+            icon={Users}
+            title="Aucun ami disponible."
+            message="Invitez vos amis à vous rejoindre !"
+            darkMode={darkMode}
+            onInviteClick={onInviteFriends}
+            variant="purple"
+            clickableWord="rejoindre"
+          />
+        )}
 
       {/* Contenu principal */}
       <div className="flex-1 pb-16">{renderScreen()}</div>

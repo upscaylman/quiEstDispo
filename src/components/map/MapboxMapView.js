@@ -54,6 +54,9 @@ const MapboxMapView = ({
     isAvailable,
   });
 
+  // État local pour contrôler le suivi utilisateur
+  const [localIsFollowingUser, setLocalIsFollowingUser] = useState(true);
+
   const mapContainer = useRef(null);
   const map = useRef(null);
   const friendMarkers = useRef([]);
@@ -87,6 +90,23 @@ const MapboxMapView = ({
         setMapLoaded(true);
       });
 
+      // Désactiver le suivi utilisateur quand l'utilisateur bouge la carte manuellement
+      map.current.on('dragstart', () => {
+        setLocalIsFollowingUser(false);
+      });
+
+      map.current.on('zoomstart', () => {
+        setLocalIsFollowingUser(false);
+      });
+
+      map.current.on('pitchstart', () => {
+        setLocalIsFollowingUser(false);
+      });
+
+      map.current.on('rotatestart', () => {
+        setLocalIsFollowingUser(false);
+      });
+
       // Ajouter les contrôles de navigation Mapbox (en bas à droite)
       map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
     };
@@ -112,12 +132,14 @@ const MapboxMapView = ({
     );
   }, [darkMode, mapLoaded]);
 
-  // Synchroniser le centre avec la logique commune
+  // Centrer sur l'utilisateur seulement au premier chargement
   useEffect(() => {
-    if (!map.current || !mapLoaded) return;
+    if (!map.current || !mapLoaded || !userLocation || !localIsFollowingUser)
+      return;
 
-    map.current.setCenter([mapCenter.lng, mapCenter.lat]);
-  }, [mapCenter, mapLoaded]);
+    // Centrer seulement si on suit l'utilisateur ET que c'est le premier chargement
+    map.current.setCenter([userLocation.lng, userLocation.lat]);
+  }, [userLocation, mapLoaded, localIsFollowingUser]);
 
   // Fonction de centrage utilisateur intégrée
   const handleMapCenterOnUser = () => {
@@ -127,6 +149,7 @@ const MapboxMapView = ({
         zoom: 14,
       });
     }
+    setLocalIsFollowingUser(true); // Réactiver le suivi
     handleCenterOnUser(); // Appeler la logique commune
   };
 
@@ -198,7 +221,7 @@ const MapboxMapView = ({
         darkMode={darkMode}
         showFilters={showFilters}
         activityFilter={activityFilter}
-        isFollowingUser={isFollowingUser}
+        isFollowingUser={localIsFollowingUser}
         activities={activities}
         onCenterUser={handleMapCenterOnUser}
         onToggleFilters={handleToggleFilters}

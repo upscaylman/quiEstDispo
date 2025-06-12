@@ -160,6 +160,18 @@ export const createUserMarkerElement = (user, hasLocationPermission = true) => {
   container.style.width = '60px';
   container.style.height = '80px';
 
+  // Debug pour voir les données utilisateur
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🎯 createUserMarkerElement - Données utilisateur:', {
+      user,
+      profilePicture: user.profilePicture,
+      avatar: user.avatar,
+      photoURL: user.photoURL,
+      displayName: user.displayName,
+      name: user.name,
+    });
+  }
+
   // Récupérer l'activité de l'utilisateur
   const userActivity = user.selectedActivity || user.activity;
   const isAvailable = user.isAvailable !== false; // Par défaut true si non spécifié
