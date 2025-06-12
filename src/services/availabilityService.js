@@ -54,13 +54,22 @@ export class AvailabilityService {
         );
 
         const userRef = doc(db, 'users', userId);
-        await updateDoc(userRef, {
+        const updateData = {
           isAvailable: true,
           currentActivity: activity,
           availabilityId: availabilityRef.id,
-          location: location,
           updatedAt: serverTimestamp(),
-        });
+        };
+
+        // Partager la location seulement si c'est une réponse à une invitation
+        if (metadata.isResponseToInvitation) {
+          updateData.location = location;
+          console.log("📍 Location partagée car acceptation d'invitation");
+        } else {
+          console.log("🔒 Location non partagée - en attente d'acceptation");
+        }
+
+        await updateDoc(userRef, updateData);
 
         console.log('✅ Availability set successfully');
         return availabilityRef.id;
@@ -619,6 +628,60 @@ export class AvailabilityService {
     } catch (error) {
       console.warn('⚠️ Terminate activity error:', error);
       throw new Error(`Impossible de terminer l'activité: ${error.message}`);
+    }
+  }
+
+  // Partager la localisation quand quelqu'un accepte l'invitation
+  static async shareLocationOnAcceptance(userId) {
+    if (!isOnline()) {
+      console.warn('⚠️ Offline mode, cannot share location');
+      return;
+    }
+
+    try {
+      // Récupérer la location actuelle depuis l'availability
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        console.warn('⚠️ User not found for location sharing');
+        return;
+      }
+
+      const userData = userSnap.data();
+      const availabilityId = userData.availabilityId;
+
+      if (!availabilityId) {
+        console.warn('⚠️ No availability ID found');
+        return;
+      }
+
+      // Récupérer l'availability pour obtenir la location
+      const availabilityRef = doc(db, 'availabilities', availabilityId);
+      const availabilitySnap = await getDoc(availabilityRef);
+
+      if (!availabilitySnap.exists()) {
+        console.warn('⚠️ Availability not found');
+        return;
+      }
+
+      const availabilityData = availabilitySnap.data();
+      const location = availabilityData.location;
+
+      if (!location) {
+        console.warn('⚠️ No location found in availability');
+        return;
+      }
+
+      // Partager la location dans le profil utilisateur
+      await updateDoc(userRef, {
+        location: location,
+        updatedAt: serverTimestamp(),
+      });
+
+      console.log("📍 Location partagée pour l'expéditeur suite à acceptation");
+    } catch (error) {
+      console.error('❌ Erreur partage location:', error);
     }
   }
 }

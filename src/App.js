@@ -661,6 +661,13 @@ function App() {
           user.uid,
           response
         );
+
+        // Si accepté, faire partager la localisation à l'expéditeur
+        if (response === 'accepted') {
+          await AvailabilityService.shareLocationOnAcceptance(
+            notification.data.fromUserId
+          );
+        }
       } else {
         console.warn("⚠️ ID d'invitation manquant dans la notification");
       }
