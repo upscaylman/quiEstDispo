@@ -33,14 +33,14 @@ const BaseMapView = ({
   const [showFilters, setShowFilters] = useState(false);
   const [activityFilter, setActivityFilter] = useState('all');
 
-  // Ajouter l'utilisateur actuel aux amis disponibles s'il est en mode disponible ET si la géolocalisation est active
+  // Ajouter l'utilisateur actuel aux amis disponibles TOUJOURS si la géolocalisation est active
   const allFriends = [...availableFriends];
-  if (isAvailable && currentUser && userLocation && selectedActivity) {
+  if (currentUser && userLocation) {
     console.log('🔍 Ajout utilisateur à la carte:', {
       isAvailable,
       currentUser: currentUser?.uid || currentUser?.name,
       userLocation,
-      selectedActivity,
+      selectedActivity: selectedActivity || 'Aucune activité',
     });
     const currentUserAsFriend = {
       id: currentUser.uid || 'current-user',
@@ -49,20 +49,20 @@ const BaseMapView = ({
         currentUser.profilePicture ||
         currentUser.avatar ||
         currentUser.photoURL,
-      activity: selectedActivity,
+      activity: selectedActivity || 'disponible', // Activité par défaut
       lat: userLocation.lat,
       lng: userLocation.lng,
       location: { lat: userLocation.lat, lng: userLocation.lng },
       isCurrentUser: true,
+      isAvailable: isAvailable, // Garder le statut pour l'affichage
     };
     allFriends.push(currentUserAsFriend);
     console.log('✅ Utilisateur ajouté comme ami:', currentUserAsFriend);
   } else {
     console.log('❌ Conditions non remplies pour marqueur utilisateur:', {
-      isAvailable,
       hasCurrentUser: !!currentUser,
       hasUserLocation: !!userLocation,
-      hasSelectedActivity: !!selectedActivity,
+      userLocationData: userLocation,
     });
   }
 

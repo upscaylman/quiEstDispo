@@ -362,13 +362,11 @@ const MapView = ({
 
           {/* Avatar utilisateur */}
           <div
-            className={`w-12 h-12 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white font-bold ${
-              isAvailable ? 'ring-2 ring-blue-400' : ''
-            }`}
+            className={`w-12 h-12 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white font-bold ring-2 ring-blue-400`}
             style={{
               backgroundColor: isAvailable
                 ? getActivityColor(activity)
-                : '#6b7280',
+                : '#3b82f6', // Bleu utilisateur au lieu de gris
             }}
           >
             😊

@@ -180,9 +180,9 @@ export const createUserMarkerElement = (user, hasLocationPermission = true) => {
   const avatarUrl = user.profilePicture || user.avatar || user.photoURL;
   const userName = user.displayName || user.name || 'Vous';
 
-  // Background coloré selon l'activité
+  // Background coloré selon l'activité ou bleu par défaut pour l'utilisateur
   const activityColor =
-    isAvailable && userActivity ? getActivityColor(userActivity) : '#6b7280';
+    isAvailable && userActivity ? getActivityColor(userActivity) : '#3b82f6'; // Bleu au lieu de gris
 
   // Obtenir l'icône d'activité (même fonction que pour les amis)
   const getActivityIconSVG = activity => {
@@ -245,14 +245,14 @@ export const createUserMarkerElement = (user, hasLocationPermission = true) => {
       }
       
       <div style="position: relative; width: 50px; height: 50px; margin: 5px auto 0;">
-        <!-- Grand cercle avec photo de profil bien centrée -->
+        <!-- Grand cercle avec photo de profil bien centrée + indicateur GPS -->
         <div style="
           width: 50px;
           height: 50px;
-          background: #ddd;
+          background: ${activityColor};
           border-radius: 50%;
           border: 3px solid white;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 0 2px rgba(59, 130, 246, 0.3);
           overflow: hidden;
           position: relative;
         ">
@@ -275,7 +275,8 @@ export const createUserMarkerElement = (user, hasLocationPermission = true) => {
                  font-size: 18px;
                  font-weight: bold;
                  color: white;
-                 background: #6b7280;
+                 background: rgba(0,0,0,0.2);
+                 backdrop-filter: blur(2px);
                ">${userName.substring(0, 2).toUpperCase()}</div>`
           }
         </div>

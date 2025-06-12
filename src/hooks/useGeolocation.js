@@ -155,11 +155,11 @@ export const useGeolocation = () => {
       isRequesting.current = false;
     };
 
-    // Options de géolocalisation optimisées pour la précision
+    // Options de géolocalisation optimisées pour la précision maximale
     const options = {
-      enableHighAccuracy: true, // Activer la haute précision
-      timeout: 10000, // 10 secondes pour avoir le temps d'obtenir une position précise
-      maximumAge: 60000, // Cache de 1 minute seulement
+      enableHighAccuracy: true, // Activer GPS + réseau + WiFi
+      timeout: 15000, // 15 secondes pour GPS plus lent
+      maximumAge: 30000, // Cache de 30 secondes seulement pour position récente
     };
 
     try {
@@ -175,9 +175,59 @@ export const useGeolocation = () => {
     }
   }, []);
 
-  // Première demande au montage du composant
+  // Première demande au montage du composant + watch position continue
   useEffect(() => {
     requestGeolocation();
+
+    // Suivi de position en temps réel (watchPosition)
+    let watchId = null;
+
+    if (navigator.geolocation) {
+      const watchOptions = {
+        enableHighAccuracy: true,
+        timeout: 30000, // Plus de temps pour watchPosition
+        maximumAge: 10000, // Position récente de 10 secondes max
+      };
+
+      const handleWatchSuccess = position => {
+        const newLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: Date.now(),
+          isDefault: false,
+        };
+
+        console.log('📍 Position mise à jour (watchPosition):', newLocation);
+        setLocation(newLocation);
+        setError(null);
+      };
+
+      const handleWatchError = error => {
+        console.warn('⚠️ Erreur watchPosition:', error.message);
+        // Ne pas overrider une position existante en cas d'erreur watch
+      };
+
+      // Démarrer le suivi après 2 secondes pour laisser le temps à getCurrentPosition
+      setTimeout(() => {
+        if (navigator.geolocation) {
+          watchId = navigator.geolocation.watchPosition(
+            handleWatchSuccess,
+            handleWatchError,
+            watchOptions
+          );
+          console.log('🔄 WatchPosition démarré (ID:', watchId, ')');
+        }
+      }, 2000);
+    }
+
+    // Nettoyage à la destruction du composant
+    return () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        console.log('⏹️ WatchPosition arrêté');
+      }
+    };
   }, [requestGeolocation]);
 
   // Fonction pour retry (utilise la même fonction que l'initialisation)
