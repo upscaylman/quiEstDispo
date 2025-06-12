@@ -9,7 +9,7 @@ import {
   Wine,
   X,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 const InviteFriendsModal = ({
   isOpen,
@@ -22,6 +22,13 @@ const InviteFriendsModal = ({
 }) => {
   const [selectedFriends, setSelectedFriends] = useState(new Set());
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState(activity);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedActivity(activity);
+    }
+  }, [isOpen, activity]);
 
   const activities = {
     coffee: { label: 'Coffee', icon: Coffee, color: 'bg-amber-500' },
@@ -32,14 +39,16 @@ const InviteFriendsModal = ({
     cinema: { label: 'Cinema', icon: Film, color: 'bg-indigo-500' },
   };
 
-  const currentActivity = activities[activity] || activities.chill;
-  const Icon = currentActivity.icon;
+  const currentActivity = selectedActivity
+    ? activities[selectedActivity]
+    : null;
+  const Icon = currentActivity?.icon;
 
   const friendsWhoInvitedUs = new Set(
     notifications
       .filter(notif => {
         const isInvitation = notif.type === 'invitation';
-        const sameActivity = notif.data?.activity === activity;
+        const sameActivity = notif.data?.activity === selectedActivity;
         const unread = !notif.read;
 
         if (process.env.NODE_ENV === 'development') {
@@ -48,7 +57,7 @@ const InviteFriendsModal = ({
             type: notif.type,
             isInvitation,
             notifActivity: notif.data?.activity,
-            currentActivity: activity,
+            currentActivity: selectedActivity,
             sameActivity,
             unread,
             shouldGray: isInvitation && sameActivity && unread,
@@ -75,6 +84,11 @@ const InviteFriendsModal = ({
   };
 
   const handleSendInvitations = async () => {
+    if (!selectedActivity) {
+      alert('Sélectionnez une activité !');
+      return;
+    }
+
     if (selectedFriends.size === 0) {
       alert('Sélectionnez au moins un ami à inviter !');
       return;
@@ -82,7 +96,7 @@ const InviteFriendsModal = ({
 
     setIsLoading(true);
     try {
-      await onSendInvitations(activity, Array.from(selectedFriends));
+      await onSendInvitations(selectedActivity, Array.from(selectedFriends));
       setSelectedFriends(new Set());
       onClose();
     } catch (error) {
@@ -95,6 +109,7 @@ const InviteFriendsModal = ({
 
   const handleClose = () => {
     setSelectedFriends(new Set());
+    setSelectedActivity(activity); // Reset l'activité
     onClose();
   };
 
@@ -121,19 +136,32 @@ const InviteFriendsModal = ({
           {/* Header */}
           <div className="flex items-center justify-between px-responsive-lg py-6 border-b border-opacity-20">
             <div className="flex items-center space-x-3">
-              <div
-                className={`${currentActivity.color} p-3 rounded-full text-white`}
-              >
-                <Icon size={24} />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold">Inviter des amis</h2>
-                <p
-                  className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
-                >
-                  Pour {currentActivity.label}
-                </p>
-              </div>
+              {currentActivity ? (
+                <>
+                  <div
+                    className={`${currentActivity.color} p-3 rounded-full text-white`}
+                  >
+                    <Icon size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">Inviter des amis</h2>
+                    <p
+                      className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                    >
+                      Pour {currentActivity.label}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <h2 className="text-xl font-bold">Inviter des amis</h2>
+                  <p
+                    className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                  >
+                    Choisissez une activité
+                  </p>
+                </div>
+              )}
             </div>
             <button
               onClick={handleClose}
@@ -144,6 +172,38 @@ const InviteFriendsModal = ({
               <X size={20} />
             </button>
           </div>
+
+          {/* Sélecteur d'activité si aucune activité pré-sélectionnée */}
+          {!currentActivity && (
+            <div className="px-responsive-lg py-4 border-b border-opacity-20">
+              <h3
+                className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}
+              >
+                Choisissez une activité
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                {Object.entries(activities).map(
+                  ([activityKey, activityData]) => {
+                    const ActivityIcon = activityData.icon;
+                    return (
+                      <motion.button
+                        key={activityKey}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setSelectedActivity(activityKey)}
+                        className={`${activityData.color} hover:opacity-90 text-white p-4 rounded-xl font-medium transition-all duration-200 shadow-lg cursor-pointer aspect-square flex items-center justify-center`}
+                      >
+                        <div className="flex flex-col items-center space-y-1">
+                          <ActivityIcon size={20} />
+                          <span className="text-sm">{activityData.label}</span>
+                        </div>
+                      </motion.button>
+                    );
+                  }
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Content */}
           <div className="px-responsive-lg py-6">
@@ -189,9 +249,9 @@ const InviteFriendsModal = ({
 
                 <div className="space-y-3 max-h-64 overflow-y-auto">
                   {friends
-                    .filter(friend => !friendsWhoInvitedUs.has(friend.id)) // Supprimer complètement les amis qui nous ont invités
+                    .filter(friend => !friendsWhoInvitedUs.has(friend.id))
                     .map(friend => {
-                      const isDisabled = false; // Plus de cas désactivé puisqu'on filtre
+                      const isDisabled = false;
 
                       return (
                         <motion.div
@@ -289,10 +349,12 @@ const InviteFriendsModal = ({
               </button>
               <button
                 onClick={handleSendInvitations}
-                disabled={selectedFriends.size === 0 || isLoading}
+                disabled={
+                  !selectedActivity || selectedFriends.size === 0 || isLoading
+                }
                 className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
-                  selectedFriends.size > 0 && !isLoading
-                    ? `${currentActivity.color} hover:opacity-90 text-white`
+                  selectedActivity && selectedFriends.size > 0 && !isLoading
+                    ? `${currentActivity?.color} hover:opacity-90 text-white`
                     : darkMode
                       ? 'bg-gray-600 text-gray-400'
                       : 'bg-gray-300 text-gray-500'

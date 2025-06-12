@@ -513,6 +513,12 @@ function App() {
     }
   };
 
+  // Handler pour ouvrir le modal d'invitation d'amis sans activité pré-sélectionnée
+  const handleOpenInviteFriendsModal = () => {
+    setSelectedInviteActivity(null); // Aucune activité pré-sélectionnée
+    setShowInviteFriendsModal(true);
+  };
+
   // Handler pour rediriger vers les paramètres depuis le modal PhoneRequired
   const handleGoToSettings = () => {
     setShowPhoneRequiredModal(false);
@@ -1148,6 +1154,7 @@ function App() {
           selectedInviteActivity={selectedInviteActivity}
           onSendInvitations={handleSendInvitations}
           onInviteFriends={handleActivityClick}
+          onOpenInviteFriendsModal={handleOpenInviteFriendsModal}
         />
 
         {/* Modal d'ajout d'amis */}
@@ -1232,6 +1239,7 @@ function App() {
         selectedInviteActivity={selectedInviteActivity}
         onSendInvitations={handleSendInvitations}
         onInviteFriends={handleActivityClick}
+        onOpenInviteFriendsModal={handleOpenInviteFriendsModal}
       />
 
       {/* Modal d'ajout d'amis */}

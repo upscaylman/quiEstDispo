@@ -67,6 +67,7 @@ const AppShell = ({
   onShowDeleteAccount,
   onSignOut,
   onSendInvitations,
+  onOpenInviteFriendsModal,
   children,
 }) => {
   // Fonction pour rendre la navigation en bas (tabs)
@@ -488,7 +489,7 @@ const AppShell = ({
             title="Aucun ami disponible."
             message="Invitez vos amis à vous rejoindre !"
             darkMode={darkMode}
-            onInviteClick={onInviteFriends}
+            onInviteClick={onOpenInviteFriendsModal}
             variant="purple"
             clickableWord="rejoindre"
           />
