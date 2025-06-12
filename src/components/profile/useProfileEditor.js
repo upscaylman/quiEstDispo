@@ -16,11 +16,31 @@ export const useProfileEditor = (user, onProfileUpdate) => {
   const [success, setSuccess] = useState('');
   const [localAvatar, setLocalAvatar] = useState(null);
   const [forceRefresh, setForceRefresh] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false); // Flag pour empêcher override pendant suppression
 
   // Synchroniser l'avatar local avec les changements de user.avatar
   useEffect(() => {
     setLocalAvatar(null);
   }, [user.avatar]);
+
+  // Synchroniser les états locaux avec les changements de user
+  useEffect(() => {
+    console.log('🔄 Synchronisation phoneNumber:', user.phone);
+    if (!isDeleting) {
+      // Ne pas override si on supprime
+      setPhoneNumber(user.phone || '');
+    }
+  }, [user.phone, isDeleting]);
+
+  useEffect(() => {
+    console.log('🔄 Synchronisation userName:', user.name);
+    setUserName(user.name || '');
+  }, [user.name]);
+
+  // Debug des changements de l'objet user
+  useEffect(() => {
+    console.log('👤 User object changed:', user);
+  }, [user]);
 
   // Fonctions de gestion du téléphone
   const handleSavePhone = async () => {
@@ -48,6 +68,9 @@ export const useProfileEditor = (user, onProfileUpdate) => {
 
       setSuccess('Numéro de téléphone ajouté avec succès ! 🎉');
       setIsEditing(false);
+
+      // Mettre à jour immédiatement l'état local
+      setPhoneNumber(normalizedPhone);
 
       // Effacer le message de succès après 3 secondes
       setTimeout(() => setSuccess(''), 3000);
@@ -78,28 +101,37 @@ export const useProfileEditor = (user, onProfileUpdate) => {
 
     setIsLoading(true);
     setError('');
+    setIsDeleting(true); // Empêcher les useEffect de override
 
     try {
       console.log('🗑️ Suppression du numéro de téléphone...');
       await AuthService.removeUserPhone(user.uid);
 
       setSuccess('✅ Numéro de téléphone supprimé !');
-      setPhoneNumber('');
       setIsEditing(false);
+
+      // Mettre à jour immédiatement l'état local AVANT refreshUserData
+      setPhoneNumber('');
 
       // Effacer le message de succès après 3 secondes
       setTimeout(() => setSuccess(''), 3000);
 
-      // Recharger les données utilisateur depuis Firebase
-      await refreshUserData();
-
-      // Mettre à jour l'état local si la fonction est fournie
+      // Mettre à jour l'état parent si la fonction est fournie
       if (onProfileUpdate) {
         await onProfileUpdate({ ...user, phone: '' });
       }
+
+      // Recharger les données utilisateur depuis Firebase (en dernier)
+      await refreshUserData();
+
+      // Attendre un peu puis réautoriser les synchronisations
+      setTimeout(() => {
+        setIsDeleting(false);
+      }, 1000);
     } catch (error) {
       console.error('❌ Erreur suppression numéro:', error);
       setError(error.message || 'Erreur lors de la suppression');
+      setIsDeleting(false); // Réinitialiser en cas d'erreur
     } finally {
       setIsLoading(false);
     }
@@ -131,6 +163,9 @@ export const useProfileEditor = (user, onProfileUpdate) => {
 
       setSuccess('Nom mis à jour avec succès ! 🎉');
       setIsEditingName(false);
+
+      // Mettre à jour immédiatement l'état local
+      setUserName(userName.trim());
 
       setTimeout(() => setSuccess(''), 3000);
       await refreshUserData();
@@ -255,6 +290,7 @@ export const useProfileEditor = (user, onProfileUpdate) => {
     success,
     localAvatar,
     forceRefresh,
+    isDeleting,
 
     // Actions
     handleSavePhone,

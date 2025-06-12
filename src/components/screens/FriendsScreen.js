@@ -1,6 +1,6 @@
 // Écran de gestion des amis
 import { motion } from 'framer-motion';
-import { UserMinus, UserPlus } from 'lucide-react';
+import { Check, UserMinus, UserPlus } from 'lucide-react';
 import React from 'react';
 
 const FriendsScreen = ({
@@ -9,18 +9,42 @@ const FriendsScreen = ({
   darkMode,
   isOnline,
   user,
+  notifications,
+  newFriendsNotificationsCount,
 
   // Props de fonctions
   onAddFriend,
   onRemoveFriend,
+  onMarkAllFriendsNotificationsAsRead,
   onDebugFriends,
   onCreateTestFriendships,
   onLoadMockData,
 }) => {
   return (
     <div className="p-4 px-6">
-      {/* Header avec bouton d'ajout */}
-      <div className="flex items-center justify-end mb-4">
+      {/* Header avec boutons */}
+      <div className="flex items-center justify-between mb-4">
+        {/* Bouton "Marquer notifications amis comme lues" */}
+        {newFriendsNotificationsCount > 0 && (
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onMarkAllFriendsNotificationsAsRead}
+            className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+              darkMode
+                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+            }`}
+          >
+            <Check size={16} />
+            Marquer notif. amis lues ({newFriendsNotificationsCount})
+          </motion.button>
+        )}
+
+        {/* Spacer si pas de bouton de notifications */}
+        {newFriendsNotificationsCount === 0 && <div></div>}
+
+        {/* Bouton d'ajout d'ami */}
         <motion.button
           whileTap={{ scale: 0.95 }}
           onClick={onAddFriend}

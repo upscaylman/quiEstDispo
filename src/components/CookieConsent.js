@@ -107,7 +107,11 @@ const CookieConsent = ({ darkMode = false }) => {
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
-          className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg"
+          className={`fixed bottom-0 left-0 right-0 z-50 p-4 shadow-lg border-t ${
+            darkMode
+              ? 'bg-gray-800 border-gray-700'
+              : 'bg-white border-gray-200'
+          }`}
         >
           <div className="max-w-6xl mx-auto">
             <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4">
@@ -210,8 +214,10 @@ const CookieConsent = ({ darkMode = false }) => {
                 </div>
                 <button
                   onClick={() => setShowPreferences(false)}
-                  className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                    darkMode ? 'text-gray-400' : 'text-gray-600'
+                  className={`p-2 rounded-full transition-colors ${
+                    darkMode
+                      ? 'text-gray-400 hover:bg-gray-700'
+                      : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
                   <X size={20} />
@@ -235,7 +241,7 @@ const CookieConsent = ({ darkMode = false }) => {
                     key={cookieType.id}
                     className={`p-4 rounded-lg border ${
                       darkMode
-                        ? 'border-gray-700 bg-gray-750'
+                        ? 'border-gray-700 bg-gray-700'
                         : 'border-gray-200 bg-gray-50'
                     }`}
                   >
@@ -248,7 +254,13 @@ const CookieConsent = ({ darkMode = false }) => {
                             {cookieType.name}
                           </h3>
                           {cookieType.required && (
-                            <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
+                            <span
+                              className={`px-2 py-1 text-xs rounded ${
+                                darkMode
+                                  ? 'bg-blue-900 text-blue-200'
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}
+                            >
                               Requis
                             </span>
                           )}

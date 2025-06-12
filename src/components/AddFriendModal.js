@@ -5,7 +5,13 @@ import FriendInviteForm from './friends/FriendInviteForm';
 import PhoneSearch from './friends/PhoneSearch';
 import QRCodeScanner from './friends/QRCodeScanner';
 
-const AddFriendModal = ({ isOpen, onClose, onAddFriend, currentUser }) => {
+const AddFriendModal = ({
+  isOpen,
+  onClose,
+  onAddFriend,
+  currentUser,
+  darkMode = false,
+}) => {
   const [method, setMethod] = useState('phone'); // 'phone', 'qr', 'mail', ou 'share'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -35,31 +41,50 @@ const AddFriendModal = ({ isOpen, onClose, onAddFriend, currentUser }) => {
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className={`rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto ${
+          darkMode ? 'bg-gray-800' : 'bg-white'
+        }`}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold flex items-center">
+          <h2
+            className={`text-xl font-bold flex items-center ${
+              darkMode ? 'text-white' : 'text-gray-900'
+            }`}
+          >
             <UserPlus className="mr-2" size={24} />
             Ajouter un ami
           </h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full"
+            className={`p-2 rounded-full transition-colors ${
+              darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+            }`}
           >
-            <X size={20} />
+            <X
+              size={20}
+              className={darkMode ? 'text-gray-300' : 'text-gray-600'}
+            />
           </button>
         </div>
 
         {/* Method Selection */}
-        <div className="grid grid-cols-4 mb-6 bg-gray-100 rounded-lg p-1 gap-1">
+        <div
+          className={`grid grid-cols-4 mb-6 rounded-lg p-1 gap-1 ${
+            darkMode ? 'bg-gray-700' : 'bg-gray-100'
+          }`}
+        >
           <button
             onClick={() => handleMethodChange('phone')}
             className={`py-2 px-2 rounded-md flex flex-col items-center justify-center transition-colors text-xs ${
               method === 'phone'
-                ? 'bg-white shadow text-blue-600'
-                : 'text-gray-600'
+                ? darkMode
+                  ? 'bg-gray-600 shadow text-blue-400'
+                  : 'bg-white shadow text-blue-600'
+                : darkMode
+                  ? 'text-gray-300'
+                  : 'text-gray-600'
             }`}
           >
             <Phone size={16} className="mb-1" />
@@ -69,8 +94,12 @@ const AddFriendModal = ({ isOpen, onClose, onAddFriend, currentUser }) => {
             onClick={() => handleMethodChange('mail')}
             className={`py-2 px-2 rounded-md flex flex-col items-center justify-center transition-colors text-xs ${
               method === 'mail'
-                ? 'bg-white shadow text-blue-600'
-                : 'text-gray-600'
+                ? darkMode
+                  ? 'bg-gray-600 shadow text-blue-400'
+                  : 'bg-white shadow text-blue-600'
+                : darkMode
+                  ? 'text-gray-300'
+                  : 'text-gray-600'
             }`}
           >
             <Mail size={16} className="mb-1" />
@@ -80,8 +109,12 @@ const AddFriendModal = ({ isOpen, onClose, onAddFriend, currentUser }) => {
             onClick={() => handleMethodChange('qr')}
             className={`py-2 px-2 rounded-md flex flex-col items-center justify-center transition-colors text-xs ${
               method === 'qr'
-                ? 'bg-white shadow text-blue-600'
-                : 'text-gray-600'
+                ? darkMode
+                  ? 'bg-gray-600 shadow text-blue-400'
+                  : 'bg-white shadow text-blue-600'
+                : darkMode
+                  ? 'text-gray-300'
+                  : 'text-gray-600'
             }`}
           >
             <QrCode size={16} className="mb-1" />
@@ -91,8 +124,12 @@ const AddFriendModal = ({ isOpen, onClose, onAddFriend, currentUser }) => {
             onClick={() => handleMethodChange('share')}
             className={`py-2 px-2 rounded-md flex flex-col items-center justify-center transition-colors text-xs ${
               method === 'share'
-                ? 'bg-white shadow text-blue-600'
-                : 'text-gray-600'
+                ? darkMode
+                  ? 'bg-gray-600 shadow text-blue-400'
+                  : 'bg-white shadow text-blue-600'
+                : darkMode
+                  ? 'text-gray-300'
+                  : 'text-gray-600'
             }`}
           >
             <Share2 size={16} className="mb-1" />
@@ -109,6 +146,7 @@ const AddFriendModal = ({ isOpen, onClose, onAddFriend, currentUser }) => {
             setError={setError}
             setSuccess={setSuccess}
             onClose={onClose}
+            darkMode={darkMode}
           />
         )}
 
@@ -121,6 +159,7 @@ const AddFriendModal = ({ isOpen, onClose, onAddFriend, currentUser }) => {
             setError={setError}
             setSuccess={setSuccess}
             onClose={onClose}
+            darkMode={darkMode}
           />
         )}
 
@@ -133,6 +172,7 @@ const AddFriendModal = ({ isOpen, onClose, onAddFriend, currentUser }) => {
             setError={setError}
             setSuccess={setSuccess}
             onClose={onClose}
+            darkMode={darkMode}
           />
         )}
 
@@ -141,9 +181,13 @@ const AddFriendModal = ({ isOpen, onClose, onAddFriend, currentUser }) => {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-4 p-3 bg-red-100 border border-red-200 rounded-lg"
+            className={`mt-4 p-3 border rounded-lg ${
+              darkMode
+                ? 'bg-red-900/20 border-red-800 text-red-300'
+                : 'bg-red-100 border-red-200 text-red-700'
+            }`}
           >
-            <p className="text-red-700 text-sm">{error}</p>
+            <p className="text-sm">{error}</p>
           </motion.div>
         )}
 
@@ -151,9 +195,13 @@ const AddFriendModal = ({ isOpen, onClose, onAddFriend, currentUser }) => {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-4 p-3 bg-green-100 border border-green-200 rounded-lg"
+            className={`mt-4 p-3 border rounded-lg ${
+              darkMode
+                ? 'bg-green-900/20 border-green-800 text-green-300'
+                : 'bg-green-100 border-green-200 text-green-700'
+            }`}
           >
-            <p className="text-green-700 text-sm">{success}</p>
+            <p className="text-sm">{success}</p>
           </motion.div>
         )}
       </motion.div>

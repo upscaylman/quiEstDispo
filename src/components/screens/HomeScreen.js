@@ -38,6 +38,7 @@ const HomeScreen = ({
   onStopAvailability,
   onResponseToAvailability,
   onRetryGeolocation,
+  onRequestLocationPermission,
   onInviteFriends,
   onAddFriend,
   onCreateTestFriendships,
@@ -88,6 +89,7 @@ const HomeScreen = ({
             locationError={locationError}
             availabilityStartTime={availabilityStartTime}
             retryGeolocation={onRetryGeolocation}
+            requestLocationPermission={onRequestLocationPermission}
             darkMode={darkMode}
           />
 

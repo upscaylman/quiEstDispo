@@ -1,0 +1,389 @@
+// Import du système centralisé d'activités
+import {
+  ACTIVITIES,
+  getActivityColor,
+  getActivityGradient,
+  getActivityIconSVG,
+} from '../../constants/activities';
+
+// Calculer la distance entre deux points (formule de Haversine)
+export const calculateDistance = (lat1, lng1, lat2, lng2) => {
+  if (!lat1 || !lng1 || !lat2 || !lng2) return 0;
+  const R = 6371; // Rayon de la Terre en km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+// Formater la distance pour l'affichage
+export const formatDistance = distance => {
+  if (!distance || isNaN(distance)) return '?';
+  if (distance < 1) {
+    return `${Math.round(distance * 1000)}m`;
+  }
+  return `${distance.toFixed(1)}km`;
+};
+
+// Valider et nettoyer les données des amis
+export const sanitizeFriendsData = (availableFriends = []) => {
+  return availableFriends.filter(friend => {
+    if (!friend) return false;
+    const lat =
+      friend.location?.lat || friend.lat || friend.friend?.location?.lat;
+    const lng =
+      friend.location?.lng || friend.lng || friend.friend?.location?.lng;
+    return (
+      lat &&
+      lng &&
+      typeof lat === 'number' &&
+      typeof lng === 'number' &&
+      !isNaN(lat) &&
+      !isNaN(lng)
+    );
+  });
+};
+
+// Filtrer les amis par activité
+export const filterFriendsByActivity = (friends, activityFilter) => {
+  if (activityFilter === 'all') return friends;
+  return friends.filter(
+    friend => friend.activity?.toLowerCase() === activityFilter
+  );
+};
+
+// Calculer les limites de la carte pour afficher tous les points
+export const calculateMapBounds = (friends, userLocation) => {
+  const positions = [];
+
+  // Ajouter les positions des amis
+  friends.forEach(friend => {
+    const lat =
+      friend.location?.lat || friend.lat || friend.friend?.location?.lat;
+    const lng =
+      friend.location?.lng || friend.lng || friend.friend?.location?.lng;
+    if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+      positions.push({ lat, lng });
+    }
+  });
+
+  // Ajouter la position de l'utilisateur
+  if (userLocation && userLocation.lat && userLocation.lng) {
+    positions.push(userLocation);
+  }
+
+  // Position par défaut si aucune donnée valide (Paris)
+  if (positions.length === 0) {
+    return { lat: 48.8566, lng: 2.3522 };
+  }
+
+  // Calculer le centre
+  const centerLat =
+    positions.reduce((sum, pos) => sum + pos.lat, 0) / positions.length;
+  const centerLng =
+    positions.reduce((sum, pos) => sum + pos.lng, 0) / positions.length;
+
+  return {
+    center: { lat: centerLat, lng: centerLng },
+    bounds: {
+      north: Math.max(...positions.map(p => p.lat)),
+      south: Math.min(...positions.map(p => p.lat)),
+      east: Math.max(...positions.map(p => p.lng)),
+      west: Math.min(...positions.map(p => p.lng)),
+    },
+  };
+};
+
+// Créer l'élément HTML pour un marqueur d'utilisateur
+export const createUserMarkerElement = (user, hasLocationPermission = true) => {
+  const container = document.createElement('div');
+  container.className = 'marker-container user-marker';
+  container.style.width = '60px';
+  container.style.height = '80px';
+
+  // Récupérer l'activité de l'utilisateur
+  const userActivity = user.selectedActivity || user.activity;
+  const isAvailable = user.isAvailable !== false; // Par défaut true si non spécifié
+
+  // Gérer les multiples sources d'avatar
+  const avatarUrl = user.profilePicture || user.avatar || user.photoURL;
+  const userName = user.displayName || user.name || 'Vous';
+
+  // Background coloré selon l'activité
+  const activityColor =
+    isAvailable && userActivity ? getActivityColor(userActivity) : '#6b7280';
+
+  container.innerHTML = `
+    <div style="position: relative; width: 100%; height: 100%;">
+      ${
+        hasLocationPermission
+          ? `
+        <!-- Animations GPS (cercles verts pulsants) -->
+        <div style="
+          position: absolute;
+          top: 0px;
+          left: 0px;
+          width: 50px;
+          height: 50px;
+          border: 2px solid #10b981;
+          border-radius: 50%;
+          animation: gps-pulse 2s infinite;
+          opacity: 0.6;
+          margin: 5px auto 0;
+        "></div>
+        <div style="
+          position: absolute;
+          top: -5px;
+          left: -5px;
+          width: 60px;
+          height: 60px;
+          border: 2px solid #10b981;
+          border-radius: 50%;
+          animation: gps-pulse 2s infinite 0.7s;
+          opacity: 0.4;
+          margin: 5px auto 0;
+        "></div>
+      `
+          : ''
+      }
+      
+      <div style="position: relative; width: 50px; height: 50px; margin: 5px auto 0;">
+        <!-- Grand cercle avec photo de profil bien centrée -->
+        <div style="
+          width: 50px;
+          height: 50px;
+          background: #ddd;
+          border-radius: 50%;
+          border: 3px solid white;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          overflow: hidden;
+          position: relative;
+        ">
+          ${
+            avatarUrl && avatarUrl.startsWith('http')
+              ? `<img src="${avatarUrl}" style="
+                 width: 100%; 
+                 height: 100%; 
+                 object-fit: cover;
+                 position: absolute;
+                 top: 0;
+                 left: 0;
+               " alt="Avatar" />`
+              : `<div style="
+                 width: 100%;
+                 height: 100%;
+                 display: flex;
+                 align-items: center;
+                 justify-content: center;
+                 font-size: 18px;
+                 font-weight: bold;
+                 color: white;
+                 background: #6b7280;
+               ">${userName.substring(0, 2).toUpperCase()}</div>`
+          }
+        </div>
+        
+        <!-- Petit cercle avec icône d'activité -->
+        ${
+          isAvailable && userActivity
+            ? `
+          <div style="
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 22px;
+            height: 22px;
+            background: ${activityColor};
+            border-radius: 50%;
+            border: 2px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+          ">
+            <svg width="12" height="12" fill="white" viewBox="0 0 24 24">
+              ${getActivityIconSVG(userActivity)}
+            </svg>
+          </div>
+        `
+            : ''
+        }
+      </div>
+      
+      <!-- Tooltip avec nom utilisateur -->
+      <div style="
+        position: absolute;
+        top: 57px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.75);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 600;
+        white-space: nowrap;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255,255,255,0.1);
+      ">
+        ${userName} (Vous)
+      </div>
+    </div>
+  `;
+
+  // Ajouter les animations CSS si elles n'existent pas déjà
+  if (!document.querySelector('#map-marker-animations')) {
+    const style = document.createElement('style');
+    style.id = 'map-marker-animations';
+    style.textContent = `
+      @keyframes gps-pulse {
+        0% { transform: scale(1); opacity: 0.6; }
+        50% { transform: scale(1.1); opacity: 0.3; }
+        100% { transform: scale(1.2); opacity: 0; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  return container;
+};
+
+// Créer l'élément HTML pour un marqueur d'ami
+export const createFriendMarkerElement = (friend, onClick) => {
+  const container = document.createElement('div');
+  container.className = 'marker-container friend-marker';
+  container.style.width = '60px';
+  container.style.height = '80px';
+  container.style.cursor = 'pointer';
+
+  // Récupérer l'activité de l'ami
+  const friendActivity = friend.activity;
+  const activityColor = getActivityColor(friendActivity);
+
+  // Gérer les multiples sources d'avatar
+  const avatarUrl =
+    friend.friend?.avatar ||
+    friend.avatar ||
+    friend.friend?.profilePicture ||
+    friend.profilePicture ||
+    friend.friend?.photoURL ||
+    friend.photoURL;
+  const friendName =
+    friend.friend?.name ||
+    friend.name ||
+    friend.friend?.displayName ||
+    friend.displayName ||
+    'Ami';
+
+  container.innerHTML = `
+    <div style="position: relative; width: 50px; height: 50px; margin: 0 auto;">
+      <!-- Grand cercle avec photo de profil bien centrée -->
+      <div style="
+        width: 50px;
+        height: 50px;
+        background: #ddd;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        overflow: hidden;
+        position: relative;
+      ">
+        ${
+          avatarUrl && avatarUrl.startsWith('http')
+            ? `<img src="${avatarUrl}" style="
+               width: 100%; 
+               height: 100%; 
+               object-fit: cover;
+               position: absolute;
+               top: 0;
+               left: 0;
+             " alt="Avatar" />`
+            : `<div style="
+               width: 100%;
+               height: 100%;
+               display: flex;
+               align-items: center;
+               justify-content: center;
+               font-size: 18px;
+               font-weight: bold;
+               color: white;
+               background: #6b7280;
+             ">${friendName.substring(0, 2).toUpperCase()}</div>`
+        }
+      </div>
+      
+      <!-- Petit cercle avec icône d'activité (même que dans l'accueil) -->
+      ${
+        friendActivity
+          ? `
+        <div style="
+          position: absolute;
+          top: -2px;
+          right: -2px;
+          width: 22px;
+          height: 22px;
+          background: ${activityColor};
+          border-radius: 50%;
+          border: 2px solid white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        ">
+          <svg width="12" height="12" fill="white" viewBox="0 0 24 24">
+            ${getActivityIconSVG(friendActivity)}
+          </svg>
+        </div>
+      `
+          : ''
+      }
+    </div>
+   
+    <!-- Tooltip corrigé : largeur automatique, arrondi et transparent -->
+    <div style="
+      position: absolute;
+      top: 52px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.75);
+      color: white;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255,255,255,0.1);
+    ">
+      ${friendName}
+    </div>
+  `;
+
+  if (onClick) {
+    container.addEventListener('click', () => {
+      onClick({
+        ...friend,
+        name: friendName,
+        avatar: avatarUrl || '👤',
+      });
+    });
+  }
+
+  return container;
+};
+
+// Réexporter pour les autres composants
+export {
+  ACTIVITIES as activities,
+  getActivityColor,
+  getActivityGradient,
+  getActivityIconSVG,
+};

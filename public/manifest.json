@@ -30,6 +30,7 @@
   "scope": "/",
   "id": "qui-est-dispo",
   "description": "Application mobile pour organiser des rencontres spontanées entre amis",
+  "permissions": ["contacts"],
   "shortcuts": [
     {
       "name": "I'm down",

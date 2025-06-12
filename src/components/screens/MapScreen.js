@@ -65,7 +65,7 @@ const MapScreen = ({
                 onClick={onRetryGeolocation}
                 className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
-                Réessayer
+                Activer la localisation
               </button>
             )}
           </div>

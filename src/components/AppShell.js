@@ -19,6 +19,8 @@ const AppShell = ({
   darkMode,
   isOnline,
   notifications,
+  newNotificationsCount,
+  newFriendsNotificationsCount,
   friends,
   isAvailable,
   currentActivity,
@@ -41,6 +43,7 @@ const AppShell = ({
   onStopAvailability,
   onResponseToAvailability,
   onRetryGeolocation,
+  onRequestLocationPermission,
   onInviteFriends,
   onAddFriend,
   onAddFriendById,
@@ -50,6 +53,8 @@ const AppShell = ({
   onLoadMockData,
   onFriendInvitationResponse,
   onMarkNotificationAsRead,
+  onMarkAllNotificationsAsRead,
+  onMarkAllFriendsNotificationsAsRead,
   onProfileUpdate,
   onThemeChange,
   onEnablePushNotifications,
@@ -90,7 +95,10 @@ const AppShell = ({
         label: 'Amis',
         icon: Users,
         active: currentScreen === 'friends',
-        badge: friends.length > 0 ? friends.length : null,
+        badge:
+          newFriendsNotificationsCount > 0
+            ? newFriendsNotificationsCount
+            : null,
       },
     ];
 
@@ -236,6 +244,7 @@ const AppShell = ({
                   `Salut ${user.name?.split(' ')[0]}! 👋`}
                 {currentScreen === 'map' && 'Carte'}
                 {currentScreen === 'friends' && 'Mes Amis'}
+                {currentScreen === 'notifications' && 'Notifications'}
               </h1>
               <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                 {currentScreen === 'home' &&
@@ -243,6 +252,8 @@ const AppShell = ({
                     ? `Tu es dispo pour ${currentActivity === 'coffee' ? 'Coffee' : currentActivity === 'lunch' ? 'Lunch' : currentActivity === 'drinks' ? 'Drinks' : currentActivity === 'chill' ? 'Chill' : currentActivity === 'clubbing' ? 'Clubbing' : currentActivity === 'cinema' ? 'Cinema' : currentActivity}`
                     : 'Que veux-tu faire ?')}
                 {currentScreen === 'friends' && `${friends.length} amis`}
+                {currentScreen === 'notifications' &&
+                  `${notifications.length} notifications`}
                 {!isOnline && (
                   <span className="text-orange-500 text-xs ml-2">
                     • Mode hors ligne
@@ -265,8 +276,8 @@ const AppShell = ({
             }`}
           >
             <Bell size={20} />
-            {notifications.length > 0 && (
-              <NotificationBadge count={notifications.length} />
+            {newNotificationsCount > 0 && (
+              <NotificationBadge count={newNotificationsCount} />
             )}
           </motion.button>
         </div>
@@ -284,8 +295,11 @@ const AppShell = ({
             darkMode={darkMode}
             isOnline={isOnline}
             user={user}
+            notifications={notifications}
+            newFriendsNotificationsCount={newFriendsNotificationsCount}
             onAddFriend={onAddFriend}
             onRemoveFriend={onRemoveFriend}
+            onMarkAllFriendsNotificationsAsRead={onMarkAllNotificationsAsRead}
             onDebugFriends={onDebugFriends}
             onCreateTestFriendships={onCreateTestFriendships}
             onLoadMockData={onLoadMockData}
@@ -299,6 +313,7 @@ const AppShell = ({
             darkMode={darkMode}
             onFriendInvitationResponse={onFriendInvitationResponse}
             onMarkNotificationAsRead={onMarkNotificationAsRead}
+            onMarkAllNotificationsAsRead={onMarkAllNotificationsAsRead}
           />
         );
 
@@ -374,6 +389,7 @@ const AppShell = ({
             onStopAvailability={onStopAvailability}
             onResponseToAvailability={onResponseToAvailability}
             onRetryGeolocation={onRetryGeolocation}
+            onRequestLocationPermission={onRequestLocationPermission}
             onInviteFriends={onInviteFriends}
             onAddFriend={onAddFriend}
             onCreateTestFriendships={onCreateTestFriendships}

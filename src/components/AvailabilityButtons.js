@@ -19,7 +19,8 @@ const AvailabilityButtons = ({
   location,
   locationError,
   availabilityStartTime,
-  retryGeolocation, // Nouvelle prop pour retry sans recharger
+  retryGeolocation,
+  requestLocationPermission,
   darkMode,
 }) => {
   const [timeLeft, setTimeLeft] = useState(45 * 60);
@@ -184,16 +185,10 @@ const AvailabilityButtons = ({
             {locationError}
           </p>
           <button
-            onClick={() => {
-              if (retryGeolocation) {
-                retryGeolocation();
-              } else {
-                window.location.reload();
-              }
-            }}
+            onClick={requestLocationPermission || retryGeolocation}
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium mb-3 transition-colors"
           >
-            Réessayer la localisation
+            Activer la localisation
           </button>
           <p
             className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}

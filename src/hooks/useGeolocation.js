@@ -127,11 +127,46 @@ export const useGeolocation = () => {
     requestGeolocation();
   }, [requestGeolocation]);
 
+  // Fonction pour demander explicitement la permission et relancer la géolocalisation
+  const requestLocationPermission = useCallback(async () => {
+    try {
+      // eslint-disable-next-line no-console
+      console.log('🚨 Requesting location permission...');
+
+      // Ne toucher à aucun état pour éviter les effets de bord
+      // Laisser requestGeolocation gérer tout
+
+      // Si l'API permissions est supportée, vérifier le statut
+      if ('permissions' in navigator) {
+        const permission = await navigator.permissions.query({
+          name: 'geolocation',
+        });
+
+        if (permission.state === 'denied') {
+          setError(
+            "Permission de localisation refusée. Veuillez l'autoriser dans les paramètres de votre navigateur."
+          );
+          return;
+        }
+      }
+
+      // Demander la géolocalisation (cela ouvrira le popup de permission si nécessaire)
+      // requestGeolocation va gérer loading et error automatiquement
+      requestGeolocation();
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error requesting location permission:', error);
+      // Fallback: essayer quand même la géolocalisation
+      requestGeolocation();
+    }
+  }, [requestGeolocation]);
+
   return {
     location,
     error,
     loading,
     retryGeolocation,
+    requestLocationPermission,
   };
 };
 

@@ -475,10 +475,19 @@ const MapView = ({
                 carte
               </p>
               <button
-                onClick={() => window.location.reload()}
+                onClick={() => {
+                  // Ne plus recharger la page, utiliser la géolocalisation directement
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                      () => window.location.reload(), // Reload seulement si succès
+                      error => console.error('Erreur géolocalisation:', error),
+                      { enableHighAccuracy: true, timeout: 10000 }
+                    );
+                  }
+                }}
                 className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
               >
-                Réessayer
+                Activer la localisation
               </button>
             </div>
           </div>

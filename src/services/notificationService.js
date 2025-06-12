@@ -69,6 +69,104 @@ export class NotificationService {
     }
   }
 
+  // Marquer toutes les notifications comme lues
+  static async markAllAsRead(userId) {
+    if (!isOnline()) {
+      console.warn('⚠️ Offline mode, cannot mark all notifications as read');
+      return;
+    }
+
+    try {
+      const q = query(
+        collection(db, 'notifications'),
+        where('to', '==', userId),
+        where('read', '==', false)
+      );
+
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        console.log('ℹ️ Aucune notification à marquer comme lue');
+        return;
+      }
+
+      const updatePromises = querySnapshot.docs.map(docRef =>
+        retryWithBackoff(() =>
+          updateDoc(docRef.ref, {
+            read: true,
+            updatedAt: serverTimestamp(),
+          })
+        )
+      );
+
+      await Promise.all(updatePromises);
+
+      console.log(
+        `✅ ${querySnapshot.docs.length} notification(s) marquée(s) comme lue(s)`
+      );
+    } catch (error) {
+      console.warn('Warning: Could not mark all notifications as read:', error);
+    }
+  }
+
+  // Marquer toutes les notifications liées aux amis comme lues
+  static async markAllFriendsNotificationsAsRead(userId) {
+    if (!isOnline()) {
+      console.warn(
+        '⚠️ Offline mode, cannot mark friends notifications as read'
+      );
+      return;
+    }
+
+    try {
+      const friendsNotificationTypes = [
+        'friend_invitation',
+        'friend_invitation_accepted',
+        'friend_removed',
+      ];
+
+      // Créer une requête pour chaque type de notification d'ami
+      const queries = friendsNotificationTypes.map(type =>
+        query(
+          collection(db, 'notifications'),
+          where('to', '==', userId),
+          where('type', '==', type),
+          where('read', '==', false)
+        )
+      );
+
+      const queryResults = await Promise.all(queries.map(q => getDocs(q)));
+
+      // Fusionner tous les documents
+      const allDocs = queryResults.flatMap(snapshot => snapshot.docs);
+
+      if (allDocs.length === 0) {
+        console.log("ℹ️ Aucune notification d'ami à marquer comme lue");
+        return;
+      }
+
+      const updatePromises = allDocs.map(docRef =>
+        retryWithBackoff(() =>
+          updateDoc(docRef.ref, {
+            read: true,
+            updatedAt: serverTimestamp(),
+          })
+        )
+      );
+
+      await Promise.all(updatePromises);
+
+      console.log(
+        `✅ ${allDocs.length} notification(s) d'ami marquée(s) comme lue(s)`
+      );
+    } catch (error) {
+      console.warn(
+        'Warning: Could not mark friends notifications as read:',
+        error
+      );
+    }
+  }
+
   // Créer une notification générique
   static async createNotification(
     toUserId,

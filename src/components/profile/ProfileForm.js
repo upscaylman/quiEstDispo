@@ -36,7 +36,7 @@ const ProfileForm = ({
           <h4
             className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}
           >
-            {user.name || 'Utilisateur'}
+            {userName || user.name || 'Utilisateur'}
           </h4>
           {!isEditingName && (
             <motion.button
@@ -149,7 +149,11 @@ const ProfileForm = ({
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setIsEditing(true)}
                 className={`p-2 rounded-full ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
-                title={user.phone ? 'Modifier le numéro' : 'Ajouter un numéro'}
+                title={
+                  phoneNumber || user.phone
+                    ? 'Modifier le numéro'
+                    : 'Ajouter un numéro'
+                }
               >
                 <Edit2
                   size={16}
@@ -157,7 +161,7 @@ const ProfileForm = ({
                 />
               </motion.button>
 
-              {user.phone && (
+              {(phoneNumber || user.phone) && (
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -180,7 +184,9 @@ const ProfileForm = ({
           className={`text-xs mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
         >
           Nécessaire pour que vos amis puissent vous trouver et vous ajouter.
-          {user.phone ? ' Vous pouvez le modifier ou le supprimer.' : ''}
+          {phoneNumber || user.phone
+            ? ' Vous pouvez le modifier ou le supprimer.'
+            : ''}
         </p>
 
         {isEditing ? (
@@ -242,13 +248,13 @@ const ProfileForm = ({
           <div
             className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}
           >
-            {user.phone ? (
+            {phoneNumber || user.phone ? (
               <div className="flex items-center">
                 <Check size={16} className="text-green-500 mr-2" />
                 <span
                   className={`font-mono ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}
                 >
-                  {user.phone}
+                  {phoneNumber || user.phone}
                 </span>
                 <span
                   className={`ml-2 text-xs ${darkMode ? 'text-green-400' : 'text-green-600'}`}

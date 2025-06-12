@@ -23,7 +23,12 @@ import { getMockDataForOfflineMode } from './utils/mockData';
 
 function App() {
   const { user, loading, signOut } = useAuth();
-  const { location, error: locationError, retryGeolocation } = useGeolocation();
+  const {
+    location,
+    error: locationError,
+    retryGeolocation,
+    requestLocationPermission,
+  } = useGeolocation();
 
   // État principal
   const [currentScreen, setCurrentScreen] = useState('home');
@@ -34,11 +39,50 @@ function App() {
   const [friends, setFriends] = useState([]);
   const [availableFriends, setAvailableFriends] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [lastNotificationCenterVisit, setLastNotificationCenterVisit] =
+    useState(Date.now());
+  const [lastFriendsTabVisit, setLastFriendsTabVisit] = useState(Date.now());
 
   // Modales
   const [showAddFriendModal, setShowAddFriendModal] = useState(false);
   const [showInviteFriendsModal, setShowInviteFriendsModal] = useState(false);
   const [selectedInviteActivity, setSelectedInviteActivity] = useState(null);
+
+  // Fonction pour gérer le changement d'écran avec logique notifications
+  const handleScreenChange = screen => {
+    if (screen === 'notifications') {
+      // Marquer la visite au centre de notifications
+      setLastNotificationCenterVisit(Date.now());
+    }
+    if (screen === 'friends') {
+      // Marquer la visite à l'onglet amis
+      setLastFriendsTabVisit(Date.now());
+    }
+    setCurrentScreen(screen);
+  };
+
+  // Calculer le nombre de nouvelles notifications depuis la dernière visite
+  const getNewNotificationsCount = () => {
+    return notifications.filter(notification => {
+      const notificationTime =
+        notification.createdAt?.toDate?.()?.getTime() || Date.now();
+      return notificationTime > lastNotificationCenterVisit;
+    }).length;
+  };
+
+  // Calculer le nombre de nouvelles notifications liées aux amis
+  const getNewFriendsNotificationsCount = () => {
+    return notifications.filter(notification => {
+      const notificationTime =
+        notification.createdAt?.toDate?.()?.getTime() || Date.now();
+      const isFriendRelated = [
+        'friend_invitation',
+        'friend_invitation_accepted',
+        'friend_removed',
+      ].includes(notification.type);
+      return isFriendRelated && notificationTime > lastFriendsTabVisit;
+    }).length;
+  };
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
 
   // Gestion du thème avec support du mode système et cookies
@@ -474,6 +518,33 @@ function App() {
     }
   };
 
+  const markAllNotificationsAsRead = async () => {
+    try {
+      await NotificationService.markAllAsRead(user.uid);
+      setNotifications([]);
+    } catch (error) {
+      console.error('Erreur marquage toutes notifications:', error);
+    }
+  };
+
+  const markAllFriendsNotificationsAsRead = async () => {
+    try {
+      await NotificationService.markAllFriendsNotificationsAsRead(user.uid);
+      setNotifications(prev =>
+        prev.filter(
+          n =>
+            ![
+              'friend_invitation',
+              'friend_invitation_accepted',
+              'friend_removed',
+            ].includes(n.type)
+        )
+      );
+    } catch (error) {
+      console.error('Erreur marquage notifications amis:', error);
+    }
+  };
+
   const handleFriendInvitationResponse = async (
     invitationId,
     response,
@@ -672,6 +743,13 @@ function App() {
       }
 
       setDarkMode(shouldBeDark);
+
+      // Appliquer la classe 'dark' à l'élément HTML pour Tailwind
+      if (shouldBeDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     };
 
     updateTheme();
@@ -809,13 +887,15 @@ function App() {
           currentScreen={currentScreen}
           themeMode={themeMode}
           pushNotificationStatus={pushNotificationStatus}
-          onScreenChange={setCurrentScreen}
+          onScreenChange={handleScreenChange}
           onThemeToggle={() => setDarkMode(!darkMode)}
           onThemeChange={setThemeMode}
           onSignOut={handleSignOut}
           friends={friends}
           availableFriends={availableFriends}
           notifications={notifications}
+          newNotificationsCount={getNewNotificationsCount()}
+          newFriendsNotificationsCount={getNewFriendsNotificationsCount()}
           isAvailable={isAvailable}
           currentActivity={currentActivity}
           location={location}
@@ -830,6 +910,10 @@ function App() {
           onMapProviderChange={handleMapProviderChange}
           useMapbox={useMapbox}
           onMarkNotificationAsRead={markNotificationAsRead}
+          onMarkAllNotificationsAsRead={markAllNotificationsAsRead}
+          onMarkAllFriendsNotificationsAsRead={
+            markAllFriendsNotificationsAsRead
+          }
           onFriendInvitationResponse={handleFriendInvitationResponse}
           onProfileUpdate={handleProfileUpdate}
           onEnablePushNotifications={handleEnablePushNotifications}
@@ -838,6 +922,7 @@ function App() {
           onOpenDebugNotifications={handleOpenDebugNotifications}
           onShowDeleteAccount={() => setShowDeleteAccountModal(true)}
           retryGeolocation={retryGeolocation}
+          onRequestLocationPermission={requestLocationPermission}
           availabilityStartTime={availabilityStartTime}
           showAddFriendModal={showAddFriendModal}
           setShowAddFriendModal={setShowAddFriendModal}
@@ -858,6 +943,7 @@ function App() {
           onClose={() => setShowAddFriendModal(false)}
           onAddFriend={handleAddFriend}
           currentUser={user}
+          darkMode={darkMode}
         />
 
         {/* Consentement cookies */}
@@ -874,13 +960,15 @@ function App() {
         currentScreen={currentScreen}
         themeMode={themeMode}
         pushNotificationStatus={pushNotificationStatus}
-        onScreenChange={setCurrentScreen}
+        onScreenChange={handleScreenChange}
         onThemeToggle={() => setDarkMode(!darkMode)}
         onThemeChange={setThemeMode}
         onSignOut={handleSignOut}
         friends={friends}
         availableFriends={availableFriends}
         notifications={notifications}
+        newNotificationsCount={getNewNotificationsCount()}
+        newFriendsNotificationsCount={getNewFriendsNotificationsCount()}
         isAvailable={isAvailable}
         currentActivity={currentActivity}
         location={location}
@@ -895,6 +983,8 @@ function App() {
         onMapProviderChange={handleMapProviderChange}
         useMapbox={useMapbox}
         onMarkNotificationAsRead={markNotificationAsRead}
+        onMarkAllNotificationsAsRead={markAllNotificationsAsRead}
+        onMarkAllFriendsNotificationsAsRead={markAllFriendsNotificationsAsRead}
         onFriendInvitationResponse={handleFriendInvitationResponse}
         onProfileUpdate={handleProfileUpdate}
         onEnablePushNotifications={handleEnablePushNotifications}
@@ -903,6 +993,7 @@ function App() {
         onOpenDebugNotifications={handleOpenDebugNotifications}
         onShowDeleteAccount={() => setShowDeleteAccountModal(true)}
         retryGeolocation={retryGeolocation}
+        onRequestLocationPermission={requestLocationPermission}
         availabilityStartTime={availabilityStartTime}
         showAddFriendModal={showAddFriendModal}
         setShowAddFriendModal={setShowAddFriendModal}
@@ -923,6 +1014,7 @@ function App() {
         onClose={() => setShowAddFriendModal(false)}
         onAddFriend={handleAddFriend}
         currentUser={user}
+        darkMode={darkMode}
       />
 
       {/* Consentement cookies */}
