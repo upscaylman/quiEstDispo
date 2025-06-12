@@ -68,6 +68,7 @@ const AppShell = ({
   onSignOut,
   onSendInvitations,
   onOpenInviteFriendsModal,
+  onOpenActivitySelector,
   children,
 }) => {
   // Fonction pour rendre la navigation en bas (tabs)
@@ -489,7 +490,7 @@ const AppShell = ({
             title="Aucun ami disponible."
             message="Invitez vos amis à vous rejoindre !"
             darkMode={darkMode}
-            onInviteClick={onOpenInviteFriendsModal}
+            onInviteClick={onOpenActivitySelector}
             variant="purple"
             clickableWord="rejoindre"
           />
