@@ -12,8 +12,8 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import AvailabilityButtons from '../AvailabilityButtons';
+import { MapView } from '../map';
 import MapboxMapView from '../map/MapboxMapView';
-import MapView from '../MapView';
 
 const HomeScreen = ({
   // Props de state
@@ -186,11 +186,11 @@ const HomeScreen = ({
             <MapComponent
               friends={friends}
               availableFriends={availableFriends}
-              currentLocation={location}
+              userLocation={location}
               onInviteFriends={onInviteFriends}
               darkMode={darkMode}
               isAvailable={isAvailable}
-              currentActivity={currentActivity}
+              selectedActivity={currentActivity}
               showControls={false}
             />
           ) : (

@@ -12,10 +12,12 @@ const SettingsScreen = ({
   themeMode,
   pushNotificationStatus,
   currentScreen,
+  useMapbox,
 
   // Props de fonctions
   onProfileUpdate,
   onThemeChange,
+  onMapProviderChange,
   onEnablePushNotifications,
   onTestPushNotification,
   onCheckPushStatus,
@@ -320,6 +322,72 @@ const SettingsScreen = ({
           >
             🔍 Ouvrir le diagnostic
           </motion.button>
+        </div>
+      )}
+
+      {/* Section Provider de Cartes (dev) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div
+          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
+        >
+          <h3
+            className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+          >
+            🗺️ Provider de Cartes (dev)
+          </h3>
+
+          <div
+            className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} pt-4`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className={`mr-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                >
+                  <path d="M14.828 14.828a4 4 0 0 1-5.656 0M9 10h.01M15 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                </svg>
+                <div>
+                  <h5
+                    className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                  >
+                    Utiliser Mapbox
+                  </h5>
+                  <p
+                    className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                  >
+                    {useMapbox
+                      ? 'Cartes Mapbox activées'
+                      : 'Cartes CSS par défaut'}
+                  </p>
+                </div>
+              </div>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() =>
+                  onMapProviderChange(useMapbox ? 'default' : 'mapbox')
+                }
+                className={`w-14 h-8 rounded-full p-1 transition-colors ${
+                  useMapbox
+                    ? 'bg-blue-500'
+                    : darkMode
+                      ? 'bg-gray-600'
+                      : 'bg-gray-300'
+                }`}
+              >
+                <div
+                  className={`w-6 h-6 rounded-full bg-white transition-transform ${
+                    useMapbox ? 'translate-x-6' : 'translate-x-0'
+                  }`}
+                />
+              </motion.button>
+            </div>
+          </div>
         </div>
       )}
 

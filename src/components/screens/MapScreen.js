@@ -1,7 +1,7 @@
 // Écran de carte en plein écran
 import { Clock as ClockIcon } from 'lucide-react';
 import React from 'react';
-import MapView from '../MapView';
+import { MapView } from '../map';
 import MapboxMapView from '../map/MapboxMapView';
 
 const MapScreen = ({
@@ -28,11 +28,11 @@ const MapScreen = ({
         <MapComponent
           friends={friends}
           availableFriends={availableFriends}
-          currentLocation={location}
+          userLocation={location}
           onInviteFriends={onInviteFriends}
           darkMode={darkMode}
           isAvailable={isAvailable}
-          currentActivity={currentActivity}
+          selectedActivity={currentActivity}
           showControls={true}
         />
       ) : (

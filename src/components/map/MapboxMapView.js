@@ -1,27 +1,63 @@
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import React, { useEffect, useRef, useState } from 'react';
-import BaseMapView from './BaseMapView';
+import { MapboxControls } from './MapControls';
 import { createFriendMarkerElement, createUserMarkerElement } from './mapUtils';
+import useMapLogic from './useMapLogic';
 
 // Configuration Mapbox
 if (process.env.REACT_APP_MAPBOX_TOKEN) {
   mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
 }
 
-const MapboxRenderer = ({
-  filteredFriends,
+const MapboxMapView = ({
+  availableFriends = [],
   userLocation,
-  darkMode,
+  darkMode = false,
   selectedActivity,
-  isAvailable,
+  isAvailable = false,
   currentUser,
-  onFriendSelect,
-  onCenterUser,
+  showControls = true,
 }) => {
+  // Utiliser le hook de logique métier (même que MapView)
+  const {
+    // États
+    selectedFriend,
+    mapCenter,
+    zoom,
+    showFilters,
+    activityFilter,
+    isFollowingUser,
+
+    // Données calculées
+    filteredFriends,
+
+    // Fonctions utilitaires
+    calculateDistance,
+    formatDistance,
+    getActivityColor,
+
+    // Gestionnaires d'événements
+    handleCenterOnUser,
+    handleToggleFilters,
+    handleFilterChange,
+    handleFriendSelect,
+    handleFriendDeselect,
+
+    // Constantes
+    activities,
+  } = useMapLogic({
+    availableFriends,
+    userLocation,
+    darkMode,
+    selectedActivity,
+    isAvailable,
+  });
+
   const mapContainer = useRef(null);
   const map = useRef(null);
   const friendMarkers = useRef([]);
+  const userMarker = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
   // Initialiser la carte Mapbox
@@ -51,7 +87,7 @@ const MapboxRenderer = ({
         setMapLoaded(true);
       });
 
-      // Ajouter les contrôles de navigation
+      // Ajouter les contrôles de navigation Mapbox (en bas à droite)
       map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
     };
 
@@ -76,115 +112,102 @@ const MapboxRenderer = ({
     );
   }, [darkMode, mapLoaded]);
 
-  // Mettre à jour les marqueurs
+  // Synchroniser le centre avec la logique commune
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
-    // Nettoyer les anciens marqueurs
-    friendMarkers.current.forEach(({ marker }) => {
+    map.current.setCenter([mapCenter.lng, mapCenter.lat]);
+  }, [mapCenter, mapLoaded]);
+
+  // Fonction de centrage utilisateur intégrée
+  const handleMapCenterOnUser = () => {
+    if (map.current && userLocation) {
+      map.current.flyTo({
+        center: [userLocation.lng, userLocation.lat],
+        zoom: 14,
+      });
+    }
+    handleCenterOnUser(); // Appeler la logique commune
+  };
+
+  // Mettre à jour le marqueur utilisateur
+  useEffect(() => {
+    if (!map.current || !mapLoaded || !userLocation) return;
+
+    // Supprimer l'ancien marqueur utilisateur
+    if (userMarker.current) {
+      userMarker.current.remove();
+    }
+
+    // Créer le marqueur utilisateur avec le même style que MapView
+    const userElement = createUserMarkerElement(
+      {
+        ...currentUser,
+        selectedActivity,
+        isAvailable,
+      },
+      true
+    );
+
+    userMarker.current = new mapboxgl.Marker(userElement)
+      .setLngLat([userLocation.lng, userLocation.lat])
+      .addTo(map.current);
+  }, [userLocation, isAvailable, selectedActivity, currentUser, mapLoaded]);
+
+  // Mettre à jour les marqueurs d'amis
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+
+    // Nettoyer les anciens marqueurs d'amis
+    friendMarkers.current.forEach(marker => {
       if (marker && marker.remove) {
         marker.remove();
       }
     });
     friendMarkers.current = [];
 
-    // Ajouter les nouveaux marqueurs
+    // Ajouter les nouveaux marqueurs d'amis
     filteredFriends.forEach(friend => {
-      const lat =
-        friend.location?.lat || friend.lat || friend.friend?.location?.lat;
-      const lng =
-        friend.location?.lng || friend.lng || friend.friend?.location?.lng;
+      const lat = friend.location?.lat || friend.lat;
+      const lng = friend.location?.lng || friend.lng;
 
       if (!lat || !lng) return;
 
-      let markerEl;
+      // Créer le marqueur ami avec le même style que MapView
+      const friendElement = createFriendMarkerElement(friend, () => {
+        handleFriendSelect(friend);
+      });
 
-      // Créer le marqueur approprié selon le type
-      if (friend.isCurrentUser) {
-        console.log('🟢 Création marqueur utilisateur:', friend);
-        // Marqueur utilisateur
-        markerEl = createUserMarkerElement(
-          {
-            ...currentUser,
-            selectedActivity,
-            isAvailable,
-          },
-          !!userLocation
-        );
-      } else {
-        console.log('🔵 Création marqueur ami:', friend);
-        // Marqueur ami
-        markerEl = createFriendMarkerElement(friend, selectedFriend => {
-          onFriendSelect(selectedFriend);
-        });
-      }
-
-      const marker = new mapboxgl.Marker(markerEl)
+      const marker = new mapboxgl.Marker(friendElement)
         .setLngLat([lng, lat])
         .addTo(map.current);
-      console.log('✅ Marqueur ajouté à la carte:', {
-        lat,
-        lng,
-        isCurrentUser: friend.isCurrentUser,
-      });
 
-      friendMarkers.current.push({ marker: markerEl, friend });
+      friendMarkers.current.push(marker);
     });
-
-    // Ajuster la vue pour afficher tous les marqueurs
-    if (filteredFriends.length > 0 && userLocation) {
-      const bounds = new mapboxgl.LngLatBounds();
-
-      // Ajouter la position de l'utilisateur
-      bounds.extend([userLocation.lng, userLocation.lat]);
-
-      // Ajouter les positions des amis
-      filteredFriends.forEach(friend => {
-        const lat =
-          friend.location?.lat || friend.lat || friend.friend?.location?.lat;
-        const lng =
-          friend.location?.lng || friend.lng || friend.friend?.location?.lng;
-        if (lat && lng) {
-          bounds.extend([lng, lat]);
-        }
-      });
-
-      map.current.fitBounds(bounds, {
-        padding: { top: 100, bottom: 100, left: 50, right: 50 },
-        maxZoom: 15,
-      });
-    }
-  }, [
-    filteredFriends,
-    mapLoaded,
-    onFriendSelect,
-    userLocation,
-    currentUser,
-    selectedActivity,
-    isAvailable,
-  ]);
-
-  // Fonction pour centrer sur l'utilisateur
-  useEffect(() => {
-    if (onCenterUser && map.current) {
-      window.mapboxCenterOnUser = () => {
-        if (userLocation) {
-          map.current.flyTo({
-            center: [userLocation.lng, userLocation.lat],
-            zoom: 14,
-          });
-        }
-      };
-    }
-  }, [onCenterUser, userLocation]);
+  }, [filteredFriends, mapLoaded, handleFriendSelect]);
 
   return (
-    <>
+    <div className="h-full relative overflow-hidden">
+      {/* Carte Mapbox */}
       <div ref={mapContainer} className="w-full h-full" />
+
+      {/* Contrôles Mapbox réorganisés */}
+      <MapboxControls
+        showControls={showControls}
+        userLocation={userLocation}
+        darkMode={darkMode}
+        showFilters={showFilters}
+        activityFilter={activityFilter}
+        isFollowingUser={isFollowingUser}
+        activities={activities}
+        onCenterUser={handleMapCenterOnUser}
+        onToggleFilters={handleToggleFilters}
+        onFilterChange={handleFilterChange}
+      />
 
       {/* Message d'erreur si pas de token */}
       {!process.env.REACT_APP_MAPBOX_TOKEN && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div
             className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 max-w-sm mx-4`}
           >
@@ -204,22 +227,66 @@ const MapboxRenderer = ({
           </div>
         </div>
       )}
-    </>
-  );
-};
 
-// Composant principal qui utilise BaseMapView
-const MapboxMapView = props => {
-  return (
-    <BaseMapView {...props}>
-      <MapboxRenderer
-        onCenterUser={() => {
-          if (window.mapboxCenterOnUser) {
-            window.mapboxCenterOnUser();
-          }
-        }}
-      />
-    </BaseMapView>
+      {/* Détails de l'ami sélectionné (même que MapView) */}
+      {selectedFriend && (
+        <div
+          className={`absolute bottom-20 left-4 right-4 z-40 ${
+            darkMode ? 'bg-gray-800' : 'bg-white'
+          } rounded-lg shadow-xl p-4`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div
+                className="w-12 h-12 rounded-full border-2 border-white shadow-lg flex items-center justify-center text-white font-bold mr-3"
+                style={{
+                  backgroundColor: getActivityColor(selectedFriend.activity),
+                }}
+              >
+                {selectedFriend.avatar || '👤'}
+              </div>
+              <div>
+                <h3
+                  className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                >
+                  {selectedFriend.name}
+                </h3>
+                <p
+                  className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                >
+                  Dispo pour {selectedFriend.activity}
+                </p>
+                {userLocation && (
+                  <p
+                    className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                  >
+                    À{' '}
+                    {formatDistance(
+                      calculateDistance(
+                        userLocation.lat,
+                        userLocation.lng,
+                        selectedFriend.location?.lat || selectedFriend.lat,
+                        selectedFriend.location?.lng || selectedFriend.lng
+                      )
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={handleFriendDeselect}
+              className={`w-8 h-8 ${
+                darkMode
+                  ? 'bg-gray-700 text-gray-300'
+                  : 'bg-gray-100 text-gray-600'
+              } rounded-full flex items-center justify-center`}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

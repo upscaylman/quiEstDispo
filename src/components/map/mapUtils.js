@@ -100,10 +100,8 @@ export const formatDistance = distance => {
 export const sanitizeFriendsData = (availableFriends = []) => {
   return availableFriends.filter(friend => {
     if (!friend) return false;
-    const lat =
-      friend.location?.lat || friend.lat || friend.friend?.location?.lat;
-    const lng =
-      friend.location?.lng || friend.lng || friend.friend?.location?.lng;
+    const lat = friend.location?.lat || friend.lat;
+    const lng = friend.location?.lng || friend.lng;
     return (
       lat &&
       lng &&
@@ -123,46 +121,36 @@ export const filterFriendsByActivity = (friends, activityFilter) => {
   );
 };
 
-// Calculer les limites de la carte pour afficher tous les points
+// Calculer les limites de la carte pour afficher tous les amis
 export const calculateMapBounds = (friends, userLocation) => {
-  const positions = [];
+  if (friends.length === 0 && userLocation) return userLocation;
+
+  const lats = [];
+  const lngs = [];
 
   // Ajouter les positions des amis
   friends.forEach(friend => {
-    const lat =
-      friend.location?.lat || friend.lat || friend.friend?.location?.lat;
-    const lng =
-      friend.location?.lng || friend.lng || friend.friend?.location?.lng;
+    const lat = friend.location?.lat || friend.lat;
+    const lng = friend.location?.lng || friend.lng;
     if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
-      positions.push({ lat, lng });
+      lats.push(lat);
+      lngs.push(lng);
     }
   });
 
   // Ajouter la position de l'utilisateur
   if (userLocation && userLocation.lat && userLocation.lng) {
-    positions.push(userLocation);
+    lats.push(userLocation.lat);
+    lngs.push(userLocation.lng);
   }
 
-  // Position par défaut si aucune donnée valide (Paris)
-  if (positions.length === 0) {
-    return { lat: 48.8566, lng: 2.3522 };
-  }
+  // Position par défaut si aucune donnée valide
+  if (lats.length === 0) return { lat: 48.8566, lng: 2.3522 };
 
-  // Calculer le centre
-  const centerLat =
-    positions.reduce((sum, pos) => sum + pos.lat, 0) / positions.length;
-  const centerLng =
-    positions.reduce((sum, pos) => sum + pos.lng, 0) / positions.length;
+  const centerLat = lats.reduce((a, b) => a + b, 0) / lats.length;
+  const centerLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
 
-  return {
-    center: { lat: centerLat, lng: centerLng },
-    bounds: {
-      north: Math.max(...positions.map(p => p.lat)),
-      south: Math.min(...positions.map(p => p.lat)),
-      east: Math.max(...positions.map(p => p.lng)),
-      west: Math.min(...positions.map(p => p.lng)),
-    },
-  };
+  return { lat: centerLat, lng: centerLng };
 };
 
 // Créer l'élément HTML pour un marqueur d'utilisateur

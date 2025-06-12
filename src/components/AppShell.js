@@ -58,6 +58,7 @@ const AppShell = ({
   onMarkAllFriendsNotificationsAsRead,
   onProfileUpdate,
   onThemeChange,
+  onMapProviderChange,
   onEnablePushNotifications,
   onTestPushNotification,
   onCheckPushStatus,
@@ -376,8 +377,10 @@ const AppShell = ({
             themeMode={themeMode}
             pushNotificationStatus={pushNotificationStatus}
             currentScreen={currentScreen}
+            useMapbox={useMapbox}
             onProfileUpdate={onProfileUpdate}
             onThemeChange={onThemeChange}
+            onMapProviderChange={onMapProviderChange}
             onEnablePushNotifications={onEnablePushNotifications}
             onTestPushNotification={onTestPushNotification}
             onCheckPushStatus={onCheckPushStatus}
@@ -411,8 +414,10 @@ const AppShell = ({
             themeMode={themeMode}
             pushNotificationStatus={pushNotificationStatus}
             currentScreen={currentScreen}
+            useMapbox={useMapbox}
             onProfileUpdate={onProfileUpdate}
             onThemeChange={onThemeChange}
+            onMapProviderChange={onMapProviderChange}
             onEnablePushNotifications={onEnablePushNotifications}
             onTestPushNotification={onTestPushNotification}
             onCheckPushStatus={onCheckPushStatus}
