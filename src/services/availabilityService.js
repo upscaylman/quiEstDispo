@@ -568,7 +568,7 @@ export class AvailabilityService {
     }
 
     try {
-      await retryWithBackoff(async () => {
+      return await retryWithBackoff(async () => {
         console.log(
           `🏁 [DEBUG] Terminer activité ${availabilityId} par ${userId}`
         );
