@@ -14,7 +14,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import AvailabilityButtons from '../AvailabilityButtons';
 import MapboxMapView from '../map/MapboxMapView';
 import MapView from '../MapView';
@@ -37,6 +37,7 @@ const HomeScreen = ({
   onSetAvailability,
   onStopAvailability,
   onResponseToAvailability,
+  onTerminateActivity,
   onRetryGeolocation,
   onRequestLocationPermission,
   onInviteFriends,
@@ -44,6 +45,18 @@ const HomeScreen = ({
   onCreateTestFriendships,
   onLoadMockData,
 }) => {
+  // State pour forcer le re-render et mettre à jour les temps
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Timer pour mettre à jour l'affichage du temps restant
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 30000); // Mise à jour toutes les 30 secondes
+
+    return () => clearInterval(timer);
+  }, []);
+
   // Calculer le temps restant pour la disponibilité
   const getTimeLeft = () => {
     if (!availabilityStartTime || !isAvailable) return '45:00';
@@ -68,6 +81,39 @@ const HomeScreen = ({
       cinema: 'bg-indigo-500',
     };
     return colors[activity] || 'bg-gray-500';
+  };
+
+  // Calculer le temps restant pour une activité (basé sur createdAt + 45min)
+  const getActivityTimeLeft = availability => {
+    if (!availability.createdAt) return null;
+
+    const createdTime = new Date(availability.createdAt).getTime();
+    const now = new Date().getTime();
+    const durationMs = 45 * 60 * 1000; // 45 minutes en millisecondes
+    const endTime = createdTime + durationMs;
+    const remaining = Math.max(0, endTime - now);
+
+    if (remaining === 0) return null; // Activité expirée
+
+    const minutes = Math.floor(remaining / (1000 * 60));
+    const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+
+    if (minutes > 0) {
+      return `${minutes}min`;
+    } else {
+      return `${seconds}s`;
+    }
+  };
+
+  // Vérifier si une activité est expirée
+  const isActivityExpired = availability => {
+    if (!availability.createdAt) return false;
+
+    const createdTime = new Date(availability.createdAt).getTime();
+    const now = new Date().getTime();
+    const durationMs = 45 * 60 * 1000; // 45 minutes
+
+    return now - createdTime >= durationMs;
   };
 
   const timeLeft = getTimeLeft();
@@ -155,123 +201,180 @@ const HomeScreen = ({
               </div>
             </div>
             <div className="space-y-2">
-              {availableFriends.map(availability => (
-                <motion.div
-                  key={availability.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-3 shadow transition-all border ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                        {availability.friend?.avatar &&
-                        availability.friend.avatar.startsWith('http') ? (
-                          <img
-                            src={availability.friend.avatar}
-                            alt="Avatar"
-                            className="w-12 h-12 rounded-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-2xl">
-                            {availability.friend?.avatar || '👤'}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p
-                          className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                        >
-                          {availability.friend?.name}
-                        </p>
-                        <p
-                          className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
-                        >
-                          Dispo pour {availability.activity}
-                        </p>
-                        {availability.timeLeft && (
-                          <p
-                            className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}
+              {availableFriends
+                .map(availability => {
+                  const isInProgress =
+                    availability.isResponseToInvitation &&
+                    availability.respondingToUserId === user?.uid;
+                  const timeLeft = getActivityTimeLeft(availability);
+                  const expired = isActivityExpired(availability);
+
+                  // Ne pas afficher les activités expirées
+                  if (expired) return null;
+
+                  return (
+                    <motion.div
+                      key={availability.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-3 shadow transition-all border-2 ${
+                        isInProgress
+                          ? 'border-green-400 bg-green-50 dark:bg-green-900/20'
+                          : darkMode
+                            ? 'border-gray-700'
+                            : 'border-gray-200'
+                      }`}
+                    >
+                      {/* Badge de statut */}
+                      {isInProgress && (
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center">
+                            <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                            <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                              Activité en cours
+                            </span>
+                          </div>
+                          {timeLeft && (
+                            <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                              {timeLeft} restant
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mr-3">
+                            {availability.friend?.avatar &&
+                            availability.friend.avatar.startsWith('http') ? (
+                              <img
+                                src={availability.friend.avatar}
+                                alt="Avatar"
+                                className="w-12 h-12 rounded-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-2xl">
+                                {availability.friend?.avatar || '👤'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p
+                              className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                            >
+                              {availability.friend?.name}
+                            </p>
+                            <p
+                              className={`text-sm ${
+                                isInProgress
+                                  ? 'text-green-600 dark:text-green-400'
+                                  : darkMode
+                                    ? 'text-gray-400'
+                                    : 'text-gray-600'
+                              }`}
+                            >
+                              {isInProgress
+                                ? `En ${availability.activity}`
+                                : `Dispo pour ${availability.activity}`}
+                            </p>
+                            {!isInProgress && timeLeft && (
+                              <p
+                                className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}
+                              >
+                                Encore {timeLeft}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Icône de l'activité */}
+                        <div className="flex items-center mr-3">
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                              isInProgress
+                                ? 'bg-green-500'
+                                : getActivityColor(availability.activity)
+                            }`}
                           >
-                            Encore {availability.timeLeft} min
-                          </p>
-                        )}
+                            {availability.activity === 'coffee' && (
+                              <Coffee size={16} className="text-white" />
+                            )}
+                            {availability.activity === 'lunch' && (
+                              <span className="text-sm">🍽️</span>
+                            )}
+                            {availability.activity === 'drinks' && (
+                              <span className="text-sm">🍷</span>
+                            )}
+                            {availability.activity === 'chill' && (
+                              <Users size={16} className="text-white" />
+                            )}
+                            {availability.activity === 'clubbing' && (
+                              <Music size={16} className="text-white" />
+                            )}
+                            {availability.activity === 'cinema' && (
+                              <Film size={16} className="text-white" />
+                            )}
+                            {![
+                              'coffee',
+                              'lunch',
+                              'drinks',
+                              'chill',
+                              'clubbing',
+                              'cinema',
+                            ].includes(availability.activity) && (
+                              <span className="text-sm">📍</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Icône de l'activité */}
-                    <div className="flex items-center mr-3">
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center ${getActivityColor(availability.activity)}`}
-                      >
-                        {availability.activity === 'coffee' && (
-                          <Coffee size={16} className="text-white" />
-                        )}
-                        {availability.activity === 'lunch' && (
-                          <span className="text-sm">🍽️</span>
-                        )}
-                        {availability.activity === 'drinks' && (
-                          <span className="text-sm">🍷</span>
-                        )}
-                        {availability.activity === 'chill' && (
-                          <Users size={16} className="text-white" />
-                        )}
-                        {availability.activity === 'clubbing' && (
-                          <Music size={16} className="text-white" />
-                        )}
-                        {availability.activity === 'cinema' && (
-                          <Film size={16} className="text-white" />
-                        )}
-                        {![
-                          'coffee',
-                          'lunch',
-                          'drinks',
-                          'chill',
-                          'clubbing',
-                          'cinema',
-                        ].includes(availability.activity) && (
-                          <span className="text-sm">📍</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Boutons d'action */}
-                  {!availability.isResponseToInvitation ||
-                  availability.respondingToUserId !== user?.uid ? (
-                    <div className="flex space-x-2 mt-3">
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() =>
-                          onResponseToAvailability(availability, 'join')
-                        }
-                        className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center"
-                      >
-                        ✅ Rejoindre
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() =>
-                          onResponseToAvailability(availability, 'decline')
-                        }
-                        className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center"
-                      >
-                        ❌ Décliner
-                      </motion.button>
-                    </div>
-                  ) : (
-                    <div className="mt-3 text-center">
-                      <p
-                        className={`text-sm ${darkMode ? 'text-green-400' : 'text-green-600'}`}
-                      >
-                        ✅ A accepté votre invitation
-                      </p>
-                    </div>
-                  )}
-                </motion.div>
-              ))}
+                      {/* Boutons d'action */}
+                      {!isInProgress ? (
+                        <div className="flex space-x-2 mt-3">
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() =>
+                              onResponseToAvailability(availability, 'join')
+                            }
+                            className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center"
+                          >
+                            ✅ Rejoindre
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() =>
+                              onResponseToAvailability(availability, 'decline')
+                            }
+                            className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center"
+                          >
+                            ❌ Décliner
+                          </motion.button>
+                        </div>
+                      ) : (
+                        <div className="mt-3 flex items-center justify-between">
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                              🎉 Activité confirmée
+                            </span>
+                          </div>
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => {
+                              onTerminateActivity(availability.id);
+                            }}
+                            className="text-xs text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 font-medium"
+                          >
+                            Terminer
+                          </motion.button>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })
+                .filter(Boolean)}
             </div>
           </motion.div>
         )}

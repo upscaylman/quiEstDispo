@@ -96,6 +96,56 @@ export class AvailabilityService {
           );
         }
 
+        // Nettoyer TOUTES les activités en cours où cet utilisateur était impliqué
+        console.log(
+          `🧹 [DEBUG] Nettoyage activités en cours impliquant ${userId}`
+        );
+
+        // 1. Supprimer les availabilities où cet utilisateur avait rejoint quelqu'un
+        const joinedActivitiesQuery = query(
+          collection(db, 'availabilities'),
+          where('joinedByFriend', '==', userId),
+          where('isActive', '==', true)
+        );
+
+        const joinedActivitiesSnapshot = await getDocs(joinedActivitiesQuery);
+        if (joinedActivitiesSnapshot.size > 0) {
+          const deleteJoinedPromises = joinedActivitiesSnapshot.docs.map(doc =>
+            updateDoc(doc.ref, {
+              joinedByFriend: null,
+              joinedTimestamp: null,
+              updatedAt: serverTimestamp(),
+            })
+          );
+          await Promise.all(deleteJoinedPromises);
+          console.log(
+            `🧹 [DEBUG] ✅ ${joinedActivitiesSnapshot.size} activités rejointes nettoyées`
+          );
+        }
+
+        // 2. Notifier les amis que leurs activités "en cours" sont annulées
+        const friendsWhoJoinedQuery = query(
+          collection(db, 'availabilities'),
+          where('userId', '==', userId),
+          where('isActive', '==', true)
+        );
+
+        const friendsWhoJoinedSnapshot = await getDocs(friendsWhoJoinedQuery);
+        for (const activityDoc of friendsWhoJoinedSnapshot.docs) {
+          const activityData = activityDoc.data();
+          if (activityData.joinedByFriend) {
+            console.log(
+              `📢 [DEBUG] Notification d'annulation à ${activityData.joinedByFriend}`
+            );
+            // Note: La notification sera envoyée par la logique parent dans App.js
+          }
+        }
+
+        // 🐛 FIX: Nettoyer les réponses de l'utilisateur qui s'arrête
+        if (availabilityId && !availabilityId.startsWith('offline-')) {
+          await this.cleanupResponsesForActivities([availabilityId]);
+        }
+
         console.log(`🛑 [DEBUG] Mise à jour user ${userId}`);
         const userRef = doc(db, 'users', userId);
         await updateDoc(userRef, {
@@ -138,6 +188,29 @@ export class AvailabilityService {
       throw new Error(
         `Impossible d'arrêter la disponibilité: ${error.message}`
       );
+    }
+  }
+
+  // 🐛 FIX: Récupérer une availability spécifique par ID (pour restauration après refresh)
+  static async getAvailability(availabilityId) {
+    if (!isOnline()) {
+      console.warn('⚠️ Offline mode, cannot get availability');
+      return null;
+    }
+
+    try {
+      const availabilityRef = doc(db, 'availabilities', availabilityId);
+      const availabilitySnap = await getDoc(availabilityRef);
+
+      if (availabilitySnap.exists()) {
+        return { id: availabilitySnap.id, ...availabilitySnap.data() };
+      } else {
+        console.warn(`⚠️ Availability ${availabilityId} not found`);
+        return null;
+      }
+    } catch (error) {
+      console.warn('⚠️ Get availability error:', error);
+      return null;
     }
   }
 
@@ -231,7 +304,44 @@ export class AvailabilityService {
             console.log(
               `👥 [DEBUG] Total à afficher: ${availabilities.length} cartes`
             );
-            callback(availabilities);
+
+            // Filtrer les activités expirées (plus de 45 minutes)
+            const now = new Date().getTime();
+            const durationMs = 45 * 60 * 1000; // 45 minutes
+            const expiredActivityIds = [];
+            const activeAvailabilities = availabilities.filter(availability => {
+              if (!availability.createdAt) return true; // Garder si pas de date
+
+              const createdTime = new Date(availability.createdAt).getTime();
+              const expired = now - createdTime >= durationMs;
+
+              if (expired) {
+                console.log(
+                  `⏰ [DEBUG] Availability ${availability.id} expirée (${availability.activity})`
+                );
+                expiredActivityIds.push(availability.id);
+              }
+
+              return !expired;
+            });
+
+            // 🐛 FIX: Nettoyer les réponses aux activités expirées pour permettre la ré-invitation
+            if (expiredActivityIds.length > 0) {
+              this.cleanupResponsesForActivities(expiredActivityIds, userId);
+            }
+
+            console.log(
+              `👥 [DEBUG] Après filtrage expirées: ${activeAvailabilities.length} cartes`
+            );
+
+            // Trier par ordre chronologique (plus récent en premier)
+            activeAvailabilities.sort((a, b) => {
+              const dateA = new Date(a.createdAt);
+              const dateB = new Date(b.createdAt);
+              return dateB.getTime() - dateA.getTime(); // Tri décroissant (plus récent d'abord)
+            });
+
+            callback(activeAvailabilities);
           });
         } else {
           callback([]);
@@ -323,6 +433,45 @@ export class AvailabilityService {
     }
   }
 
+  // 🐛 FIX: Nettoyer les réponses pour des activités spécifiques
+  static async cleanupResponsesForActivities(activityIds, userId = null) {
+    if (!isOnline() || activityIds.length === 0) return;
+
+    try {
+      // Si un userId est spécifié, ne nettoyer que ses réponses, sinon toutes les réponses
+      let responsesToCleanQuery;
+      if (userId) {
+        responsesToCleanQuery = query(
+          collection(db, 'activity_responses'),
+          where('activityId', 'in', activityIds),
+          where('userId', '==', userId)
+        );
+      } else {
+        responsesToCleanQuery = query(
+          collection(db, 'activity_responses'),
+          where('activityId', 'in', activityIds)
+        );
+      }
+
+      const responsesToClean = await getDocs(responsesToCleanQuery);
+      const deletePromises = responsesToClean.docs.map(doc =>
+        deleteDoc(doc.ref)
+      );
+
+      if (deletePromises.length > 0) {
+        await Promise.all(deletePromises);
+        console.log(
+          `🐛 [FIX] ${deletePromises.length} réponses d'activités expirées supprimées${userId ? ` pour user ${userId}` : ''} - ré-invitation possible`
+        );
+      }
+    } catch (error) {
+      console.warn(
+        '⚠️ Erreur nettoyage réponses expirées (non critique):',
+        error
+      );
+    }
+  }
+
   // Notifier les amis de sa disponibilité
   static async notifyFriends(userId, activity) {
     if (!isOnline()) {
@@ -408,6 +557,68 @@ export class AvailabilityService {
       });
     } catch (error) {
       console.warn('⚠️ Mark as joined error:', error);
+    }
+  }
+
+  // Terminer manuellement une activité en cours
+  static async terminateActivity(availabilityId, userId) {
+    if (!isOnline()) {
+      console.warn('⚠️ Offline mode, cannot terminate activity');
+      return;
+    }
+
+    try {
+      await retryWithBackoff(async () => {
+        console.log(
+          `🏁 [DEBUG] Terminer activité ${availabilityId} par ${userId}`
+        );
+
+        // Récupérer les infos de l'activité pour notifier l'autre participant
+        const availabilityRef = doc(db, 'availabilities', availabilityId);
+        const availabilitySnap = await getDoc(availabilityRef);
+
+        if (availabilitySnap.exists()) {
+          const activityData = availabilitySnap.data();
+          const otherUserId =
+            activityData.joinedByFriend === userId
+              ? activityData.userId
+              : activityData.joinedByFriend;
+
+          // Supprimer l'activité
+          await deleteDoc(availabilityRef);
+
+          // 🐛 FIX: Nettoyer les réponses liées à cette activité terminée
+          await this.cleanupResponsesForActivities([availabilityId]);
+
+          // Remettre à jour l'utilisateur qui a créé l'activité si c'est lui qui termine
+          if (activityData.userId === userId) {
+            const userRef = doc(db, 'users', userId);
+            await updateDoc(userRef, {
+              isAvailable: false,
+              currentActivity: null,
+              availabilityId: null,
+              updatedAt: serverTimestamp(),
+            });
+          }
+
+          console.log(
+            `🏁 [DEBUG] ✅ Activité ${availabilityId} terminée avec succès (réponses nettoyées)`
+          );
+
+          // Retourner les infos pour notification
+          return {
+            activity: activityData.activity,
+            otherUserId,
+            terminatedBy: userId,
+          };
+        } else {
+          console.warn(`⚠️ Activité ${availabilityId} non trouvée`);
+          return null;
+        }
+      });
+    } catch (error) {
+      console.warn('⚠️ Terminate activity error:', error);
+      throw new Error(`Impossible de terminer l'activité: ${error.message}`);
     }
   }
 }

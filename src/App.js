@@ -187,14 +187,38 @@ function App() {
       setAvailabilityId(result);
       setAvailabilityStartTime(startTime);
 
+      // 🐛 FIX SIMPLE: Sauvegarder dans localStorage
+      localStorage.setItem(
+        'availabilityState',
+        JSON.stringify({
+          isAvailable: true,
+          currentActivity: activity,
+          availabilityId: result,
+          availabilityStartTime: startTime,
+        })
+      );
+
       console.log('🛑 [DEBUG] AvailabilityId set to:', result);
       console.log('✅ Disponibilité activée');
     } catch (error) {
       // Mode offline - juste mettre à jour l'état local
+      const offlineId = 'offline-' + Date.now();
       setIsAvailable(true);
       setCurrentActivity(activity);
-      setAvailabilityId('offline-' + Date.now());
+      setAvailabilityId(offlineId);
       setAvailabilityStartTime(startTime);
+
+      // Sauvegarder même en offline
+      localStorage.setItem(
+        'availabilityState',
+        JSON.stringify({
+          isAvailable: true,
+          currentActivity: activity,
+          availabilityId: offlineId,
+          availabilityStartTime: startTime,
+        })
+      );
+
       console.error('❌ Erreur lors du démarrage (mode offline):', error);
     }
   };
@@ -642,7 +666,56 @@ function App() {
     setAvailabilityId(null);
     setAvailabilityStartTime(null);
 
+    // 🐛 FIX SIMPLE: Nettoyer localStorage
+    localStorage.removeItem('availabilityState');
+
     console.log('🛑 [DEBUG] === FIN handleStopAvailability ===');
+  };
+
+  // Handler pour terminer manuellement une activité en cours
+  const handleTerminateActivity = async activityId => {
+    if (!user) return;
+
+    try {
+      console.log('🏁 [DEBUG] Termination activité:', activityId);
+
+      const result = await AvailabilityService.terminateActivity(
+        activityId,
+        user.uid
+      );
+
+      if (result && result.otherUserId) {
+        // Envoyer notification à l'autre participant
+        await NotificationService.createNotification(
+          result.otherUserId,
+          user.uid,
+          'activity_terminated',
+          `🏁 ${user.displayName || user.name || 'Un ami'} a terminé l'activité ${result.activity}`,
+          {
+            activity: result.activity,
+            terminatedBy: user.uid,
+            terminatedByName: user.displayName || user.name || 'Un ami',
+          }
+        );
+        console.log('🏁 [DEBUG] ✅ Notification termination envoyée');
+      }
+
+      // Si c'était notre activité principale, remettre à jour l'état local
+      if (availabilityId === activityId) {
+        setIsAvailable(false);
+        setCurrentActivity(null);
+        setAvailabilityId(null);
+        setAvailabilityStartTime(null);
+
+        // Nettoyer localStorage
+        localStorage.removeItem('availabilityState');
+      }
+
+      console.log('🏁 [DEBUG] ✅ Activité terminée avec succès');
+    } catch (error) {
+      console.error('❌ Erreur lors de la termination:', error);
+      alert(`Erreur lors de la termination: ${error.message}`);
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -785,6 +858,39 @@ function App() {
     };
   }, [themeMode]);
 
+  // 🐛 FIX SIMPLE: Restaurer l'état depuis localStorage
+  const restoreAvailabilityState = () => {
+    try {
+      const saved = localStorage.getItem('availabilityState');
+      if (saved) {
+        const state = JSON.parse(saved);
+        console.log(
+          '🔄 [REFRESH] Restauration état depuis localStorage:',
+          state
+        );
+
+        // Vérifier que l'état n'est pas expiré (plus de 45min)
+        const now = Date.now();
+        const elapsed = now - state.availabilityStartTime;
+        const maxDuration = 45 * 60 * 1000; // 45 minutes
+
+        if (elapsed < maxDuration) {
+          setIsAvailable(state.isAvailable);
+          setCurrentActivity(state.currentActivity);
+          setAvailabilityId(state.availabilityId);
+          setAvailabilityStartTime(state.availabilityStartTime);
+          console.log('✅ État restauré avec succès');
+        } else {
+          console.log('⏰ État expiré, nettoyage localStorage');
+          localStorage.removeItem('availabilityState');
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Erreur restauration localStorage:', error);
+      localStorage.removeItem('availabilityState');
+    }
+  };
+
   // Charger les données utilisateur
   useEffect(() => {
     if (!user) {
@@ -801,6 +907,9 @@ function App() {
         // Charger les amis
         const friendsData = await FriendsService.getFriends(user.uid);
         setFriends(friendsData);
+
+        // 🐛 FIX SIMPLE: Récupérer l'état depuis localStorage après refresh
+        restoreAvailabilityState();
 
         // Écouter les amis disponibles (utilise onSnapshot)
         unsubscribeAvailable = AvailabilityService.onAvailableFriends(
@@ -947,6 +1056,7 @@ function App() {
           onSetAvailability={handleActivityClick}
           onStopAvailability={handleStopAvailability}
           onResponseToAvailability={handleResponseToAvailability}
+          onTerminateActivity={handleTerminateActivity}
           showInviteFriendsModal={showInviteFriendsModal}
           setShowInviteFriendsModal={setShowInviteFriendsModal}
           selectedInviteActivity={selectedInviteActivity}
@@ -1029,6 +1139,7 @@ function App() {
         onSetAvailability={handleActivityClick}
         onStopAvailability={handleStopAvailability}
         onResponseToAvailability={handleResponseToAvailability}
+        onTerminateActivity={handleTerminateActivity}
         showInviteFriendsModal={showInviteFriendsModal}
         setShowInviteFriendsModal={setShowInviteFriendsModal}
         selectedInviteActivity={selectedInviteActivity}
