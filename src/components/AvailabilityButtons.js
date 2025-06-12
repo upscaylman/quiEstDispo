@@ -188,16 +188,14 @@ const AvailabilityButtons = ({
             onClick={requestLocationPermission || retryGeolocation}
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium mb-3 transition-colors"
           >
-            Activer la localisation
+            Autoriser la localisation
           </button>
           <p
             className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
           >
-            1. Vérifiez que Chrome a l'autorisation
+            Une popup va s'ouvrir pour demander l'autorisation de localisation.
             <br />
-            2. Cliquez sur l'icône 🔒 dans l'URL
-            <br />
-            3. Autorisez la localisation
+            Cliquez sur "Autoriser" pour continuer.
           </p>
         </div>
       </div>

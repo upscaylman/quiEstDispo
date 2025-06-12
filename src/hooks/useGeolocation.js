@@ -128,38 +128,84 @@ export const useGeolocation = () => {
   }, [requestGeolocation]);
 
   // Fonction pour demander explicitement la permission et relancer la géolocalisation
-  const requestLocationPermission = useCallback(async () => {
-    try {
-      // eslint-disable-next-line no-console
-      console.log('🚨 Requesting location permission...');
+  const requestLocationPermission = useCallback(() => {
+    // eslint-disable-next-line no-console
+    console.log('🚨 Forcing location permission request...');
 
-      // Ne toucher à aucun état pour éviter les effets de bord
-      // Laisser requestGeolocation gérer tout
+    // Forcer une nouvelle demande de permission en appelant directement getCurrentPosition
+    // Cela déclenchera TOUJOURS la popup native du navigateur/appareil
+    if (!navigator.geolocation) {
+      setError('Géolocalisation non supportée sur cet appareil');
+      return;
+    }
 
-      // Si l'API permissions est supportée, vérifier le statut
-      if ('permissions' in navigator) {
-        const permission = await navigator.permissions.query({
-          name: 'geolocation',
-        });
+    // Réinitialiser les états
+    setLoading(true);
+    setError(null);
 
-        if (permission.state === 'denied') {
-          setError(
-            "Permission de localisation refusée. Veuillez l'autoriser dans les paramètres de votre navigateur."
-          );
-          return;
-        }
+    const handleSuccess = position => {
+      try {
+        const newLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: Date.now(),
+          isDefault: false,
+        };
+
+        // eslint-disable-next-line no-console
+        console.log('✅ Permission accordée, location obtenue:', newLocation);
+        setLocation(newLocation);
+        setError(null);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Error processing location:', err);
+        setError('Erreur de traitement de la position');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const handleError = error => {
+      let errorMessage;
+
+      switch (error.code) {
+        case 1: // PERMISSION_DENIED
+          errorMessage =
+            'Permission de localisation refusée. Veuillez autoriser la localisation dans les paramètres de votre navigateur puis recharger la page.';
+          break;
+        case 2: // POSITION_UNAVAILABLE
+          errorMessage =
+            'Position indisponible. Vérifiez votre connexion et les paramètres de localisation.';
+          break;
+        case 3: // TIMEOUT
+          errorMessage = "Délai d'attente dépassé. Réessayez.";
+          break;
+        default:
+          errorMessage = 'Erreur de géolocalisation inconnue.';
+          break;
       }
 
-      // Demander la géolocalisation (cela ouvrira le popup de permission si nécessaire)
-      // requestGeolocation va gérer loading et error automatiquement
-      requestGeolocation();
-    } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Error requesting location permission:', error);
-      // Fallback: essayer quand même la géolocalisation
-      requestGeolocation();
-    }
-  }, [requestGeolocation]);
+      console.warn('⚠️ Permission error:', errorMessage);
+      setError(errorMessage);
+      setLoading(false);
+    };
+
+    // Options pour forcer une demande de haute précision (popup garantie)
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0, // Pas de cache - force une nouvelle demande
+    };
+
+    // Appel direct pour déclencher la popup native
+    navigator.geolocation.getCurrentPosition(
+      handleSuccess,
+      handleError,
+      options
+    );
+  }, []);
 
   return {
     location,
