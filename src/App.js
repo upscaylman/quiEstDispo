@@ -7,6 +7,7 @@ import CookieConsent from './components/CookieConsent';
 import LoginScreen from './components/LoginScreen';
 import MapboxMapView from './components/map/MapboxMapView';
 import MapView from './components/MapView';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 import UpdateNotification from './components/UpdateNotification';
 import WarningBanner from './components/WarningBanner';
 import { useAuth } from './hooks/useAuth';
@@ -948,6 +949,9 @@ function App() {
 
         {/* Consentement cookies */}
         <CookieConsent darkMode={darkMode} />
+
+        {/* PWA Install Prompt */}
+        <PWAInstallPrompt darkMode={darkMode} />
       </div>
     );
   }
@@ -1019,6 +1023,9 @@ function App() {
 
       {/* Consentement cookies */}
       <CookieConsent darkMode={darkMode} />
+
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt darkMode={darkMode} />
     </>
   );
 }

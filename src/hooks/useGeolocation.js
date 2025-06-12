@@ -1,5 +1,65 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+// Fonction pour ouvrir les paramètres de localisation selon la plateforme
+const openDeviceLocationSettings = () => {
+  const userAgent = navigator.userAgent.toLowerCase();
+
+  try {
+    if (userAgent.includes('android')) {
+      // Android - Ouvrir les paramètres de localisation
+      window.open(
+        'android-app://com.android.settings/.LocationSettings',
+        '_blank'
+      );
+      // Fallback pour les navigateurs qui ne supportent pas android-app://
+      setTimeout(() => {
+        window.open(
+          'https://support.google.com/android/answer/3467281',
+          '_blank'
+        );
+      }, 1000);
+    } else if (userAgent.includes('iphone') || userAgent.includes('ipad')) {
+      // iOS - Ouvrir les paramètres de confidentialité
+      window.open('App-prefs:Privacy&path=LOCATION', '_blank');
+      // Fallback pour les versions iOS récentes
+      setTimeout(() => {
+        window.open('https://support.apple.com/fr-fr/102283', '_blank');
+      }, 1000);
+    } else if (userAgent.includes('windows')) {
+      // Windows - Paramètres de confidentialité
+      window.open('ms-settings:privacy-location', '_blank');
+      // Fallback
+      setTimeout(() => {
+        window.open(
+          'https://support.microsoft.com/fr-fr/windows/localisation-et-confidentialit%C3%A9-dans-windows-31a7f3b5-1396-88ae-5bb5-bb4d68ba4e36',
+          '_blank'
+        );
+      }, 1000);
+    } else if (userAgent.includes('mac')) {
+      // macOS - Préférences système
+      window.open(
+        'x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices',
+        '_blank'
+      );
+      // Fallback
+      setTimeout(() => {
+        window.open(
+          'https://support.apple.com/fr-fr/guide/mac-help/mh35873/mac',
+          '_blank'
+        );
+      }, 1000);
+    } else {
+      // Navigateur desktop générique - Guide d'aide
+      window.open('https://support.google.com/chrome/answer/142065', '_blank');
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Erreur ouverture paramètres:', error);
+    // Fallback ultime - guide général
+    window.open('https://support.google.com/chrome/answer/142065', '_blank');
+  }
+};
+
 export const useGeolocation = () => {
   const [location, setLocation] = useState(null);
   const [error, setError] = useState(null);
@@ -139,9 +199,9 @@ export const useGeolocation = () => {
       return;
     }
 
-    // Réinitialiser les états
-    setLoading(true);
-    setError(null);
+    // Ne pas toucher à loading pour éviter l'effet de bord
+    // setLoading(true); // Supprimé
+    // setError(null); // Gardé pour ne pas effacer l'erreur avant le résultat
 
     const handleSuccess = position => {
       try {
@@ -171,8 +231,11 @@ export const useGeolocation = () => {
 
       switch (error.code) {
         case 1: // PERMISSION_DENIED
-          errorMessage =
-            'Permission de localisation refusée. Veuillez autoriser la localisation dans les paramètres de votre navigateur puis recharger la page.';
+          // Rediriger vers les paramètres système de l'appareil
+          setTimeout(() => {
+            openDeviceLocationSettings();
+          }, 500);
+          errorMessage = 'Redirection vers les paramètres de localisation...';
           break;
         case 2: // POSITION_UNAVAILABLE
           errorMessage =
@@ -199,12 +262,14 @@ export const useGeolocation = () => {
       maximumAge: 0, // Pas de cache - force une nouvelle demande
     };
 
-    // Appel direct pour déclencher la popup native
-    navigator.geolocation.getCurrentPosition(
-      handleSuccess,
-      handleError,
-      options
-    );
+    // Appel direct pour déclencher la popup native avec un petit délai
+    setTimeout(() => {
+      navigator.geolocation.getCurrentPosition(
+        handleSuccess,
+        handleError,
+        options
+      );
+    }, 100);
   }, []);
 
   return {
