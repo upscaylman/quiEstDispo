@@ -1061,6 +1061,7 @@ function App() {
           setShowInviteFriendsModal={setShowInviteFriendsModal}
           selectedInviteActivity={selectedInviteActivity}
           onSendInvitations={handleSendInvitations}
+          onInviteFriends={handleActivityClick}
         />
 
         {/* Modal d'ajout d'amis */}
@@ -1144,6 +1145,7 @@ function App() {
         setShowInviteFriendsModal={setShowInviteFriendsModal}
         selectedInviteActivity={selectedInviteActivity}
         onSendInvitations={handleSendInvitations}
+        onInviteFriends={handleActivityClick}
       />
 
       {/* Modal d'ajout d'amis */}

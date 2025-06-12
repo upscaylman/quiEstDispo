@@ -137,6 +137,7 @@ const HomeScreen = ({
             retryGeolocation={onRetryGeolocation}
             requestLocationPermission={onRequestLocationPermission}
             darkMode={darkMode}
+            onInviteMoreFriends={onInviteFriends}
           />
 
           {/* Section Inviter des amis */}

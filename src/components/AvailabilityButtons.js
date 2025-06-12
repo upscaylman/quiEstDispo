@@ -22,6 +22,7 @@ const AvailabilityButtons = ({
   retryGeolocation,
   requestLocationPermission,
   darkMode,
+  onInviteMoreFriends, // Nouvelle prop pour inviter plus d'amis
 }) => {
   const [timeLeft, setTimeLeft] = useState(45 * 60);
 
@@ -156,12 +157,52 @@ const AvailabilityButtons = ({
             </p>
           </div>
 
-          <button
-            onClick={onStopAvailability}
-            className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-          >
-            Arrêter ma disponibilité
-          </button>
+          <div className="space-y-3">
+            {/* Bouton Inviter d'autres amis */}
+            {onInviteMoreFriends && (
+              <button
+                onClick={() => {
+                  console.log(
+                    '🔥 [DEBUG] Bouton inviter cliqué pour:',
+                    currentActivity
+                  );
+                  onInviteMoreFriends(currentActivity);
+                }}
+                className={`w-full ${activities.find(a => a.id === currentActivity)?.color || 'bg-blue-500'} ${activities.find(a => a.id === currentActivity)?.hoverColor || 'hover:bg-blue-600'} text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center`}
+              >
+                {/* Icône selon l'activité */}
+                {currentActivity === 'coffee' && (
+                  <Coffee size={20} className="mr-2" />
+                )}
+                {currentActivity === 'lunch' && (
+                  <Utensils size={20} className="mr-2" />
+                )}
+                {currentActivity === 'drinks' && (
+                  <Wine size={20} className="mr-2" />
+                )}
+                {currentActivity === 'chill' && (
+                  <Users size={20} className="mr-2" />
+                )}
+                {currentActivity === 'clubbing' && (
+                  <Music size={20} className="mr-2" />
+                )}
+                {currentActivity === 'cinema' && (
+                  <Film size={20} className="mr-2" />
+                )}
+                Inviter d'autres amis pour{' '}
+                {activities.find(a => a.id === currentActivity)?.label ||
+                  currentActivity}
+              </button>
+            )}
+
+            {/* Bouton Arrêter */}
+            <button
+              onClick={onStopAvailability}
+              className="w-full bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              Arrêter ma disponibilité
+            </button>
+          </div>
         </div>
       </motion.div>
     );
