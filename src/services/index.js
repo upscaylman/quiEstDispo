@@ -10,6 +10,3 @@ export {
   isOnline,
   retryWithBackoff,
 } from './firebaseUtils';
-
-// Export de l'ancien service pour compatibilité (à supprimer après migration)
-export * from './firebaseService';
