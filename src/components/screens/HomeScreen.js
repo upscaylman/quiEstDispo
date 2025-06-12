@@ -32,6 +32,7 @@ const HomeScreen = ({
   darkMode,
   isOnline,
   user,
+  notifications,
 
   // Props de fonctions
   onSetAvailability,
@@ -203,6 +204,22 @@ const HomeScreen = ({
             </div>
             <div className="space-y-2">
               {availableFriends
+                .filter(availability => {
+                  // Filtrer les amis qui nous ont envoyé une invitation (qui doivent être dans les notifications seulement)
+                  const hasInvitationNotification = notifications?.some(
+                    notif =>
+                      notif.type === 'invitation' &&
+                      notif.from === availability.userId &&
+                      notif.data?.activity === availability.activity &&
+                      !notif.read
+                  );
+
+                  // Ne garder que les amis vraiment disponibles (pas d'invitation en cours) OU les activités en cours
+                  return (
+                    !hasInvitationNotification ||
+                    availability.isResponseToInvitation
+                  );
+                })
                 .map(availability => {
                   const isInProgress =
                     availability.isResponseToInvitation &&

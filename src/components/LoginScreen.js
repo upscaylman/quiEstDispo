@@ -1,7 +1,9 @@
 import { motion } from 'framer-motion';
 import { Clock, MapPin, Smartphone, Users } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import GoogleSignInService from '../services/googleSignInService';
+import GoogleSignInButton from './GoogleSignInButton';
 
 const LoginScreen = () => {
   const {
@@ -24,6 +26,63 @@ const LoginScreen = () => {
   const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
   const [showRedirectOption, setShowRedirectOption] = useState(false);
   const [showFacebookRedirect, setShowFacebookRedirect] = useState(false);
+  const [googleSignInReady, setGoogleSignInReady] = useState(false);
+
+  // Initialiser la nouvelle API Google Sign-In
+  useEffect(() => {
+    const initializeGoogleSignIn = async () => {
+      try {
+        // Remplacez par votre vrai Client ID Google
+        const clientId =
+          process.env.REACT_APP_GOOGLE_CLIENT_ID || 'VOTRE_CLIENT_ID_GOOGLE';
+
+        if (clientId && clientId !== 'VOTRE_CLIENT_ID_GOOGLE') {
+          await GoogleSignInService.initialize(clientId, {
+            context: 'signin',
+            ux_mode: 'popup',
+            auto_prompt: false, // Désactiver One Tap sur la page de connexion
+            callback: 'handleGoogleSignInCallback', // Nom unique pour éviter les conflits
+          });
+          setGoogleSignInReady(true);
+          console.log('✅ Google Sign-In nouvelle API initialisée');
+        } else {
+          console.warn(
+            '⚠️ Client ID Google non configuré. Ajoutez REACT_APP_GOOGLE_CLIENT_ID dans votre .env'
+          );
+          // On garde googleSignInReady à false pour afficher le fallback avec message informatif
+        }
+      } catch (error) {
+        console.error('❌ Erreur initialisation Google Sign-In:', error);
+      }
+    };
+
+    initializeGoogleSignIn();
+  }, []);
+
+  // Handler pour la nouvelle API Google Sign-In
+  const handleNewGoogleSignIn = async response => {
+    try {
+      setError('');
+      setLoading(true);
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      console.log('🎯 Nouvelle API Google Sign-In - credential reçu');
+
+      // Connecter avec Firebase en utilisant le credential
+      const result = await GoogleSignInService.signInWithFirebase(
+        response.credential
+      );
+
+      console.log('✅ Connexion réussie avec la nouvelle API:', result);
+    } catch (error) {
+      console.error('❌ Erreur nouvelle API Google:', error);
+      setError(error.message || 'Erreur de connexion avec Google');
+      setLoading(false);
+    }
+  };
 
   // Fonction pour formater le numéro de téléphone au fur et à mesure de la saisie
   const formatPhoneInput = value => {
@@ -124,7 +183,7 @@ const LoginScreen = () => {
   };
 
   // Vérifier les résultats de redirection au chargement
-  React.useEffect(() => {
+  useEffect(() => {
     const checkForRedirectResult = async () => {
       try {
         // Vérifier Google
@@ -451,43 +510,106 @@ const LoginScreen = () => {
               )}
             </div>
           ) : (
-            <div className="space-y-3">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleGoogleSignIn(false)}
-                disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white py-4 px-6 rounded-xl font-medium transition-colors flex items-center justify-center"
-              >
-                {loading ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                ) : (
-                  <>
-                    <span className="mr-2">🔍</span>
-                    Continuer avec Google
-                  </>
-                )}
-              </motion.button>
+            <div className="space-y-4">
+              {googleSignInReady ? (
+                /* Nouveau bouton Google Sign-In officiel */
+                <div className="space-y-3">
+                  <GoogleSignInButton
+                    onSignIn={handleNewGoogleSignIn}
+                    type="standard"
+                    theme="outline"
+                    size="large"
+                    text="signin_with"
+                    shape="rectangular"
+                    width="300"
+                    disabled={loading}
+                    className="w-full flex justify-center"
+                  />
 
-              {showRedirectOption && (
-                <motion.button
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleGoogleSignIn(true)}
-                  disabled={loading}
-                  className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white py-3 px-6 rounded-xl font-medium transition-colors flex items-center justify-center text-sm"
-                >
-                  {loading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <>
-                      <span className="mr-2">🔄</span>
-                      Essayer avec redirection
-                    </>
+                  <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-gray-200"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-2 bg-white text-gray-500">ou</span>
+                    </div>
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleGoogleSignIn(false)}
+                    disabled={loading}
+                    className="w-full bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 py-3 px-6 rounded-xl font-medium transition-colors flex items-center justify-center text-sm"
+                  >
+                    {loading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                    ) : (
+                      <>
+                        <span className="mr-2">🔄</span>
+                        Méthode alternative
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+              ) : (
+                /* Design moderne pour la méthode classique */
+                <div className="space-y-3">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleGoogleSignIn(false)}
+                    disabled={loading}
+                    className="w-full bg-white hover:bg-gray-50 border-2 border-gray-200 hover:border-blue-300 text-gray-800 py-4 px-6 rounded-xl font-medium transition-all flex items-center justify-center shadow-sm hover:shadow-md"
+                  >
+                    {loading ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
+                          <path
+                            fill="#4285F4"
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                          />
+                        </svg>
+                        Continuer avec Google
+                      </>
+                    )}
+                  </motion.button>
+
+                  {showRedirectOption && (
+                    <motion.button
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handleGoogleSignIn(true)}
+                      disabled={loading}
+                      className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white py-3 px-6 rounded-xl font-medium transition-colors flex items-center justify-center text-sm"
+                    >
+                      {loading ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      ) : (
+                        <>
+                          <span className="mr-2">🔄</span>
+                          Essayer avec redirection
+                        </>
+                      )}
+                    </motion.button>
                   )}
-                </motion.button>
+                </div>
               )}
             </div>
           )}

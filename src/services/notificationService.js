@@ -253,6 +253,71 @@ export class NotificationService {
     }
   }
 
+  // Créer une notification pour une invitation avec ID d'invitation
+  static async createInvitationNotificationWithId(
+    toUserId,
+    fromUserId,
+    activity,
+    invitationId
+  ) {
+    try {
+      console.log(`🔔 [DEBUG] === DÉBUT CRÉATION NOTIFICATION AVEC ID ===`);
+      console.log(
+        `🔔 [DEBUG] createInvitationNotificationWithId appelée: ${fromUserId} -> ${toUserId} pour ${activity} (invitation: ${invitationId})`
+      );
+
+      // Récupérer le nom de l'expéditeur
+      const fromUser = await getDoc(doc(db, 'users', fromUserId));
+      const fromUserName = fromUser.exists() ? fromUser.data().name : 'Un ami';
+
+      const activities = {
+        coffee: 'Coffee',
+        lunch: 'Lunch',
+        drinks: 'Drinks',
+        chill: 'Chill',
+        clubbing: 'Clubbing',
+        cinema: 'Cinema',
+      };
+
+      const activityLabel = activities[activity] || activity;
+
+      // Créer la notification d'invitation avec l'ID
+      const notification = {
+        to: toUserId,
+        from: fromUserId,
+        type: 'invitation',
+        message: `🎉 ${fromUserName} vous invite pour ${activityLabel}`,
+        data: {
+          activity,
+          fromUserId,
+          fromUserName,
+          activityLabel,
+          invitationId, // Ajouter l'ID de l'invitation
+        },
+        read: false,
+        createdAt: serverTimestamp(),
+      };
+
+      const result = await addDoc(
+        collection(db, 'notifications'),
+        notification
+      );
+
+      console.log(
+        `🔔 [DEBUG] Notification d'invitation créée: ${result.id} pour ${activityLabel} (invitation: ${invitationId})`
+      );
+      console.log(`🔔 [DEBUG] === FIN CRÉATION NOTIFICATION AVEC ID ===`);
+
+      return result;
+    } catch (error) {
+      console.error(
+        '❌ Erreur création notification invitation avec ID:',
+        error
+      );
+      // Ne pas faire échouer l'invitation si la notification échoue
+    }
+  }
+
   // Récupérer les notifications d'un utilisateur
   static async getNotifications(userId) {
     if (!isOnline()) {
@@ -323,6 +388,54 @@ export class NotificationService {
   // Alias pour listenToNotifications (compatibilité)
   static listenToNotifications(userId, callback) {
     return this.onNotifications(userId, callback);
+  }
+
+  // Annuler les notifications d'invitation envoyées par un utilisateur pour une activité
+  static async cancelInvitationNotifications(fromUserId, activity) {
+    if (!isOnline()) {
+      console.warn('⚠️ Offline mode, cannot cancel invitation notifications');
+      return;
+    }
+
+    try {
+      console.log(
+        `🚫 Annulation des notifications d'invitation de ${fromUserId} pour ${activity}...`
+      );
+
+      // Chercher toutes les notifications d'invitation non lues envoyées par cet utilisateur pour cette activité
+      const invitationNotificationsQuery = query(
+        collection(db, 'notifications'),
+        where('from', '==', fromUserId),
+        where('type', '==', 'invitation'),
+        where('data.activity', '==', activity),
+        where('read', '==', false)
+      );
+
+      const snapshot = await getDocs(invitationNotificationsQuery);
+
+      if (snapshot.empty) {
+        console.log(
+          `ℹ️ Aucune notification d'invitation à annuler pour ${activity}`
+        );
+        return { cancelled: 0 };
+      }
+
+      // Supprimer toutes les notifications d'invitation
+      const deletePromises = snapshot.docs.map(doc =>
+        retryWithBackoff(() => deleteDoc(doc.ref))
+      );
+
+      await Promise.all(deletePromises);
+
+      console.log(
+        `✅ ${snapshot.docs.length} notification(s) d'invitation annulée(s) pour ${activity}`
+      );
+
+      return { cancelled: snapshot.docs.length };
+    } catch (error) {
+      console.error('❌ Erreur annulation notifications invitation:', error);
+      throw error;
+    }
   }
 
   // Nettoyer toutes les notifications liées à une activité

@@ -615,10 +615,68 @@ function App() {
     }
   };
 
+  const handleActivityInvitationResponse = async (notification, response) => {
+    try {
+      console.log(`🎯 [DEBUG] Réponse à l'invitation d'activité:`, {
+        activity: notification.data.activity,
+        response,
+        from: notification.data.fromUserName,
+      });
+
+      if (response === 'accepted') {
+        // Si on est déjà disponible pour une autre activité, demander confirmation
+        if (isAvailable && currentActivity !== notification.data.activity) {
+          const confirm = window.confirm(
+            `Vous êtes déjà disponible pour ${currentActivity}. Voulez-vous basculer vers ${notification.data.activity} ?`
+          );
+          if (!confirm) return;
+
+          // Arrêter la disponibilité actuelle
+          await handleStopAvailability();
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        // Démarrer la nouvelle activité
+        await handleStartAvailability(
+          notification.data.activity,
+          true, // isResponseToInvitation
+          notification.data.fromUserId // respondingToUserId
+        );
+
+        console.log(
+          `✅ Vous avez accepté l'invitation pour ${notification.data.activity} de ${notification.data.fromUserName}`
+        );
+      }
+
+      // Répondre à l'invitation dans Firebase (pour les deux cas accepted/declined)
+      if (notification.data.invitationId) {
+        await InvitationService.respondToInvitation(
+          notification.data.invitationId,
+          user.uid,
+          response
+        );
+      } else {
+        console.warn("⚠️ ID d'invitation manquant dans la notification");
+      }
+
+      // Marquer la notification comme lue et la supprimer
+      await markNotificationAsRead(notification.id);
+
+      const responseText = response === 'accepted' ? 'accepté' : 'décliné';
+      console.log(
+        `✅ Vous avez ${responseText} l'invitation pour ${notification.data.activity}`
+      );
+    } catch (error) {
+      console.error("❌ Erreur lors de la réponse à l'invitation:", error);
+      alert(`Erreur: ${error.message}`);
+    }
+  };
+
   const handleStopAvailability = async () => {
     console.log('🛑 [DEBUG] === DÉBUT handleStopAvailability ===');
     console.log('🛑 [DEBUG] user:', user?.uid);
     console.log('🛑 [DEBUG] availabilityId:', availabilityId);
+    console.log('🛑 [DEBUG] currentActivity:', currentActivity);
 
     if (!user) return;
 
@@ -632,6 +690,28 @@ function App() {
       );
 
       console.log('🛑 [DEBUG] Ami qui avait accepté:', friendWhoAccepted);
+
+      // 🎯 NOUVEAU: Annuler toutes les invitations en cours pour cette activité
+      if (currentActivity) {
+        console.log(
+          '🛑 [DEBUG] Annulation des invitations pour:',
+          currentActivity
+        );
+
+        // Chercher toutes les notifications d'invitation que j'ai envoyées pour cette activité
+        await NotificationService.cancelInvitationNotifications(
+          user.uid,
+          currentActivity
+        );
+
+        // Nettoyer aussi les invitations dans Firestore
+        await InvitationService.cleanupUserInvitations(
+          user.uid,
+          currentActivity
+        );
+
+        console.log('🛑 [DEBUG] ✅ Invitations annulées pour', currentActivity);
+      }
 
       if (availabilityId && !availabilityId.startsWith('offline-')) {
         await AvailabilityService.stopAvailability(user.uid, availabilityId);
@@ -1040,6 +1120,7 @@ function App() {
             markAllFriendsNotificationsAsRead
           }
           onFriendInvitationResponse={handleFriendInvitationResponse}
+          onActivityInvitationResponse={handleActivityInvitationResponse}
           onProfileUpdate={handleProfileUpdate}
           onEnablePushNotifications={handleEnablePushNotifications}
           onTestPushNotification={handleTestPushNotification}
@@ -1124,6 +1205,7 @@ function App() {
         onMarkAllNotificationsAsRead={markAllNotificationsAsRead}
         onMarkAllFriendsNotificationsAsRead={markAllFriendsNotificationsAsRead}
         onFriendInvitationResponse={handleFriendInvitationResponse}
+        onActivityInvitationResponse={handleActivityInvitationResponse}
         onProfileUpdate={handleProfileUpdate}
         onEnablePushNotifications={handleEnablePushNotifications}
         onTestPushNotification={handleTestPushNotification}

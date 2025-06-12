@@ -199,26 +199,20 @@ export class InvitationService {
           expiresAt: new Date(invitationTime.getTime() + 15 * 60 * 1000), // 15 minutes
         };
 
-        // Ajouter l'invitation à la collection
-        const invitationPromise = addDoc(
+        // Ajouter l'invitation à la collection et récupérer l'ID
+        const invitationRef = await addDoc(
           collection(db, 'invitations'),
           invitationData
         );
 
-        // Créer une notification pour l'ami
-        const notificationPromise =
-          NotificationService.createInvitationNotification(
-            friendId,
-            fromUserId,
-            activity
-          );
-
-        batch.push(invitationPromise);
-        batch.push(notificationPromise);
+        // Créer une notification pour l'ami avec l'ID de l'invitation
+        await NotificationService.createInvitationNotificationWithId(
+          friendId,
+          fromUserId,
+          activity,
+          invitationRef.id
+        );
       }
-
-      // Exécuter toutes les opérations en parallèle
-      await Promise.all(batch);
 
       console.log(
         `✅ ${friendIds.length} invitations envoyées pour ${activity}`
@@ -494,6 +488,45 @@ export class InvitationService {
       console.error(
         '❌ [DEBUG] Erreur nettoyage invitations utilisateur:',
         error
+      );
+    }
+  }
+
+  // Récupérer les invitations pour un utilisateur (reçues)
+  static async getInvitationsForUser(userId) {
+    if (!isOnline()) {
+      throw new Error('Connexion requise pour récupérer les invitations');
+    }
+
+    try {
+      const q = query(
+        collection(db, 'invitations'),
+        where('toUserId', '==', userId),
+        where('status', '==', 'pending'),
+        orderBy('createdAt', 'desc')
+      );
+
+      const querySnapshot = await getDocs(q);
+      const invitations = [];
+
+      querySnapshot.forEach(doc => {
+        const data = doc.data();
+        invitations.push({
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+          expiresAt: data.expiresAt?.toDate?.() || new Date(data.expiresAt),
+        });
+      });
+
+      console.log(
+        `📥 ${invitations.length} invitations trouvées pour ${userId}`
+      );
+      return invitations;
+    } catch (error) {
+      console.error('❌ Erreur récupération invitations:', error);
+      throw new Error(
+        `Impossible de récupérer les invitations: ${error.message}`
       );
     }
   }

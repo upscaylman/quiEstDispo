@@ -21,8 +21,8 @@ const FriendsScreen = ({
   onLoadMockData,
 }) => {
   return (
-    <div className="p-4 px-6">
-      {/* Header avec boutons */}
+    <div className="p-4 px-6 relative min-h-full">
+      {/* Header avec bouton de notifications uniquement */}
       <div className="flex items-center justify-between mb-4">
         {/* Bouton "Marquer notifications amis comme lues" */}
         {newFriendsNotificationsCount > 0 && (
@@ -41,18 +41,8 @@ const FriendsScreen = ({
           </motion.button>
         )}
 
-        {/* Spacer si pas de bouton de notifications */}
-        {newFriendsNotificationsCount === 0 && <div></div>}
-
-        {/* Bouton d'ajout d'ami */}
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          onClick={onAddFriend}
-          className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full shadow-lg transition-colors"
-          title="Ajouter un ami"
-        >
-          <UserPlus size={20} />
-        </motion.button>
+        {/* Spacer */}
+        <div></div>
       </div>
 
       {/* Liste des amis */}
@@ -168,6 +158,21 @@ const FriendsScreen = ({
           </div>
         )}
       </div>
+
+      {/* Bouton flottant d'ajout d'ami */}
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={onAddFriend}
+        className={`fixed bottom-20 right-6 p-4 rounded-full shadow-lg transition-all duration-300 z-[60] ${
+          darkMode
+            ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30'
+            : 'bg-blue-500 hover:bg-blue-600 shadow-blue-500/30'
+        } text-white`}
+        title="Ajouter un ami"
+      >
+        <UserPlus size={24} />
+      </motion.button>
     </div>
   );
 };

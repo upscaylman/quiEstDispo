@@ -1,26 +1,36 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.svg" type="image/svg+xml" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
     <meta name="theme-color" content="#3B82F6" />
-    <meta name="description" content="Qui est dispo - Spontaneous meetups made simple" />
-    
+    <meta
+      name="description"
+      content="Qui est dispo - Spontaneous meetups made simple"
+    />
+
     <!-- PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Qui est dispo" />
     <meta name="mobile-web-app-capable" content="yes" />
-    
+
     <!-- Icons -->
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.svg" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    
+
     <!-- Preconnect for performance -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://accounts.google.com" />
+
+    <!-- Google Sign-In Library -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
     <!-- Disable tap highlights on mobile -->
     <style>
       * {
@@ -32,25 +42,38 @@
         -ms-user-select: none;
         user-select: none;
       }
-      
-      input, textarea {
+
+      input,
+      textarea {
         -webkit-user-select: text;
         -khtml-user-select: text;
         -moz-user-select: text;
         -ms-user-select: text;
         user-select: text;
       }
-      
+
       body {
         overscroll-behavior: none;
         overflow-x: hidden;
       }
     </style>
-    
+
     <title>Qui est dispo</title>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
+
+    <!-- Configuration Google Sign-In selon la documentation -->
+    <div
+      id="g_id_onload"
+      data-client_id="VOTRE_CLIENT_ID_GOOGLE"
+      data-context="signin"
+      data-ux_mode="popup"
+      data-callback="handleGoogleSignIn"
+      data-auto_prompt="false"
+      data-itp_support="true"
+    ></div>
+
     <div id="root"></div>
   </body>
 </html>

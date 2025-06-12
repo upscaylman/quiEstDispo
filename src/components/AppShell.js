@@ -53,6 +53,7 @@ const AppShell = ({
   onCreateTestFriendships,
   onLoadMockData,
   onFriendInvitationResponse,
+  onActivityInvitationResponse,
   onMarkNotificationAsRead,
   onMarkAllNotificationsAsRead,
   onMarkAllFriendsNotificationsAsRead,
@@ -168,24 +169,38 @@ const AppShell = ({
             </motion.button>
 
             {/* Titre */}
-            <div>
-              <h1
-                className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}
-              >
-                {currentScreen === 'settings' && 'Paramètres'}
-                {currentScreen === 'notifications' && 'Notifications'}
-              </h1>
-              <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                {currentScreen === 'settings' &&
-                  'Gérer votre profil et préférences'}
-                {currentScreen === 'notifications' &&
-                  `${notifications.length} notifications`}
-                {!isOnline && (
-                  <span className="text-orange-500 text-xs ml-2">
-                    • Mode hors ligne
-                  </span>
-                )}
-              </p>
+            <div className="flex items-center gap-3">
+              {currentScreen === 'notifications' && (
+                <div
+                  className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}
+                >
+                  <Bell
+                    size={24}
+                    className={darkMode ? 'text-gray-300' : 'text-gray-600'}
+                  />
+                </div>
+              )}
+              <div>
+                <h1
+                  className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                >
+                  {currentScreen === 'settings' && 'Paramètres'}
+                  {currentScreen === 'notifications' && 'Notifications'}
+                </h1>
+                <p
+                  className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}
+                >
+                  {currentScreen === 'settings' &&
+                    'Gérer votre profil et préférences'}
+                  {currentScreen === 'notifications' &&
+                    `${notifications.length} notifications`}
+                  {!isOnline && (
+                    <span className="text-orange-500 text-xs ml-2">
+                      • Mode hors ligne
+                    </span>
+                  )}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -237,30 +252,65 @@ const AppShell = ({
             </motion.button>
 
             {/* Titres */}
-            <div>
-              <h1
-                className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}
-              >
-                {currentScreen === 'home' &&
-                  `Salut ${user.name?.split(' ')[0]}! 👋`}
-                {currentScreen === 'map' && 'Carte'}
-                {currentScreen === 'friends' && 'Mes Amis'}
-                {currentScreen === 'notifications' && 'Notifications'}
-              </h1>
-              <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                {currentScreen === 'home' &&
-                  (isAvailable
-                    ? `Tu es dispo pour ${currentActivity === 'coffee' ? 'Coffee' : currentActivity === 'lunch' ? 'Lunch' : currentActivity === 'drinks' ? 'Drinks' : currentActivity === 'chill' ? 'Chill' : currentActivity === 'clubbing' ? 'Clubbing' : currentActivity === 'cinema' ? 'Cinema' : currentActivity}`
-                    : 'Que veux-tu faire ?')}
-                {currentScreen === 'friends' && `${friends.length} amis`}
-                {currentScreen === 'notifications' &&
-                  `${notifications.length} notifications`}
-                {!isOnline && (
-                  <span className="text-orange-500 text-xs ml-2">
-                    • Mode hors ligne
-                  </span>
-                )}
-              </p>
+            <div className="flex items-center gap-3">
+              {/* Icône pour chaque onglet dans un carré */}
+              {currentScreen === 'home' && (
+                <div
+                  className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}
+                >
+                  <Coffee
+                    size={24}
+                    className={darkMode ? 'text-gray-300' : 'text-gray-600'}
+                  />
+                </div>
+              )}
+              {currentScreen === 'map' && (
+                <div
+                  className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}
+                >
+                  <MapPin
+                    size={24}
+                    className={darkMode ? 'text-gray-300' : 'text-gray-600'}
+                  />
+                </div>
+              )}
+              {currentScreen === 'friends' && (
+                <div
+                  className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}
+                >
+                  <Users
+                    size={24}
+                    className={darkMode ? 'text-gray-300' : 'text-gray-600'}
+                  />
+                </div>
+              )}
+              <div>
+                <h1
+                  className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                >
+                  {currentScreen === 'home' &&
+                    `Salut ${user.name?.split(' ')[0]}! 👋`}
+                  {currentScreen === 'map' && 'Carte'}
+                  {currentScreen === 'friends' && 'Mes Amis'}
+                  {currentScreen === 'notifications' && 'Notifications'}
+                </h1>
+                <p
+                  className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}
+                >
+                  {currentScreen === 'home' &&
+                    (isAvailable
+                      ? `Tu es dispo pour ${currentActivity === 'coffee' ? 'Coffee' : currentActivity === 'lunch' ? 'Lunch' : currentActivity === 'drinks' ? 'Drinks' : currentActivity === 'chill' ? 'Chill' : currentActivity === 'clubbing' ? 'Clubbing' : currentActivity === 'cinema' ? 'Cinema' : currentActivity}`
+                      : 'Que veux-tu faire ?')}
+                  {currentScreen === 'friends' && `${friends.length} amis`}
+                  {currentScreen === 'notifications' &&
+                    `${notifications.length} notifications`}
+                  {!isOnline && (
+                    <span className="text-orange-500 text-xs ml-2">
+                      • Mode hors ligne
+                    </span>
+                  )}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -313,6 +363,7 @@ const AppShell = ({
             notifications={notifications}
             darkMode={darkMode}
             onFriendInvitationResponse={onFriendInvitationResponse}
+            onActivityInvitationResponse={onActivityInvitationResponse}
             onMarkNotificationAsRead={onMarkNotificationAsRead}
             onMarkAllNotificationsAsRead={onMarkAllNotificationsAsRead}
           />
@@ -386,6 +437,7 @@ const AppShell = ({
             darkMode={darkMode}
             isOnline={isOnline}
             user={user}
+            notifications={notifications}
             onSetAvailability={onSetAvailability}
             onStopAvailability={onStopAvailability}
             onResponseToAvailability={onResponseToAvailability}
