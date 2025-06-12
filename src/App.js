@@ -470,13 +470,7 @@ function App() {
     }
   };
 
-  const handleResponseToAvailability = async (availability, response) => {
-    if (response === 'join') {
-      await handleJoinFriendActivity(availability);
-    } else if (response === 'decline') {
-      await handleDeclineFriendActivity(availability);
-    }
-  };
+  // Fonctions de réponse aux invitations SUPPRIMÉES - plus de cartes Rejoindre/Décliner
 
   // Handlers pour les actions d'amitié
   const handleAddFriend = async identifier => {
@@ -691,26 +685,49 @@ function App() {
 
       console.log('🛑 [DEBUG] Ami qui avait accepté:', friendWhoAccepted);
 
-      // 🎯 NOUVEAU: Annuler toutes les invitations en cours pour cette activité
+      // 🎯 AMÉLIORÉ: Annuler toutes les invitations en cours pour cette activité
       if (currentActivity) {
         console.log(
           '🛑 [DEBUG] Annulation des invitations pour:',
           currentActivity
         );
 
-        // Chercher toutes les notifications d'invitation que j'ai envoyées pour cette activité
-        await NotificationService.cancelInvitationNotifications(
-          user.uid,
-          currentActivity
-        );
+        try {
+          // Chercher TOUTES les notifications d'invitation (même lues) que j'ai envoyées pour cette activité
+          const cancelResult =
+            await NotificationService.cancelInvitationNotifications(
+              user.uid,
+              currentActivity
+            );
 
-        // Nettoyer aussi les invitations dans Firestore
-        await InvitationService.cleanupUserInvitations(
-          user.uid,
-          currentActivity
-        );
+          console.log(
+            '🛑 [DEBUG] Résultat annulation notifications:',
+            cancelResult
+          );
 
-        console.log('🛑 [DEBUG] ✅ Invitations annulées pour', currentActivity);
+          // Nettoyer aussi les invitations dans Firestore
+          await InvitationService.cleanupUserInvitations(
+            user.uid,
+            currentActivity
+          );
+
+          console.log(
+            '🛑 [DEBUG] ✅ Invitations annulées pour',
+            currentActivity
+          );
+
+          // 🔥 NOUVEAU: Forcer le rechargement de la liste des amis disponibles
+          console.log('🛑 [DEBUG] 🔄 Rechargement des amis disponibles...');
+          const updatedAvailableFriends =
+            await AvailabilityService.getAvailableFriends(user.uid);
+          setAvailableFriends(updatedAvailableFriends);
+          console.log('🛑 [DEBUG] ✅ Liste des amis disponibles rechargée');
+        } catch (cancelError) {
+          console.error(
+            "🛑 [DEBUG] ❌ Erreur lors de l'annulation des invitations:",
+            cancelError
+          );
+        }
       }
 
       if (availabilityId && !availabilityId.startsWith('offline-')) {
@@ -1136,7 +1153,6 @@ function App() {
           setShowDeleteAccountModal={setShowDeleteAccountModal}
           onSetAvailability={handleActivityClick}
           onStopAvailability={handleStopAvailability}
-          onResponseToAvailability={handleResponseToAvailability}
           onTerminateActivity={handleTerminateActivity}
           showInviteFriendsModal={showInviteFriendsModal}
           setShowInviteFriendsModal={setShowInviteFriendsModal}
@@ -1221,7 +1237,6 @@ function App() {
         setShowDeleteAccountModal={setShowDeleteAccountModal}
         onSetAvailability={handleActivityClick}
         onStopAvailability={handleStopAvailability}
-        onResponseToAvailability={handleResponseToAvailability}
         onTerminateActivity={handleTerminateActivity}
         showInviteFriendsModal={showInviteFriendsModal}
         setShowInviteFriendsModal={setShowInviteFriendsModal}

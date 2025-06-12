@@ -26,7 +26,6 @@ const BaseMapView = ({
   selectedActivity,
   isAvailable = false,
   currentUser,
-  onDeclineFriend,
   showControls = true,
   children, // Le composant de carte spécifique (Mapbox ou Standard)
 }) => {
@@ -87,13 +86,7 @@ const BaseMapView = ({
     setSelectedFriend(friend);
   };
 
-  // Gestionnaire pour décliner un ami
-  const handleDeclineFriend = friend => {
-    if (onDeclineFriend) {
-      onDeclineFriend(friend);
-    }
-    setSelectedFriend(null);
-  };
+  // Fonction de déclinaison supprimée - plus de boutons Rejoindre/Décliner
 
   return (
     <div
@@ -306,55 +299,33 @@ const BaseMapView = ({
                 </motion.button>
               </div>
 
-              {/* Actions */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  {/* Badge activité */}
-                  <span
-                    className={`px-4 py-2 rounded-full text-white text-sm font-medium flex items-center space-x-2`}
-                    style={{
-                      backgroundColor: getActivityColor(
-                        selectedFriend.activity
-                      ),
-                    }}
-                  >
-                    {React.createElement(
-                      activities.find(
-                        a =>
-                          a.name.toLowerCase() ===
-                          selectedFriend.activity?.toLowerCase()
-                      )?.icon || Users,
-                      { size: 16 }
-                    )}
-                    <span>{selectedFriend.activity}</span>
-                  </span>
-
-                  {/* Temps restant */}
-                  <div
-                    className={`flex items-center space-x-1 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
-                  >
-                    <Clock size={14} />
-                    <span>{selectedFriend.timeLeft || 0} min restantes</span>
-                  </div>
-                </div>
-
-                {/* Bouton décliner - version mutualisée */}
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    // Fermer le panneau d'abord
-                    setSelectedFriend(null);
-                    // Puis appeler la fonction de déclinaison mutualisée
-                    if (onDeclineFriend) {
-                      onDeclineFriend(selectedFriend);
-                    }
+              {/* Actions - SUPPRIMÉ le bouton Décliner */}
+              <div className="flex items-center space-x-3">
+                {/* Badge activité */}
+                <span
+                  className={`px-4 py-2 rounded-full text-white text-sm font-medium flex items-center space-x-2`}
+                  style={{
+                    backgroundColor: getActivityColor(selectedFriend.activity),
                   }}
-                  className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-medium flex items-center space-x-2 transition-colors shadow-lg"
                 >
-                  <X size={16} />
-                  <span>Décliner</span>
-                </motion.button>
+                  {React.createElement(
+                    activities.find(
+                      a =>
+                        a.name.toLowerCase() ===
+                        selectedFriend.activity?.toLowerCase()
+                    )?.icon || Users,
+                    { size: 16 }
+                  )}
+                  <span>{selectedFriend.activity}</span>
+                </span>
+
+                {/* Temps restant */}
+                <div
+                  className={`flex items-center space-x-1 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                >
+                  <Clock size={14} />
+                  <span>{selectedFriend.timeLeft || 0} min restantes</span>
+                </div>
               </div>
             </motion.div>
           )}

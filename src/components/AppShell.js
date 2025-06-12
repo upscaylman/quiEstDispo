@@ -41,7 +41,6 @@ const AppShell = ({
   onScreenChange,
   onSetAvailability,
   onStopAvailability,
-  onResponseToAvailability,
   onTerminateActivity,
   onRetryGeolocation,
   onRequestLocationPermission,
@@ -440,7 +439,6 @@ const AppShell = ({
             notifications={notifications}
             onSetAvailability={onSetAvailability}
             onStopAvailability={onStopAvailability}
-            onResponseToAvailability={onResponseToAvailability}
             onTerminateActivity={onTerminateActivity}
             onRetryGeolocation={onRetryGeolocation}
             onRequestLocationPermission={onRequestLocationPermission}

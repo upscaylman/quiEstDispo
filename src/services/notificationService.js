@@ -402,13 +402,12 @@ export class NotificationService {
         `🚫 Annulation des notifications d'invitation de ${fromUserId} pour ${activity}...`
       );
 
-      // Chercher toutes les notifications d'invitation non lues envoyées par cet utilisateur pour cette activité
+      // Chercher toutes les notifications d'invitation (lues ET non lues) envoyées par cet utilisateur pour cette activité
       const invitationNotificationsQuery = query(
         collection(db, 'notifications'),
         where('from', '==', fromUserId),
         where('type', '==', 'invitation'),
-        where('data.activity', '==', activity),
-        where('read', '==', false)
+        where('data.activity', '==', activity)
       );
 
       const snapshot = await getDocs(invitationNotificationsQuery);
@@ -420,10 +419,17 @@ export class NotificationService {
         return { cancelled: 0 };
       }
 
-      // Supprimer toutes les notifications d'invitation
-      const deletePromises = snapshot.docs.map(doc =>
-        retryWithBackoff(() => deleteDoc(doc.ref))
+      console.log(
+        `🚫 Suppression de ${snapshot.docs.length} notifications d'invitation...`
       );
+
+      // Supprimer toutes les notifications d'invitation
+      const deletePromises = snapshot.docs.map(doc => {
+        console.log(
+          `🗑️ Suppression notification: ${doc.id} (read: ${doc.data().read})`
+        );
+        return retryWithBackoff(() => deleteDoc(doc.ref));
+      });
 
       await Promise.all(deletePromises);
 

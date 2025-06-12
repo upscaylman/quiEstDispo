@@ -1,6 +1,6 @@
 {
   "short_name": "Qui est dispo",
-  "name": "Qui est dispo - Spontaneous meetups",
+  "name": "Qui est dispo - Organise tes sorties spontanées",
   "icons": [
     {
       "src": "favicon.ico",
@@ -29,20 +29,20 @@
   "lang": "fr",
   "scope": "/",
   "id": "qui-est-dispo",
-  "description": "Application mobile pour organiser des rencontres spontanées entre amis",
+  "description": "L'app qui organise tes sorties spontanées ! Partage ta dispo avec tes amis et découvre qui est libre pour un café, un verre ou une sortie",
   "permissions": ["contacts"],
   "shortcuts": [
     {
-      "name": "I'm down",
-      "short_name": "Available",
-      "description": "Broadcast your availability",
+      "name": "Je suis dispo",
+      "short_name": "Dispo",
+      "description": "Partager ma disponibilité",
       "url": "/?action=available",
       "icons": [{ "src": "logo192.svg", "sizes": "192x192" }]
     },
     {
-      "name": "Find friends",
-      "short_name": "Friends",
-      "description": "See who's available",
+      "name": "Mes amis",
+      "short_name": "Amis",
+      "description": "Voir qui est disponible",
       "url": "/?action=friends",
       "icons": [{ "src": "logo192.svg", "sizes": "192x192" }]
     }
@@ -53,7 +53,7 @@
       "sizes": "640x1280",
       "type": "image/png",
       "platform": "wide",
-      "label": "Main interface with availability button"
+      "label": "Interface principale avec bouton de disponibilité"
     }
   ]
 }
