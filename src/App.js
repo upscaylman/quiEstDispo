@@ -7,6 +7,7 @@ import CookieConsent from './components/CookieConsent';
 import LoginScreen from './components/LoginScreen';
 import MapboxMapView from './components/map/MapboxMapView';
 import MapView from './components/MapView';
+import PhoneRequiredModal from './components/PhoneRequiredModal';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import UpdateNotification from './components/UpdateNotification';
 import WarningBanner from './components/WarningBanner';
@@ -48,6 +49,7 @@ function App() {
   const [showAddFriendModal, setShowAddFriendModal] = useState(false);
   const [showInviteFriendsModal, setShowInviteFriendsModal] = useState(false);
   const [selectedInviteActivity, setSelectedInviteActivity] = useState(null);
+  const [showPhoneRequiredModal, setShowPhoneRequiredModal] = useState(false);
 
   // Fonction pour gérer le changement d'écran avec logique notifications
   const handleScreenChange = screen => {
@@ -484,7 +486,20 @@ function App() {
 
   // Handler pour ouvrir le modal d'ajout d'ami
   const handleOpenAddFriendModal = () => {
-    setShowAddFriendModal(true);
+    // Vérifier si l'utilisateur a un numéro de téléphone
+    if (!user.phone || user.phone.trim() === '') {
+      // Pas de numéro → Afficher le modal d'explication
+      setShowPhoneRequiredModal(true);
+    } else {
+      // Numéro présent → Ouvrir le modal d'ajout d'ami normalement
+      setShowAddFriendModal(true);
+    }
+  };
+
+  // Handler pour rediriger vers les paramètres depuis le modal PhoneRequired
+  const handleGoToSettings = () => {
+    setShowPhoneRequiredModal(false);
+    handleScreenChange('settings');
   };
 
   const handleRemoveFriend = async (friendId, friendName) => {
@@ -952,6 +967,14 @@ function App() {
 
         {/* PWA Install Prompt */}
         <PWAInstallPrompt darkMode={darkMode} />
+
+        {/* Modal PhoneRequired */}
+        <PhoneRequiredModal
+          isOpen={showPhoneRequiredModal}
+          onClose={() => setShowPhoneRequiredModal(false)}
+          onGoToSettings={handleGoToSettings}
+          darkMode={darkMode}
+        />
       </div>
     );
   }
@@ -1026,6 +1049,14 @@ function App() {
 
       {/* PWA Install Prompt */}
       <PWAInstallPrompt darkMode={darkMode} />
+
+      {/* Modal PhoneRequired */}
+      <PhoneRequiredModal
+        isOpen={showPhoneRequiredModal}
+        onClose={() => setShowPhoneRequiredModal(false)}
+        onGoToSettings={handleGoToSettings}
+        darkMode={darkMode}
+      />
     </>
   );
 }
