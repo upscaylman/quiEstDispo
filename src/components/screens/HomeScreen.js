@@ -121,7 +121,7 @@ const HomeScreen = ({
     <div className="min-h-screen flex flex-col">
       <div className="flex-1">
         {/* Boutons de disponibilité */}
-        <div className="p-4 px-6">
+        <div className="px-responsive py-4">
           <AvailabilityButtons
             isAvailable={isAvailable}
             currentActivity={currentActivity}
@@ -199,7 +199,7 @@ const HomeScreen = ({
                 darkMode ? 'bg-gray-800' : 'bg-gray-50'
               }`}
             >
-              <div className="text-center p-6">
+              <div className="text-center p-responsive">
                 <ClockIcon
                   size={48}
                   className={`mx-auto mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
@@ -235,7 +235,7 @@ const HomeScreen = ({
       </div>
 
       {/* Footer avec dégradé */}
-      <footer className="bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 px-6 py-8 border-t border-gray-200 mt-16">
+      <footer className="bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 px-responsive-lg py-8 border-t border-gray-200 mt-16">
         <div className="max-w-4xl mx-auto">
           {/* Réseaux sociaux */}
           <div className="flex justify-center space-x-6 mb-8">

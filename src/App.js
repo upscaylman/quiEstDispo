@@ -21,6 +21,7 @@ import {
   InvitationService,
   NotificationService,
 } from './services/firebaseService';
+import './styles/responsive.css';
 import { getMockDataForOfflineMode } from './utils/mockData';
 
 function App() {

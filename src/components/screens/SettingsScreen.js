@@ -29,7 +29,7 @@ const SettingsScreen = ({
   }
 
   return (
-    <div className="p-4 px-6">
+    <div className="px-responsive py-4">
       {/* Section Profil */}
       <ProfileEditor
         user={user}

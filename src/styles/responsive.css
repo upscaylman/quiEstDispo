@@ -1,0 +1,168 @@
+/* Padding responsive universel pour éviter que les éléments collent aux bords sur iPhone */
+
+/* Padding horizontal responsive */
+.px-safe {
+  padding-left: max(
+    1rem,
+    env(safe-area-inset-left)
+  ); /* 16px minimum ou safe area */
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+.px-safe-lg {
+  padding-left: max(
+    1.5rem,
+    env(safe-area-inset-left)
+  ); /* 24px minimum ou safe area */
+  padding-right: max(1.5rem, env(safe-area-inset-right));
+}
+
+.px-safe-xl {
+  padding-left: max(
+    2rem,
+    env(safe-area-inset-left)
+  ); /* 32px minimum ou safe area */
+  padding-right: max(2rem, env(safe-area-inset-right));
+}
+
+/* Padding complet responsive */
+.p-safe {
+  padding: max(1rem, env(safe-area-inset-top))
+    max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom))
+    max(1rem, env(safe-area-inset-left));
+}
+
+.p-safe-lg {
+  padding: max(1.5rem, env(safe-area-inset-top))
+    max(1.5rem, env(safe-area-inset-right))
+    max(1.5rem, env(safe-area-inset-bottom))
+    max(1.5rem, env(safe-area-inset-left));
+}
+
+/* Classes responsive personnalisées en CSS pur */
+
+/* Remplace px-4 (1rem) */
+.px-responsive {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* Remplace px-6 (1.5rem) */
+.px-responsive-lg {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+/* Remplace p-4 */
+.p-responsive {
+  padding: 1rem;
+}
+
+/* Remplace p-6 */
+.p-responsive-lg {
+  padding: 1.5rem;
+}
+
+/* Pour les marges aussi */
+.mx-responsive {
+  margin-left: 1rem;
+  margin-right: 1rem;
+}
+
+.mx-responsive-lg {
+  margin-left: 1.5rem;
+  margin-right: 1.5rem;
+}
+
+/* Safe area pour iPhone X+ (notch et home indicator) */
+@supports (padding: max(0px)) {
+  .safe-area-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+
+  .safe-area-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .safe-area-left {
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+
+  .safe-area-right {
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  .safe-area-x {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  .safe-area-y {
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .safe-area-all {
+    padding: max(1rem, env(safe-area-inset-top))
+      max(1rem, env(safe-area-inset-right))
+      max(1rem, env(safe-area-inset-bottom))
+      max(1rem, env(safe-area-inset-left));
+  }
+}
+
+/* Responsive breakpoints pour différentes tailles d'écran */
+@media (max-width: 390px) {
+  /* iPhone 12 mini et plus petits */
+  .px-responsive {
+    padding-left: 0.75rem; /* 12px */
+    padding-right: 0.75rem;
+  }
+  .p-responsive {
+    padding: 0.75rem;
+  }
+  .px-responsive-lg {
+    padding-left: 1rem; /* 16px */
+    padding-right: 1rem;
+  }
+  .p-responsive-lg {
+    padding: 1rem;
+  }
+}
+
+@media (min-width: 391px) and (max-width: 767px) {
+  /* iPhone standard et moyens écrans */
+  .px-responsive {
+    padding-left: 1rem; /* 16px */
+    padding-right: 1rem;
+  }
+  .px-responsive-lg {
+    padding-left: 1.5rem; /* 24px */
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  /* Tablettes et plus */
+  .px-responsive {
+    padding-left: 2rem; /* 32px */
+    padding-right: 2rem;
+  }
+  .px-responsive-lg {
+    padding-left: 3rem; /* 48px */
+    padding-right: 3rem;
+  }
+  .p-responsive {
+    padding: 2rem;
+  }
+  .p-responsive-lg {
+    padding: 3rem;
+  }
+  .mx-responsive {
+    margin-left: 2rem;
+    margin-right: 2rem;
+  }
+  .mx-responsive-lg {
+    margin-left: 3rem;
+    margin-right: 3rem;
+  }
+}

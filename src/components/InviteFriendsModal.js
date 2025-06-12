@@ -106,7 +106,7 @@ const InviteFriendsModal = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center px-responsive py-4"
         onClick={handleClose}
       >
         <motion.div
@@ -119,7 +119,7 @@ const InviteFriendsModal = ({
           } rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-hidden`}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-opacity-20">
+          <div className="flex items-center justify-between px-responsive-lg py-6 border-b border-opacity-20">
             <div className="flex items-center space-x-3">
               <div
                 className={`${currentActivity.color} p-3 rounded-full text-white`}
@@ -146,7 +146,7 @@ const InviteFriendsModal = ({
           </div>
 
           {/* Content */}
-          <div className="p-6">
+          <div className="px-responsive-lg py-6">
             {friends.length === 0 ? (
               <div className="text-center py-8">
                 <Users

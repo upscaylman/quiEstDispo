@@ -107,7 +107,7 @@ const AppShell = ({
       <nav
         className={`fixed bottom-0 left-0 right-0 ${
           darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        } border-t px-4 py-2 z-50`}
+        } border-t px-responsive py-2 z-50`}
       >
         <div className="flex justify-around">
           {tabs.map(tab => {
@@ -151,7 +151,7 @@ const AppShell = ({
     if (currentScreen === 'settings' || currentScreen === 'notifications') {
       return (
         <div
-          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm p-4 sticky top-0 z-10`}
+          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm px-responsive py-4 sticky top-0 z-10`}
         >
           <div className="flex items-center">
             {/* Flèche de retour */}
@@ -209,7 +209,7 @@ const AppShell = ({
     // Header normal pour les autres pages
     return (
       <div
-        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm p-4 sticky top-0 z-10`}
+        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm px-responsive py-4 sticky top-0 z-10`}
       >
         <div className="flex items-center justify-between">
           {/* Avatar profil à gauche */}

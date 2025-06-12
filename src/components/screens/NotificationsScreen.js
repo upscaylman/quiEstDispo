@@ -187,7 +187,7 @@ const NotificationsScreen = ({
   };
 
   return (
-    <div className="p-4 px-6">
+    <div className="px-responsive py-4">
       {/* Bouton "Tout supprimer" en haut */}
       {notifications.length > 0 && (
         <div className="flex justify-end mb-4">
