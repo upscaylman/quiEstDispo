@@ -43,13 +43,15 @@ if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'your_api_key_here') {
 // Initialiser Firebase
 const app = initializeApp(firebaseConfig);
 
-// ⚠️ APP CHECK COMPLÈTEMENT DÉSACTIVÉ pour résoudre l'erreur 500 SMS
-console.warn('⚠️ App Check DÉSACTIVÉ pour authentification SMS');
+// Désactiver App Check complètement pour résoudre l'erreur 500
+console.log('🔧 App Check désactivé - test sans App Check');
+const appCheck = null;
 
 // Services Firebase avec configuration optimisée
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+export { appCheck };
 
 // Configuration spéciale pour l'authentification par téléphone
 if (process.env.NODE_ENV === 'development') {

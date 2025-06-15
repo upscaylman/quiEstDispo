@@ -1026,22 +1026,53 @@ export class AuthService {
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        console.log('🧹 Compte Auth orphelin détecté, suppression...');
+        console.log(
+          '🔄 Compte Auth sans données Firestore détecté, recréation du profil...'
+        );
 
+        // Au lieu de supprimer le compte Auth, recréons les données Firestore
+        // Cela permet de réutiliser un compte après suppression des données
         try {
-          await currentUser.delete();
-          console.log('✅ Compte Auth orphelin supprimé');
-          return true;
+          await this.createUserProfile(currentUser);
+          console.log(
+            '✅ Profil Firestore recréé pour le compte Auth existant'
+          );
+          return false; // Pas de suppression, juste recréation
         } catch (error) {
-          if (error.code === 'auth/requires-recent-login') {
+          console.error('❌ Erreur recréation profil:', error);
+
+          // En cas d'échec de recréation, on peut toujours supprimer si nécessaire
+          // Mais seulement pour de vrais comptes orphelins (plus de 1 jour)
+          const accountAge =
+            Date.now() -
+            (currentUser.metadata.creationTime
+              ? new Date(currentUser.metadata.creationTime).getTime()
+              : 0);
+          const oneDayMs = 24 * 60 * 60 * 1000;
+
+          if (accountAge > oneDayMs) {
+            console.log('🧹 Compte Auth ancien sans données, suppression...');
+            try {
+              await currentUser.delete();
+              console.log('✅ Ancien compte Auth orphelin supprimé');
+              return true;
+            } catch (deleteError) {
+              if (deleteError.code === 'auth/requires-recent-login') {
+                console.log(
+                  '⚠️ Reconnexion requise pour supprimer le compte Auth orphelin'
+                );
+                throw new Error(
+                  'Compte orphelin détecté. Veuillez vous reconnecter pour terminer la suppression.'
+                );
+              }
+              throw deleteError;
+            }
+          } else {
             console.log(
-              '⚠️ Reconnexion requise pour supprimer le compte Auth orphelin'
+              '⚠️ Compte Auth récent sans données, conservation pour permettre recréation'
             );
-            throw new Error(
-              'Compte orphelin détecté. Veuillez vous reconnecter pour terminer la suppression.'
-            );
+            return false;
           }
-          throw error;
         }
       } else {
         console.log('ℹ️ Compte Auth normal avec données Firestore');
