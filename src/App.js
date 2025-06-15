@@ -266,12 +266,33 @@ function App() {
 
       // 🎯 NOUVEAU: Définir l'état d'invitation en attente
       if (result.count > 0) {
+        // Récupérer les noms des amis invités
+        const invitedFriends = friends.filter(friend =>
+          friendIds.includes(friend.id)
+        );
+        const friendNames = invitedFriends.map(
+          friend => friend.name || friend.displayName || 'Ami'
+        );
+
         setPendingInvitation({
           activity,
           sentAt: new Date().getTime(),
           friendIds,
+          friendNames, // 🎯 NOUVEAU: Noms des amis
           count: result.count,
         });
+
+        // 🎯 NOUVEAU: Sauvegarder dans localStorage
+        localStorage.setItem(
+          'pendingInvitation',
+          JSON.stringify({
+            activity,
+            sentAt: new Date().getTime(),
+            friendIds,
+            friendNames,
+            count: result.count,
+          })
+        );
 
         console.log(
           `✅ ${result.count} invitation${result.count > 1 ? 's' : ''} envoyée${result.count > 1 ? 's' : ''} pour ${activity}! En attente d'acceptation...`
@@ -781,16 +802,17 @@ function App() {
         friend =>
           friend.isResponseToInvitation &&
           friend.respondingToUserId === user.uid &&
-          friend.activity === currentActivity
+          friend.activity === (currentActivity || pendingInvitation?.activity)
       );
 
       console.log('🛑 [DEBUG] Ami qui avait accepté:', friendWhoAccepted);
 
       // 🎯 AMÉLIORÉ: Annuler toutes les invitations en cours pour cette activité
-      if (currentActivity) {
+      const activityToCancel = currentActivity || pendingInvitation?.activity;
+      if (activityToCancel) {
         console.log(
           '🛑 [DEBUG] Annulation des invitations pour:',
-          currentActivity
+          activityToCancel
         );
 
         try {
@@ -798,7 +820,7 @@ function App() {
           const cancelResult =
             await NotificationService.cancelInvitationNotifications(
               user.uid,
-              currentActivity
+              activityToCancel
             );
 
           console.log(
@@ -809,12 +831,12 @@ function App() {
           // Nettoyer aussi les invitations dans Firestore
           await InvitationService.cleanupUserInvitations(
             user.uid,
-            currentActivity
+            activityToCancel
           );
 
           console.log(
             '🛑 [DEBUG] ✅ Invitations annulées pour',
-            currentActivity
+            activityToCancel
           );
 
           // 🔥 NOUVEAU: Forcer le rechargement de la liste des amis disponibles
@@ -845,9 +867,9 @@ function App() {
           friendWhoAccepted.userId, // À qui
           user.uid, // De qui
           'activity_cancelled', // Type
-          `❌ ${user.displayName || user.name || 'Un ami'} a annulé l'activité ${currentActivity}`,
+          `❌ ${user.displayName || user.name || 'Un ami'} a annulé l'activité ${activityToCancel}`,
           {
-            activity: currentActivity,
+            activity: activityToCancel,
             cancelledBy: user.uid,
             cancelledByName: user.displayName || user.name || 'Un ami',
           }
@@ -863,9 +885,11 @@ function App() {
     setCurrentActivity(null);
     setAvailabilityId(null);
     setAvailabilityStartTime(null);
+    setPendingInvitation(null);
 
     // 🐛 FIX SIMPLE: Nettoyer localStorage
     localStorage.removeItem('availabilityState');
+    localStorage.removeItem('pendingInvitation'); // 🎯 NOUVEAU: Nettoyer aussi pendingInvitation
 
     console.log('🛑 [DEBUG] === FIN handleStopAvailability ===');
   };
@@ -1089,6 +1113,36 @@ function App() {
     }
   };
 
+  // 🎯 NOUVEAU: Restaurer pendingInvitation depuis localStorage
+  const restorePendingInvitation = () => {
+    try {
+      const saved = localStorage.getItem('pendingInvitation');
+      if (saved) {
+        const invitation = JSON.parse(saved);
+        console.log(
+          '🔄 [REFRESH] Restauration invitation en attente:',
+          invitation
+        );
+
+        // Vérifier que l'invitation n'est pas trop ancienne (plus de 2h)
+        const now = Date.now();
+        const elapsed = now - invitation.sentAt;
+        const maxDuration = 2 * 60 * 60 * 1000; // 2 heures
+
+        if (elapsed < maxDuration) {
+          setPendingInvitation(invitation);
+          console.log('✅ Invitation en attente restaurée');
+        } else {
+          console.log('⏰ Invitation expirée, nettoyage localStorage');
+          localStorage.removeItem('pendingInvitation');
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Erreur restauration pendingInvitation:', error);
+      localStorage.removeItem('pendingInvitation');
+    }
+  };
+
   // Charger les données utilisateur
   useEffect(() => {
     if (!user) {
@@ -1108,6 +1162,7 @@ function App() {
 
         // 🐛 FIX SIMPLE: Récupérer l'état depuis localStorage après refresh
         restoreAvailabilityState();
+        restorePendingInvitation(); // 🎯 NOUVEAU: Restaurer aussi pendingInvitation
 
         // Écouter les amis disponibles (utilise onSnapshot)
         unsubscribeAvailable = AvailabilityService.onAvailableFriends(
@@ -1191,6 +1246,7 @@ function App() {
             '🎯 [AUTO] Suppression invitation en attente car acceptée'
           );
           setPendingInvitation(null);
+          localStorage.removeItem('pendingInvitation'); // 🎯 NOUVEAU: Supprimer aussi du localStorage
         }
 
         // Démarrer la disponibilité avec décompte pour l'expéditeur original

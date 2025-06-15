@@ -122,8 +122,17 @@ const AvailabilityButtons = ({
             Invitation en attente
           </h3>
           <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-4`}>
-            Tu as invité {pendingInvitation.count} ami
-            {pendingInvitation.count > 1 ? 's' : ''} pour{' '}
+            Tu as invité{' '}
+            <span className="font-semibold">
+              {pendingInvitation.friendNames
+                ? pendingInvitation.friendNames.length === 1
+                  ? pendingInvitation.friendNames[0]
+                  : pendingInvitation.friendNames.length === 2
+                    ? `${pendingInvitation.friendNames[0]} et ${pendingInvitation.friendNames[1]}`
+                    : `${pendingInvitation.friendNames.slice(0, -1).join(', ')} et ${pendingInvitation.friendNames[pendingInvitation.friendNames.length - 1]}`
+                : `${pendingInvitation.count} ami${pendingInvitation.count > 1 ? 's' : ''}`}
+            </span>{' '}
+            pour{' '}
             <span className="font-semibold">
               {activity?.label || pendingInvitation.activity}
             </span>
@@ -137,14 +146,23 @@ const AvailabilityButtons = ({
               </span>
             </div>
             <p className="text-sm text-orange-600">
-              Le décompte commencera quand quelqu'un acceptera ton invitation
+              Le partage de votre position commencera quand quelqu'un acceptera
+              l'invitation
             </p>
           </div>
 
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-gray-500 mb-4">
             Envoyé il y a{' '}
             {Math.floor((Date.now() - pendingInvitation.sentAt) / 60000)} min
           </div>
+
+          {/* Bouton d'annulation */}
+          <button
+            onClick={onStopAvailability}
+            className="w-full bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+          >
+            Annuler l'invitation
+          </button>
         </div>
       </motion.div>
     );
