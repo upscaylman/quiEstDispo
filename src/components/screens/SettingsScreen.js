@@ -172,83 +172,80 @@ const SettingsScreen = ({
         </div>
       </div>
 
-      {/* Section Notifications Push */}
-      <div
-        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
-      >
-        <h3
-          className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
-        >
-          📱 Notifications Push
-        </h3>
-
+      {/* Section Notifications Push (dev seulement) */}
+      {process.env.NODE_ENV === 'development' && (
         <div
-          className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} pt-4`}
+          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
         >
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center">
-              <Bell
-                size={18}
-                className={`mr-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
-              />
-              <div>
-                <h5
-                  className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                >
-                  Notifications Push
-                </h5>
-                <p
-                  className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                >
-                  {pushNotificationStatus.subscribed
-                    ? 'Activées et fonctionnelles'
-                    : pushNotificationStatus.permission === 'granted'
-                      ? 'Autorisées mais non configurées'
-                      : pushNotificationStatus.permission === 'denied'
-                        ? 'Refusées par le navigateur'
-                        : 'Non configurées'}
-                </p>
+          <h3
+            className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+          >
+            📱 Notifications Push (dev)
+          </h3>
+
+          <div
+            className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} pt-4`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center">
+                <Bell
+                  size={18}
+                  className={`mr-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                />
+                <div>
+                  <h5
+                    className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                  >
+                    Notifications Push
+                  </h5>
+                  <p
+                    className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                  >
+                    {pushNotificationStatus.subscribed
+                      ? 'Activées et fonctionnelles'
+                      : pushNotificationStatus.permission === 'granted'
+                        ? 'Autorisées mais non configurées'
+                        : pushNotificationStatus.permission === 'denied'
+                          ? 'Refusées par le navigateur'
+                          : 'Non configurées'}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex flex-wrap gap-2 mt-3">
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={onEnablePushNotifications}
-              className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded"
-            >
-              🔔 Activer
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={onCheckPushStatus}
-              className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded"
-            >
-              🔍 Statut
-            </motion.button>
-            {/* Boutons de test seulement en développement */}
-            {process.env.NODE_ENV === 'development' && (
-              <>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={onTestPushNotification}
-                  className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded"
-                >
-                  🧪 Tester
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={onOpenDebugNotifications}
-                  className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded"
-                >
-                  🐛 Debug
-                </motion.button>
-              </>
-            )}
+            <div className="flex flex-wrap gap-2 mt-3">
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={onEnablePushNotifications}
+                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded"
+              >
+                🔔 Activer
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={onCheckPushStatus}
+                className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded"
+              >
+                🔍 Statut
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={onTestPushNotification}
+                className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded"
+              >
+                🧪 Tester
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={onOpenDebugNotifications}
+                className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded"
+              >
+                🐛 Debug
+              </motion.button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Section Test des Notifications Firestore (dev seulement) */}
       {process.env.NODE_ENV === 'development' && NotificationTest && (
