@@ -17,6 +17,10 @@ const NotificationsScreen = ({
 }) => {
   const [swipedNotification, setSwipedNotification] = useState(null);
   const [deletingNotification, setDeletingNotification] = useState(null);
+  // 🔧 FIX iPhone: État pour tracker les notifications en cours de traitement
+  const [processingNotifications, setProcessingNotifications] = useState(
+    new Set()
+  );
 
   // Debug: Afficher les notifications reçues
   useEffect(() => {
@@ -278,6 +282,7 @@ const NotificationsScreen = ({
           dragConstraints={{ left: -150, right: 0 }}
           dragElastic={0.2}
           onPan={(event, info) => handlePan(event, info, notification.id)}
+          data-notification={notification.id}
           className={`relative z-10 rounded-lg p-4 shadow transition-all cursor-grab active:cursor-grabbing ${
             isRead
               ? darkMode
@@ -328,37 +333,76 @@ const NotificationsScreen = ({
           </div>
 
           {/* Boutons d'action pour les invitations d'amitié */}
-          {notification.type === 'friend_invitation' &&
-            notification.data?.actions &&
+          {(notification.type === 'friend_invitation' ||
+            (notification.type === 'notification' &&
+              notification.data?.actions?.includes('accept'))) &&
             !isRead && (
               <div className="flex space-x-2 mt-3">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() =>
-                    onFriendInvitationResponse(
-                      notification.data.invitationId,
-                      'accepted',
-                      notification.id
-                    )
-                  }
-                  className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                  onClick={async () => {
+                    // 🔧 FIX iPhone: Marquer immédiatement comme en traitement
+                    setProcessingNotifications(
+                      prev => new Set([...prev, notification.id])
+                    );
+                    try {
+                      await onFriendInvitationResponse(
+                        notification.data.invitationId,
+                        'accepted',
+                        notification.id
+                      );
+                    } finally {
+                      setProcessingNotifications(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(notification.id);
+                        return newSet;
+                      });
+                    }
+                  }}
+                  disabled={processingNotifications.has(notification.id)}
+                  className={`flex-1 ${
+                    processingNotifications.has(notification.id)
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-green-500 hover:bg-green-600'
+                  } text-white py-2 px-4 rounded-lg font-medium transition-colors`}
                 >
-                  ✅ Accepter
+                  {processingNotifications.has(notification.id)
+                    ? '⏳ ...'
+                    : '✅ Accepter'}
                 </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() =>
-                    onFriendInvitationResponse(
-                      notification.data.invitationId,
-                      'declined',
-                      notification.id
-                    )
-                  }
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                  onClick={async () => {
+                    // 🔧 FIX iPhone: Marquer immédiatement comme en traitement
+                    setProcessingNotifications(
+                      prev => new Set([...prev, notification.id])
+                    );
+                    try {
+                      await onFriendInvitationResponse(
+                        notification.data.invitationId,
+                        'declined',
+                        notification.id
+                      );
+                    } finally {
+                      setProcessingNotifications(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(notification.id);
+                        return newSet;
+                      });
+                    }
+                  }}
+                  disabled={processingNotifications.has(notification.id)}
+                  className={`flex-1 ${
+                    processingNotifications.has(notification.id)
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-red-500 hover:bg-red-600'
+                  } text-white py-2 px-4 rounded-lg font-medium transition-colors`}
                 >
-                  ❌ Décliner
+                  {processingNotifications.has(notification.id)
+                    ? '⏳ ...'
+                    : '❌ Décliner'}
                 </motion.button>
               </div>
             )}
@@ -369,22 +413,66 @@ const NotificationsScreen = ({
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() =>
-                  onActivityInvitationResponse(notification, 'accepted')
-                }
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                onClick={async () => {
+                  // 🔧 FIX iPhone: Marquer immédiatement comme en traitement
+                  setProcessingNotifications(
+                    prev => new Set([...prev, notification.id])
+                  );
+                  try {
+                    await onActivityInvitationResponse(
+                      notification,
+                      'accepted'
+                    );
+                  } finally {
+                    setProcessingNotifications(prev => {
+                      const newSet = new Set(prev);
+                      newSet.delete(notification.id);
+                      return newSet;
+                    });
+                  }
+                }}
+                disabled={processingNotifications.has(notification.id)}
+                className={`flex-1 ${
+                  processingNotifications.has(notification.id)
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-green-500 hover:bg-green-600'
+                } text-white py-2 px-4 rounded-lg font-medium transition-colors`}
               >
-                ✅ Accepter
+                {processingNotifications.has(notification.id)
+                  ? '⏳ ...'
+                  : '✅ Accepter'}
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() =>
-                  onActivityInvitationResponse(notification, 'declined')
-                }
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                onClick={async () => {
+                  // 🔧 FIX iPhone: Marquer immédiatement comme en traitement
+                  setProcessingNotifications(
+                    prev => new Set([...prev, notification.id])
+                  );
+                  try {
+                    await onActivityInvitationResponse(
+                      notification,
+                      'declined'
+                    );
+                  } finally {
+                    setProcessingNotifications(prev => {
+                      const newSet = new Set(prev);
+                      newSet.delete(notification.id);
+                      return newSet;
+                    });
+                  }
+                }}
+                disabled={processingNotifications.has(notification.id)}
+                className={`flex-1 ${
+                  processingNotifications.has(notification.id)
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-red-500 hover:bg-red-600'
+                } text-white py-2 px-4 rounded-lg font-medium transition-colors`}
               >
-                ❌ Décliner
+                {processingNotifications.has(notification.id)
+                  ? '⏳ ...'
+                  : '❌ Décliner'}
               </motion.button>
             </div>
           )}

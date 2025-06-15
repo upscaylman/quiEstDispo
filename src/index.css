@@ -20,6 +20,7 @@ body {
   overflow-x: hidden;
   background-color: #f9fafb;
   touch-action: manipulation;
+  pointer-events: auto;
 }
 
 .dark body {
@@ -263,4 +264,51 @@ body {
 .focus-visible:focus-visible {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
+}
+
+/* FIX iPhone: Corrections spécifiques iOS pour les interactions tactiles */
+@supports (-webkit-touch-callout: none) {
+  /* iOS specific fixes */
+
+  /* S'assurer que tous les éléments interactifs sont touchables */
+  button,
+  [role='button'],
+  .cursor-pointer {
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    pointer-events: auto !important;
+  }
+
+  /* Corriger les problèmes de z-index sur les overlays */
+  .fixed {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+
+  /* S'assurer que les modals et overlays n'interfèrent pas avec les interactions */
+  .fixed.inset-0 {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    pointer-events: auto;
+  }
+
+  /* Corriger les problèmes de swipe et drag sur les notifications */
+  [data-notification] {
+    touch-action: pan-x;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Optimiser les performances d'animation sur iOS */
+  .animate-pulse,
+  .animate-spin,
+  .animate-bounce {
+    will-change: transform;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
 }

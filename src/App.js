@@ -649,50 +649,44 @@ function App() {
     notificationId
   ) => {
     try {
-      await FriendsService.respondToFriendInvitation(
+      // 🔧 FIX iPhone: Nettoyer l'état des notifications IMMÉDIATEMENT
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+
+      // Traiter la réponse dans Firebase
+      const result = await FriendsService.respondToFriendInvitation(
         invitationId,
         response,
         user.uid
       );
 
-      // Marquer la notification comme lue
-      await markNotificationAsRead(notificationId);
+      if (
+        result === response ||
+        result === 'accepted' ||
+        result === 'declined'
+      ) {
+        // Si acceptée, recharger la liste d'amis
+        if (response === 'accepted') {
+          const updatedFriends = await FriendsService.getFriends(user.uid);
+          setFriends(updatedFriends);
+        }
 
-      // Rafraîchir la liste des amis si accepté
-      if (response === 'accepted') {
-        const freshFriends = await FriendsService.getFriends(user.uid);
-        setFriends(freshFriends);
-
-        // Créer une notification de confirmation pour celui qui accepte
-        // (en plus de celle créée automatiquement pour l'expéditeur dans FriendsService)
-        const userName = user.displayName || user.name || 'Vous';
-
-        // Récupérer le nom de l'expéditeur depuis la notification originale
-        const originalNotification = notifications.find(
-          n => n.id === notificationId
-        );
-        const senderName =
-          originalNotification?.data?.fromUserName || 'Un utilisateur';
-
-        await NotificationService.createNotification(
-          user.uid, // À soi-même
-          user.uid, // De soi-même
-          'friend_added_confirmation', // Type
-          `✅ ${senderName} a été ajouté à vos amis !`,
-          {
-            action: 'friend_accepted_by_me',
-            friendName: senderName,
-            acceptedAt: new Date().toISOString(),
-          }
+        console.log(
+          `✅ Invitation ${response === 'accepted' ? 'acceptée' : 'refusée'}`
         );
       }
 
-      console.log(
-        `✅ Invitation ${response === 'accepted' ? 'acceptée' : 'refusée'}`
-      );
+      // 🔧 FIX iPhone: Double vérification du nettoyage de l'état
+      setTimeout(() => {
+        setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      }, 100);
     } catch (error) {
-      console.error('Erreur réponse invitation:', error);
+      console.error('❌ Erreur réponse invitation:', error);
       alert(`Erreur: ${error.message}`);
+
+      // 🔧 FIX iPhone: Même en cas d'erreur, nettoyer l'état pour éviter le blocage
+      setTimeout(() => {
+        setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      }, 100);
     }
   };
 
@@ -703,6 +697,10 @@ function App() {
         response,
         from: notification.data.fromUserName,
       });
+
+      // 🔧 FIX iPhone: Marquer la notification comme lue IMMÉDIATEMENT
+      // pour éviter que l'overlay reste actif et bloque les interactions
+      await markNotificationAsRead(notification.id);
 
       if (response === 'accepted') {
         // Si on est déjà disponible pour une autre activité, demander confirmation
@@ -786,8 +784,11 @@ function App() {
         console.warn("⚠️ ID d'invitation manquant dans la notification");
       }
 
-      // Marquer la notification comme lue et la supprimer
-      await markNotificationAsRead(notification.id);
+      // 🔧 FIX iPhone: Forcer un re-render complet pour s'assurer que l'interface est réactive
+      setTimeout(() => {
+        // Forcer le rechargement de l'état des notifications pour nettoyer les états résiduels
+        setNotifications(prev => prev.filter(n => n.id !== notification.id));
+      }, 100);
 
       const responseText = response === 'accepted' ? 'accepté' : 'décliné';
       console.log(
@@ -796,6 +797,11 @@ function App() {
     } catch (error) {
       console.error("❌ Erreur lors de la réponse à l'invitation:", error);
       alert(`Erreur: ${error.message}`);
+
+      // 🔧 FIX iPhone: Même en cas d'erreur, nettoyer l'état pour éviter le blocage
+      setTimeout(() => {
+        setNotifications(prev => prev.filter(n => n.id !== notification.id));
+      }, 100);
     }
   };
 
