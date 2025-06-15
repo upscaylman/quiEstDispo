@@ -1,9 +1,9 @@
 // Service Worker pour "Qui est dispo" - Version améliorée
-const VERSION = '1.3.0'; // Version mise à jour
+const VERSION = '1.4.0'; // Version mise à jour avec GPS amélioré et bannières simplifiées
 const CACHE_NAME = 'qui-est-dispo-v' + VERSION;
-const STATIC_CACHE = 'qui-est-dispo-static-v2';
-const DYNAMIC_CACHE = 'qui-est-dispo-dynamic-v2';
-const API_CACHE = 'qui-est-dispo-api-v1';
+const STATIC_CACHE = 'qui-est-dispo-static-v3';
+const DYNAMIC_CACHE = 'qui-est-dispo-dynamic-v3';
+const API_CACHE = 'qui-est-dispo-api-v2';
 
 // Ressources critiques à précharger
 const CRITICAL_RESOURCES = [

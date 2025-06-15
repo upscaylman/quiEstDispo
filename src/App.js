@@ -24,6 +24,9 @@ import {
 import './styles/responsive.css';
 import { getMockDataForOfflineMode } from './utils/mockData';
 
+// Version de l'application
+const APP_VERSION = '1.2.0';
+
 function App() {
   const { user, loading, refreshUserData, signOut } = useAuth();
   const {
@@ -100,6 +103,11 @@ function App() {
     }).length;
   };
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+
+  // Log de la version au démarrage
+  console.log(
+    '🚀 Qui est dispo v' + APP_VERSION + " - Démarrage de l'application"
+  );
 
   // Gestion du thème avec support du mode système et cookies
   const [themeMode, setThemeMode] = useState(() => {
