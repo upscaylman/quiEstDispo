@@ -1043,14 +1043,15 @@ export class AuthService {
 
           // En cas d'échec de recréation, on peut toujours supprimer si nécessaire
           // Mais seulement pour de vrais comptes orphelins (plus de 1 jour)
-          const accountAge =
-            Date.now() -
-            (currentUser.metadata.creationTime
-              ? new Date(currentUser.metadata.creationTime).getTime()
-              : 0);
+          const creationTime =
+            currentUser.metadata?.creationTime ||
+            currentUser.metadata?.createdAt;
+          const accountAge = creationTime
+            ? Date.now() - new Date(creationTime).getTime()
+            : 0;
           const oneDayMs = 24 * 60 * 60 * 1000;
 
-          if (accountAge > oneDayMs) {
+          if (accountAge > oneDayMs && creationTime) {
             console.log('🧹 Compte Auth ancien sans données, suppression...');
             try {
               await currentUser.delete();

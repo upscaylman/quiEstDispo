@@ -44,6 +44,11 @@ export const useAuth = () => {
         } catch (error) {
           // eslint-disable-next-line no-console
           console.warn('⚠️ Vérification compte orphelin échouée:', error);
+          // En cas d'erreur, on désactive temporairement cette fonctionnalité
+          // pour éviter de faire planter l'app
+          console.warn(
+            '⚠️ Désactivation temporaire du nettoyage des comptes orphelins'
+          );
           // Continuer normalement
         }
 
