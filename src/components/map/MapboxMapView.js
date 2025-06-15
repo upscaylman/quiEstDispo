@@ -18,6 +18,8 @@ const MapboxMapView = ({
   isAvailable = false,
   currentUser,
   showControls = true,
+  onRetryGeolocation,
+  onRequestLocationPermission,
 }) => {
   // Utiliser le hook de logique métier (même que MapView)
   const {

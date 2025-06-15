@@ -232,7 +232,7 @@ const FriendDetails = ({
 };
 
 // Message si pas de localisation
-const NoLocationMessage = ({ darkMode }) => (
+const NoLocationMessage = ({ darkMode, onRequestLocationPermission }) => (
   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
     <div
       className={`${
@@ -241,18 +241,20 @@ const NoLocationMessage = ({ darkMode }) => (
     >
       <MapPinIcon size={48} className="mx-auto mb-4 text-yellow-500" />
       <h3 className="text-lg font-semibold mb-2">Localisation requise</h3>
-      <p className="text-sm opacity-75 mb-4">
+      <p className="text-sm opacity-75 mb-2">
         Autorisez la géolocalisation pour voir votre position sur la carte
+      </p>
+      <p className="text-xs opacity-60 mb-4 leading-relaxed">
+        L'application a besoin de votre position GPS pour vous localiser sur la
+        carte et permettre à vos amis de vous retrouver facilement.
       </p>
       <button
         onClick={() => {
-          // Ne plus recharger la page, utiliser la géolocalisation directement
-          if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-              () => window.location.reload(), // Reload seulement si succès
-              error => console.error('Erreur géolocalisation:', error),
-              { enableHighAccuracy: true, timeout: 10000 }
-            );
+          // Utiliser le callback approprié pour demander la permission de localisation
+          if (onRequestLocationPermission) {
+            onRequestLocationPermission();
+          } else {
+            console.warn('onRequestLocationPermission callback not available');
           }
         }}
         className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
@@ -280,6 +282,8 @@ const MapMarkers = ({
   getActivityColor,
   onFriendSelect,
   onFriendDeselect,
+  onRetryGeolocation,
+  onRequestLocationPermission,
 }) => {
   return (
     <>
@@ -323,7 +327,12 @@ const MapMarkers = ({
       )}
 
       {/* Message si pas de localisation */}
-      {!userLocation && <NoLocationMessage darkMode={darkMode} />}
+      {!userLocation && (
+        <NoLocationMessage
+          darkMode={darkMode}
+          onRequestLocationPermission={onRequestLocationPermission}
+        />
+      )}
 
       {/* Informations de l'ami sélectionné */}
       {selectedFriend && (

@@ -10,6 +10,8 @@ const MapView = ({
   selectedActivity,
   isAvailable = false,
   showControls = true,
+  onRetryGeolocation,
+  onRequestLocationPermission,
 }) => {
   // Utiliser le hook de logique métier
   const {
@@ -123,6 +125,8 @@ const MapView = ({
           getActivityColor={getActivityColor}
           onFriendSelect={handleFriendSelect}
           onFriendDeselect={handleFriendDeselect}
+          onRetryGeolocation={onRetryGeolocation}
+          onRequestLocationPermission={onRequestLocationPermission}
         />
       </div>
 

@@ -413,6 +413,7 @@ const AppShell = ({
             currentActivity={currentActivity}
             onInviteFriends={onInviteFriends}
             onRetryGeolocation={onRetryGeolocation}
+            onRequestLocationPermission={onRequestLocationPermission}
           />
         );
 

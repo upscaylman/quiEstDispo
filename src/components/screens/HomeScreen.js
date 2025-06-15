@@ -193,7 +193,10 @@ const HomeScreen = ({
               darkMode={darkMode}
               isAvailable={isAvailable}
               selectedActivity={currentActivity}
+              currentUser={user}
               showControls={false}
+              onRetryGeolocation={onRetryGeolocation}
+              onRequestLocationPermission={onRequestLocationPermission}
             />
           ) : (
             <div
@@ -214,12 +217,21 @@ const HomeScreen = ({
                   Localisation en cours...
                 </h3>
                 <p
-                  className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                  className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
                 >
                   {locationError
                     ? 'Erreur de géolocalisation. Vérifiez vos permissions.'
                     : 'Nous déterminons votre position pour afficher vos amis.'}
                 </p>
+                {locationError && (
+                  <p
+                    className={`text-xs mb-4 ${darkMode ? 'text-gray-500' : 'text-gray-600'} leading-relaxed`}
+                  >
+                    L'application a besoin de votre position GPS pour vous
+                    localiser sur la carte et permettre à vos amis de vous
+                    retrouver facilement.
+                  </p>
+                )}
                 {locationError && (
                   <motion.button
                     whileHover={{ scale: 1.05 }}

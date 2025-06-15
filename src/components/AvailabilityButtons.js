@@ -287,9 +287,15 @@ const AvailabilityButtons = ({
             Localisation requise
           </h3>
           <p
-            className={`${darkMode ? 'text-yellow-200' : 'text-yellow-600'} text-sm mb-4`}
+            className={`${darkMode ? 'text-yellow-200' : 'text-yellow-600'} text-sm mb-2`}
           >
             {locationError}
+          </p>
+          <p
+            className={`${darkMode ? 'text-yellow-100' : 'text-yellow-700'} text-xs mb-4 leading-relaxed`}
+          >
+            L'application a besoin de votre position GPS pour vous localiser sur
+            la carte et permettre à vos amis de vous retrouver facilement.
           </p>
           <button
             onClick={requestLocationPermission || retryGeolocation}
