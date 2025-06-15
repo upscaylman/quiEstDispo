@@ -77,6 +77,16 @@ export const useGeolocation = () => {
   const lastErrorType = useRef(null);
   const stableLocationRef = useRef(null);
   const requestCount = useRef(0);
+  const isStabilizing = useRef(true); // Nouveau: éviter le clignotement initial
+
+  // Position par défaut à Paris
+  const defaultLocation = {
+    lat: 48.8566,
+    lng: 2.3522,
+    accuracy: null,
+    timestamp: Date.now(),
+    isDefault: true,
+  };
 
   // Fonction principale de géolocalisation
   const requestGeolocation = useCallback(() => {
@@ -101,25 +111,17 @@ export const useGeolocation = () => {
 
     isRequesting.current = true;
     setLoading(true);
-    setError(null);
-
-    // Position par défaut à Paris
-    const defaultLocation = {
-      lat: 48.8566,
-      lng: 2.3522,
-      accuracy: null,
-      timestamp: Date.now(),
-      isDefault: true,
-    };
 
     // Si géolocalisation non supportée
     if (!navigator.geolocation) {
       // eslint-disable-next-line no-console
       console.log('📍 Geolocation not supported, using Paris');
       setLocation(defaultLocation);
+      stableLocationRef.current = defaultLocation;
       setError('Géolocalisation non supportée');
       setLoading(false);
       isRequesting.current = false;
+      isStabilizing.current = false;
       return;
     }
 
@@ -137,14 +139,16 @@ export const useGeolocation = () => {
         console.log('✅ Location obtained:', newLocation);
 
         // Notifier si c'est la première position ou si on récupère une position après une erreur
-        const isFirstLocation = !location;
+        const isFirstLocation =
+          !stableLocationRef.current || stableLocationRef.current.isDefault;
         const wasError = error !== null;
 
-        if (isFirstLocation || wasError) {
+        if ((isFirstLocation || wasError) && !isStabilizing.current) {
           notifyGPSEnabled();
         }
 
         setLocation(newLocation);
+        stableLocationRef.current = newLocation;
         setError(null);
         lastLocationTime.current = Date.now();
         lastErrorType.current = null;
@@ -152,10 +156,12 @@ export const useGeolocation = () => {
         // eslint-disable-next-line no-console
         console.error('Error processing location:', err);
         setLocation(defaultLocation);
+        stableLocationRef.current = defaultLocation;
         setError('Erreur de traitement de la position');
       } finally {
         setLoading(false);
         isRequesting.current = false;
+        isStabilizing.current = false;
       }
     };
 
@@ -165,11 +171,11 @@ export const useGeolocation = () => {
       switch (error.code) {
         case 1: // PERMISSION_DENIED
           errorMessage = 'Accès à la localisation refusé';
-          // Notifier seulement si c'est un changement d'état
-          if (lastErrorType.current !== 'denied') {
+          // Notifier seulement si c'est un changement d'état et qu'on n'est plus en stabilisation
+          if (lastErrorType.current !== 'denied' && !isStabilizing.current) {
             notifyGPSDisabled();
-            lastErrorType.current = 'denied';
           }
+          lastErrorType.current = 'denied';
           break;
         case 2: // POSITION_UNAVAILABLE
           errorMessage = 'Position indisponible';
@@ -190,8 +196,10 @@ export const useGeolocation = () => {
 
       setError(errorMessage);
       setLocation(defaultLocation);
+      stableLocationRef.current = defaultLocation;
       setLoading(false);
       isRequesting.current = false;
+      isStabilizing.current = false;
     };
 
     // Options de géolocalisation optimisées pour la précision maximale
@@ -212,10 +220,16 @@ export const useGeolocation = () => {
       console.error('Error requesting geolocation:', err);
       handleError({ code: 999, message: "Erreur d'initialisation" });
     }
-  }, [notifyGPSEnabled, notifyGPSDisabled]);
+  }, [error, notifyGPSEnabled, notifyGPSDisabled]);
 
   // Première demande au montage du composant + watch position continue
   useEffect(() => {
+    // Période de stabilisation initiale de 3 secondes
+    setTimeout(() => {
+      isStabilizing.current = false;
+      console.log('🎯 Période de stabilisation terminée');
+    }, 3000);
+
     requestGeolocation();
 
     // Suivi de position en temps réel (watchPosition)
@@ -227,7 +241,7 @@ export const useGeolocation = () => {
       const watchOptions = {
         enableHighAccuracy: true,
         timeout: 30000, // Plus de temps pour watchPosition
-        maximumAge: 10000, // Position récente de 10 secondes max
+        maximumAge: 15000, // Position récente de 15 secondes max
       };
 
       const handleWatchSuccess = position => {
@@ -241,14 +255,14 @@ export const useGeolocation = () => {
 
         console.log('📍 Position mise à jour (watchPosition):', newLocation);
 
-        // Notifier la mise à jour seulement si c'est significatif
+        // Notifier la mise à jour seulement si c'est significatif et qu'on n'est plus en stabilisation
         const timeSinceLastUpdate = Date.now() - lastLocationTime.current;
-        if (timeSinceLastUpdate > 60000) {
-          // Plus d'1 minute
+        if (timeSinceLastUpdate > 60000 && !isStabilizing.current) {
           notifyGPSUpdating();
         }
 
         setLocation(newLocation);
+        stableLocationRef.current = newLocation;
         setError(null);
         lastLocationTime.current = Date.now();
         lastErrorType.current = null;
@@ -259,10 +273,10 @@ export const useGeolocation = () => {
 
         // Si c'est une erreur de permission, essayer de détecter un changement
         if (error.code === 1) {
-          if (lastErrorType.current !== 'denied') {
+          if (lastErrorType.current !== 'denied' && !isStabilizing.current) {
             notifyGPSDisabled();
-            lastErrorType.current = 'denied';
           }
+          lastErrorType.current = 'denied';
           setError('Accès à la localisation refusé');
         } else if (error.code === 2) {
           setError('Position indisponible');
@@ -270,7 +284,7 @@ export const useGeolocation = () => {
         }
       };
 
-      // Démarrer le suivi après 2 secondes pour laisser le temps à getCurrentPosition
+      // Démarrer le suivi après 3 secondes pour laisser le temps à la stabilisation
       setTimeout(() => {
         if (navigator.geolocation) {
           watchId = navigator.geolocation.watchPosition(
@@ -280,7 +294,7 @@ export const useGeolocation = () => {
           );
           console.log('🔄 WatchPosition démarré (ID:', watchId, ')');
         }
-      }, 2000);
+      }, 3000);
 
       // Surveillance des permissions avec l'API Permissions (si disponible)
       if ('permissions' in navigator) {
@@ -298,10 +312,12 @@ export const useGeolocation = () => {
                 // Petit délai pour laisser le GPS s'activer
                 setTimeout(() => {
                   requestGeolocation();
-                }, 500);
+                }, 800);
               } else if (permission.state === 'denied') {
                 console.log('❌ GPS refusé');
-                notifyGPSDisabled();
+                if (!isStabilizing.current) {
+                  notifyGPSDisabled();
+                }
                 setError('Accès à la localisation refusé');
               }
             });
@@ -313,42 +329,53 @@ export const useGeolocation = () => {
         checkPermissions();
       }
 
-      // Surveillance périodique de l'état GPS (fallback)
-      permissionCheckInterval = setInterval(() => {
-        // Test silencieux pour détecter les changements de GPS
-        // Seulement si on avait une erreur avant
-        if (
-          lastErrorType.current === 'denied' ||
-          lastErrorType.current === 'unavailable'
-        ) {
-          navigator.geolocation.getCurrentPosition(
-            position => {
-              console.log('🔄 GPS semble réactivé - Relance géolocalisation');
-              requestGeolocation();
-            },
-            err => {
-              // Erreur silencieuse, on ne fait rien
-            },
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
-          );
-        }
-      }, 20000); // Vérifier toutes les 20 secondes (moins fréquent)
+      // Surveillance périodique de l'état GPS (fallback) - après stabilisation
+      setTimeout(() => {
+        permissionCheckInterval = setInterval(() => {
+          // Test silencieux pour détecter les changements de GPS
+          if (!isStabilizing.current) {
+            navigator.geolocation.getCurrentPosition(
+              position => {
+                // Si on récupère une position et qu'on avait une erreur, ou qu'on a une position par défaut
+                const currentHasError =
+                  lastErrorType.current === 'denied' ||
+                  lastErrorType.current === 'unavailable';
+                const currentIsDefault =
+                  stableLocationRef.current?.isDefault === true;
+
+                if (currentHasError || currentIsDefault) {
+                  console.log(
+                    '🔄 GPS détecté comme réactivé - Relance géolocalisation'
+                  );
+                  requestGeolocation();
+                }
+              },
+              err => {
+                // Erreur silencieuse lors du test
+              },
+              { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+            );
+          }
+        }, 12000); // Vérifier toutes les 12 secondes
+      }, 5000); // Commencer après 5 secondes
     }
 
-    // Surveillance de la visibilité de l'application (en dehors du if navigator.geolocation)
+    // Surveillance de la visibilité de l'application
     const handleVisibilityChange = () => {
-      if (
-        !document.hidden &&
-        (lastErrorType.current === 'denied' ||
-          lastErrorType.current === 'unavailable')
-      ) {
-        console.log(
-          '🔄 App visible - Vérification GPS (erreur précédente détectée)'
-        );
-        // Délai pour laisser le temps à l'utilisateur d'activer le GPS
-        visibilityCheckTimeout = setTimeout(() => {
-          requestGeolocation();
-        }, 2000); // Délai plus long
+      if (!document.hidden && !isStabilizing.current) {
+        const hasError =
+          lastErrorType.current === 'denied' ||
+          lastErrorType.current === 'unavailable';
+        const hasDefaultLocation =
+          stableLocationRef.current?.isDefault === true;
+
+        if (hasError || hasDefaultLocation) {
+          console.log('🔄 App visible - Vérification GPS');
+          // Délai pour laisser le temps à l'utilisateur d'activer le GPS
+          visibilityCheckTimeout = setTimeout(() => {
+            requestGeolocation();
+          }, 1500);
+        }
       }
     };
 
@@ -371,7 +398,7 @@ export const useGeolocation = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
     };
-  }, [requestGeolocation, error, notifyGPSDisabled, notifyGPSUpdating]);
+  }, [requestGeolocation]);
 
   // Fonction pour retry (utilise la même fonction que l'initialisation)
   const retryGeolocation = useCallback(() => {
@@ -392,10 +419,6 @@ export const useGeolocation = () => {
       return;
     }
 
-    // Ne pas toucher à loading pour éviter l'effet de bord
-    // setLoading(true); // Supprimé
-    // setError(null); // Gardé pour ne pas effacer l'erreur avant le résultat
-
     const handleSuccess = position => {
       try {
         const newLocation = {
@@ -410,9 +433,12 @@ export const useGeolocation = () => {
         console.log('✅ Permission accordée, location obtenue:', newLocation);
 
         // Notifier que le GPS est maintenant activé
-        notifyGPSEnabled();
+        if (!isStabilizing.current) {
+          notifyGPSEnabled();
+        }
 
         setLocation(newLocation);
+        stableLocationRef.current = newLocation;
         setError(null);
         lastLocationTime.current = Date.now();
         lastErrorType.current = null;
@@ -435,7 +461,9 @@ export const useGeolocation = () => {
             openDeviceLocationSettings();
           }, 500);
           errorMessage = 'Redirection vers les paramètres de localisation...';
-          notifyGPSDisabled();
+          if (!isStabilizing.current) {
+            notifyGPSDisabled();
+          }
           break;
         case 2: // POSITION_UNAVAILABLE
           errorMessage =
