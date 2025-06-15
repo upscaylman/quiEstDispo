@@ -376,25 +376,7 @@ export class AuthService {
     try {
       console.log('🔧 Creating reCAPTCHA verifier...');
 
-      // FORCER la désactivation d'App Check pour résoudre erreur 500
-      console.log(
-        '🔧 FORÇAGE désactivation App Check pour auth téléphone (erreur 500)'
-      );
-      auth.settings = auth.settings || {};
-      auth.settings.appVerificationDisabledForTesting = true;
-
-      // Configuration d'émulateur forcée pour contourner les problèmes serveur
-      if (process.env.NODE_ENV === 'development') {
-        console.log(
-          '🔧 Configuration émulateur forcée pour contourner erreur 500'
-        );
-
-        // Désactiver toutes les vérifications en développement
-        window.recaptchaVerifier = null;
-        global.recaptchaVerifier = null;
-      }
-
-      // Configuration reCAPTCHA pour l'authentification téléphone
+      // Configuration simplifiée pour éviter les conflits
       const recaptchaConfig = {
         size: options.size || 'invisible', // invisible par défaut pour une meilleure UX
         callback: response => {
@@ -452,7 +434,10 @@ export class AuthService {
 
       return result.user; // Fallback au cas où
     } catch (error) {
-      console.error('❌ Code verification failed:', error);
+      // Ne pas afficher ACCOUNT_LINKING_SUCCESS comme une erreur
+      if (error.message !== 'ACCOUNT_LINKING_SUCCESS') {
+        console.error('❌ Code verification failed:', error);
+      }
 
       let errorMessage = 'Code de vérification invalide';
       switch (error.code) {
@@ -551,6 +536,39 @@ export class AuthService {
       // En cas d'erreur, créer quand même le profil
       await this.createUserProfile(phoneUser);
       return phoneUser; // Retourner l'utilisateur même en cas d'erreur
+    }
+  }
+
+  // Tester l'authentification SMS avec des numéros fictifs
+  static async testPhoneAuth(
+    testPhoneNumber = '+33612345678',
+    testCode = '123456'
+  ) {
+    try {
+      console.log('🧪 Testing phone auth with fictional numbers...');
+
+      // Créer un reCAPTCHA pour les tests
+      const recaptchaVerifier = this.createRecaptchaVerifier(
+        'recaptcha-container',
+        {
+          size: 'invisible',
+        }
+      );
+
+      // Effectuer la connexion de test
+      const confirmationResult = await this.signInWithPhone(
+        testPhoneNumber,
+        recaptchaVerifier
+      );
+
+      // Confirmer avec le code de test
+      const result = await confirmationResult.confirm(testCode);
+
+      console.log('✅ Test phone auth successful');
+      return result.user;
+    } catch (error) {
+      console.error('❌ Test phone auth failed:', error);
+      throw new Error(`Test d'authentification échoué: ${error.message}`);
     }
   }
 

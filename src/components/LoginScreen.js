@@ -27,6 +27,7 @@ const LoginScreen = () => {
   const [showRedirectOption, setShowRedirectOption] = useState(false);
   const [showFacebookRedirect, setShowFacebookRedirect] = useState(false);
   const [googleSignInReady, setGoogleSignInReady] = useState(false);
+  const [redirectChecked, setRedirectChecked] = useState(false);
 
   // Initialiser la nouvelle API Google Sign-In
   useEffect(() => {
@@ -182,30 +183,34 @@ const LoginScreen = () => {
     }
   };
 
-  // Vérifier les résultats de redirection au chargement
+  // Vérifier les résultats de redirection au chargement (une seule fois)
   useEffect(() => {
+    if (redirectChecked) return; // Éviter les appels répétitifs
+
     const checkForRedirectResult = async () => {
       try {
+        setRedirectChecked(true); // Marquer comme vérifié
+
         // Vérifier Google
         const googleResult = await checkGoogleRedirectResult();
         if (googleResult) {
-          console.log('Redirection Google terminée avec succès');
+          console.log('✅ Redirection Google terminée avec succès');
           return;
         }
 
         // Vérifier Facebook
         const facebookResult = await checkFacebookRedirectResult();
         if (facebookResult) {
-          console.log('Redirection Facebook terminée avec succès');
+          console.log('✅ Redirection Facebook terminée avec succès');
         }
       } catch (error) {
         setError('Erreur lors de la finalisation de la connexion');
-        console.error('Redirect result error:', error);
+        console.error('❌ Redirect result error:', error);
       }
     };
 
     checkForRedirectResult();
-  }, [checkGoogleRedirectResult, checkFacebookRedirectResult]);
+  }, [checkGoogleRedirectResult, checkFacebookRedirectResult, redirectChecked]);
 
   const handlePhoneSignIn = async () => {
     try {
@@ -281,10 +286,14 @@ const LoginScreen = () => {
       if (error.message === 'ACCOUNT_LINKING_SUCCESS') {
         // Cas spécial : le numéro a été lié avec succès à un compte existant
         // L'utilisateur a été déconnecté et l'interface va se mettre à jour automatiquement
+        console.log(
+          '✅ Liaison de comptes réussie - reconnexion automatique en cours...'
+        );
         setError('');
         resetPhoneAuth();
         // Pas besoin d'afficher d'erreur, le message de succès a déjà été affiché
       } else {
+        console.error('❌ Erreur lors de la vérification du code:', error);
         setError(error.message || 'Code incorrect. Réessayez.');
       }
     }

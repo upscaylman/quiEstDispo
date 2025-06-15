@@ -215,8 +215,11 @@ export const useAuth = () => {
       console.log('✅ Phone sign-in successful');
       return result;
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('❌ Code confirmation error:', error);
+      // Ne pas afficher ACCOUNT_LINKING_SUCCESS comme une erreur
+      if (error.message !== 'ACCOUNT_LINKING_SUCCESS') {
+        // eslint-disable-next-line no-console
+        console.error('❌ Code confirmation error:', error);
+      }
       throw error;
     } finally {
       setLoading(false);

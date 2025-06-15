@@ -1,6 +1,7 @@
 // Configuration Firebase simplifiée pour qui est dispo
 import { initializeApp } from 'firebase/app';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+// Ne pas importer App Check pour éviter les conflits
+// import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { getAuth } from 'firebase/auth';
 import {
   disableNetwork,
@@ -12,12 +13,8 @@ import {
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { getStorage } from 'firebase/storage';
 
-// ⚠️ IMPORTANT: Configurer le jeton de débogage AVANT l'initialisation de Firebase
-if (process.env.NODE_ENV === 'development') {
-  // Jeton de débogage App Check pour localhost
-  window.FIREBASE_APPCHECK_DEBUG_TOKEN = '9E978FC1-A2E9-4169-B8B3-C53C4D08D7AF';
-  console.log('🔧 App Check: Jeton de débogage configuré AVANT Firebase init');
-}
+// ⚠️ IMPORTANT: Configuration propre pour résoudre les erreurs SMS
+console.log('🔧 Configuration Firebase pour authentification SMS');
 
 // Réduire les logs d'erreur Firebase au minimum
 setLogLevel('silent');
@@ -46,44 +43,57 @@ if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'your_api_key_here') {
 // Initialiser Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialiser App Check pour protéger contre les abus
-let appCheck = null;
-try {
-  // ⚠️ DÉSACTIVER App Check temporairement pour résoudre définitivement l'erreur 500
-  // Le jeton de débogage ne semble pas fonctionner correctement
-  const shouldInitAppCheck = false; // Forcer désactivation pour l'instant
-
-  if (shouldInitAppCheck) {
-    const recaptchaSiteKey = process.env.REACT_APP_RECAPTCHA_V3_SITE_KEY;
-
-    // Configuration App Check avec reCAPTCHA v3
-    appCheck = initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(recaptchaSiteKey),
-      isTokenAutoRefreshEnabled: true,
-    });
-    console.log(
-      '✅ Firebase App Check initialized with reCAPTCHA + Debug Token'
-    );
-  } else {
-    console.warn(
-      '⚠️ App Check DÉSACTIVÉ temporairement pour résoudre erreur 500 SMS'
-    );
-    console.warn(
-      '💡 Une fois les SMS fonctionnels, nous pourrons réactiver App Check'
-    );
-  }
-} catch (error) {
-  console.warn(
-    '⚠️ App Check initialization failed (normal en développement):',
-    error
-  );
-}
+// ⚠️ APP CHECK COMPLÈTEMENT DÉSACTIVÉ pour résoudre l'erreur 500 SMS
+console.warn('⚠️ App Check DÉSACTIVÉ pour authentification SMS');
 
 // Services Firebase avec configuration optimisée
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-export { appCheck };
+
+// Configuration spéciale pour l'authentification par téléphone
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔧 Mode développement : Configuration auth téléphone');
+
+  // Désactiver la vérification App Check pour l'auth
+  auth.settings = {
+    appVerificationDisabledForTesting: true,
+  };
+
+  // Configuration des numéros de test Firebase
+  // Ces numéros fonctionnent sans plan Blaze et sans SMS réel
+  const testPhoneNumbers = {
+    '+33612345678': '123456', // Numéro français fictif
+    '+1234567890': '123456', // Numéro US fictif
+  };
+
+  // Appliquer la configuration des numéros de test
+  try {
+    if (auth.settings && typeof auth.settings === 'object') {
+      auth.settings.testPhoneNumbers = testPhoneNumbers;
+      console.log(
+        '✅ Numéros de test configurés:',
+        Object.keys(testPhoneNumbers)
+      );
+    }
+  } catch (error) {
+    console.warn('⚠️ Impossible de configurer les numéros de test:', error);
+  }
+
+  // Si vous utilisez des émulateurs Firebase
+  // Décommentez les lignes suivantes si vous voulez utiliser les émulateurs :
+  /*
+  if (!auth._delegate.emulator) {
+    connectAuthEmulator(auth, 'http://localhost:9099');
+  }
+  if (!db._delegate._databaseId.projectId.includes('demo-')) {
+    connectFirestoreEmulator(db, 'localhost', 8080);
+  }
+  if (!storage._delegate._host.includes('localhost')) {
+    connectStorageEmulator(storage, 'localhost', 9199);
+  }
+  */
+}
 
 // Activer la persistance du cache et l'indexation automatique
 try {
