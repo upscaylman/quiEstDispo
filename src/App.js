@@ -260,15 +260,10 @@ function App() {
         location
       );
 
-      // Démarrer sa propre disponibilité SEULEMENT si au moins une invitation a été envoyée
-      if (result.count > 0) {
-        await handleStartAvailability(activity);
-      }
-
-      // Log de succès simplifié
+      // Log de succès simplifié - PAS de démarrage de disponibilité ici
       if (result.count > 0) {
         console.log(
-          `✅ ${result.count} invitation${result.count > 1 ? 's' : ''} envoyée${result.count > 1 ? 's' : ''} pour ${activity}! Vous êtes maintenant disponible !`
+          `✅ ${result.count} invitation${result.count > 1 ? 's' : ''} envoyée${result.count > 1 ? 's' : ''} pour ${activity}! En attente d'acceptation...`
         );
       } else {
         console.log('Aucune invitation envoyée.');
@@ -679,32 +674,33 @@ function App() {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
 
-        // Démarrer la nouvelle activité
+        // 🎯 NOUVEAU: Démarrer la disponibilité pour celui qui accepte (avec décompte)
         await handleStartAvailability(
           notification.data.activity,
           true, // isResponseToInvitation
           notification.data.fromUserId // respondingToUserId
         );
 
-        // Créer une notification de confirmation pour l'expéditeur
+        // 🎯 NOUVEAU: Créer une notification spéciale pour l'expéditeur pour qu'il démarre son décompte aussi
         const userName = user.displayName || user.name || 'Un ami';
         const activityName = notification.data.activity;
 
         await NotificationService.createNotification(
-          notification.data.fromUserId, // À qui
-          user.uid, // De qui
-          'activity_accepted', // Type
-          `✅ ${userName} a accepté votre invitation pour ${activityName} !`,
+          notification.data.fromUserId, // À qui (l'expéditeur)
+          user.uid, // De qui (celui qui accepte)
+          'activity_accepted_start_timer', // Type spécial pour démarrer le décompte
+          `✅ ${userName} a accepté votre invitation pour ${activityName} ! Le partage de localisation commence maintenant.`,
           {
             activity: activityName,
             acceptedBy: user.uid,
             acceptedByName: userName,
             originalInvitationId: notification.data.invitationId,
+            shouldStartTimer: true, // Flag pour indiquer qu'il faut démarrer le décompte
           }
         );
 
         console.log(
-          `✅ Vous avez accepté l'invitation pour ${notification.data.activity} de ${notification.data.fromUserName}`
+          `✅ Vous avez accepté l'invitation pour ${notification.data.activity} de ${notification.data.fromUserName} - Décompte démarré !`
         );
       } else {
         // Créer une notification de déclin pour l'expéditeur
@@ -1154,6 +1150,50 @@ function App() {
       }
     };
   }, [user]);
+
+  // 🎯 NOUVEAU: Surveiller les notifications pour traiter automatiquement les démarrages de décompte
+  useEffect(() => {
+    if (!notifications || !user) return;
+
+    // Chercher les nouvelles notifications de type "activity_accepted_start_timer" non lues
+    const timerStartNotifications = notifications.filter(
+      notif =>
+        notif.type === 'activity_accepted_start_timer' &&
+        !notif.read &&
+        notif.data?.shouldStartTimer
+    );
+
+    // Traiter chaque notification de démarrage de décompte
+    timerStartNotifications.forEach(async notification => {
+      try {
+        console.log(
+          '🎯 [AUTO] Traitement notification démarrage décompte:',
+          notification
+        );
+
+        // Démarrer la disponibilité avec décompte pour l'expéditeur original
+        if (!isAvailable || currentActivity !== notification.data.activity) {
+          await handleStartAvailability(
+            notification.data.activity,
+            false, // Pas une réponse à invitation, c'est l'expéditeur original
+            null
+          );
+
+          console.log(
+            `🎯 [AUTO] Décompte démarré pour ${notification.data.activity} suite à l'acceptation de ${notification.data.acceptedByName}`
+          );
+        }
+
+        // Marquer la notification comme lue automatiquement
+        await markNotificationAsRead(notification.id);
+      } catch (error) {
+        console.error(
+          '❌ Erreur traitement notification démarrage décompte:',
+          error
+        );
+      }
+    });
+  }, [notifications, user, isAvailable, currentActivity]);
 
   const handleProfileUpdate = async updatedUser => {
     // Mettre à jour l'état local de l'utilisateur si possible

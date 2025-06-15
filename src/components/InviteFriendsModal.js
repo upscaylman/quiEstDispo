@@ -233,6 +233,33 @@ const InviteFriendsModal = ({
                     Sélectionnez les amis à inviter ({selectedFriends.size}{' '}
                     sélectionné{selectedFriends.size > 1 ? 's' : ''})
                   </p>
+
+                  {/* Warning de partage de localisation */}
+                  {selectedFriends.size > 0 && (
+                    <div
+                      className={`mt-3 p-3 rounded-lg border-l-4 ${
+                        darkMode
+                          ? 'bg-orange-900/20 border-orange-500 text-orange-300'
+                          : 'bg-orange-50 border-orange-400 text-orange-700'
+                      }`}
+                    >
+                      <div className="flex items-start space-x-2">
+                        <span className="text-lg">📍</span>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">
+                            Partage de localisation
+                          </p>
+                          <p className="text-xs mt-1 opacity-90">
+                            En envoyant cette invitation, vous partagerez votre
+                            localisation avec{' '}
+                            {selectedFriends.size > 1 ? 'ces amis' : 'cet ami'}{' '}
+                            s'ils acceptent.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {friendsWhoInvitedUs.size > 0 && (
                     <p
                       className={`text-xs mt-2 ${darkMode ? 'text-blue-400' : 'text-blue-600'} bg-blue-50 dark:bg-blue-900/20 p-2 rounded`}

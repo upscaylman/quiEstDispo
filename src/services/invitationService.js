@@ -190,21 +190,25 @@ export class InvitationService {
         `🔍 [DEBUG] Nombre d'invitations à envoyer: ${friendIds.length}`
       );
 
-      // Vérifier les invitations en attente
-      const pendingCheck = await this.checkExistingInvitation(
-        fromUserId,
-        fromUserId,
-        activity
-      );
-      if (!pendingCheck) {
-        debugLog(`🔍 [DEBUG] ⚠️ BLOCKED: invitation PENDING existe déjà`);
-        return { success: false, reason: 'pending_invitation_exists' };
-      }
-      debugLog(`🔍 [DEBUG] ✅ AUTORISÉ: aucune invitation PENDING`);
-
-      // ENVOI DIRECT - Plus de vérification de blocage
+      // ENVOI DIRECT - Vérifier pour chaque ami individuellement
       for (const friendId of friendIds) {
         console.log(`🔍 [DEBUG] Création invitation pour ${friendId}`);
+
+        // Vérifier les invitations en attente pour cet ami spécifique
+        const pendingCheck = await this.checkExistingInvitation(
+          fromUserId,
+          friendId,
+          activity
+        );
+        if (pendingCheck) {
+          debugLog(
+            `🔍 [DEBUG] ⚠️ BLOCKED: invitation PENDING existe déjà pour ${friendId}`
+          );
+          continue; // Passer à l'ami suivant
+        }
+        debugLog(
+          `🔍 [DEBUG] ✅ AUTORISÉ: aucune invitation PENDING pour ${friendId}`
+        );
 
         // Créer une invitation
         const invitationData = {
