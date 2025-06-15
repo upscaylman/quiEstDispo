@@ -1,6 +1,13 @@
 // Service de notifications push avec Firebase Messaging
-import { getToken } from 'firebase/messaging';
-import { messaging } from '../firebase';
+import { getMessaging, getToken } from 'firebase/messaging';
+import { app, messaging } from '../firebase';
+import {
+  debugError,
+  debugLog,
+  debugWarn,
+  prodError,
+  prodWarn,
+} from '../utils/logger';
 
 export class PushNotificationService {
   static isSupported =
@@ -15,148 +22,133 @@ export class PushNotificationService {
 
   // Vérifier le support complet des notifications
   static checkNotificationSupport() {
-    const hasServiceWorker = 'serviceWorker' in navigator;
-    const hasNotification = 'Notification' in window;
-    const hasPushManager = 'PushManager' in window;
-    const hasMessaging = !!messaging;
-    const isMobile = this.isMobile();
+    const support = {
+      notifications: 'Notification' in window,
+      serviceWorker: 'serviceWorker' in navigator,
+      pushManager: 'PushManager' in window,
+    };
 
-    console.log('🔍 Support notifications:', {
-      hasServiceWorker,
-      hasNotification,
-      hasPushManager,
-      hasMessaging,
-      isMobile,
-      userAgent: navigator.userAgent,
+    debugLog('🔍 Support notifications:', {
+      notifications: support.notifications,
+      serviceWorker: support.serviceWorker,
+      pushManager: support.pushManager,
+      overall:
+        support.notifications && support.serviceWorker && support.pushManager,
     });
 
-    return {
-      hasServiceWorker,
-      hasNotification,
-      hasPushManager,
-      hasMessaging,
-      isMobile,
-      supported: hasServiceWorker && hasNotification && hasPushManager,
-    };
+    return support;
   }
 
   // Demander la permission pour les notifications
   static async requestPermission() {
-    if (!this.isSupported) {
-      throw new Error('Les notifications push ne sont pas supportées');
-    }
+    try {
+      if (!('Notification' in window)) {
+        throw new Error('Ce navigateur ne supporte pas les notifications');
+      }
 
-    const permission = await Notification.requestPermission();
-    console.log('📱 Permission notifications:', permission);
+      const permission = await Notification.requestPermission();
+      debugLog('📱 Permission notifications:', permission);
 
-    if (permission === 'granted') {
-      return this.getFirebaseToken();
-    } else if (permission === 'denied') {
-      throw new Error('Permission refusée pour les notifications');
-    } else {
-      throw new Error("Permission par défaut - utilisateur n'a pas répondu");
+      return {
+        permission,
+        granted: permission === 'granted',
+        denied: permission === 'denied',
+        default: permission === 'default',
+      };
+    } catch (error) {
+      prodError('❌ Erreur demande permission notifications:', error);
+      return {
+        permission: 'denied',
+        granted: false,
+        denied: true,
+        default: false,
+        error: error.message,
+      };
     }
   }
 
   // Obtenir le token Firebase pour les notifications
   static async getFirebaseToken() {
-    if (!messaging) {
-      throw new Error('Firebase Messaging non initialisé');
-    }
-
     try {
-      // Vérifier si on a une clé VAPID configurée
-      const vapidKey = process.env.REACT_APP_FIREBASE_VAPID_KEY;
+      debugLog('🔔 Récupération token Firebase...');
 
-      if (!vapidKey || vapidKey === 'your_vapid_key_here') {
-        console.warn(
-          '⚠️ Clé VAPID non configurée, utilisation de notifications locales uniquement'
-        );
-        return this.enableLocalNotifications();
+      const messaging = getMessaging(app);
+      const vapidKey = process.env.REACT_APP_VAPID_KEY;
+
+      if (!vapidKey) {
+        debugLog('⚠️ VAPID key manquante - notifications locales seulement');
+        return { token: null, subscribed: false, localOnly: true };
       }
 
-      console.log('🔔 Récupération token Firebase...');
-      const token = await getToken(messaging, {
-        vapidKey: vapidKey,
-      });
+      const token = await getToken(messaging, { vapidKey });
 
       if (token) {
-        console.log(
-          '✅ Token Firebase obtenu:',
-          token.substring(0, 20) + '...'
-        );
-        return { type: 'firebase', token };
+        debugLog('🔥 Token Firebase obtenu avec succès');
+        return { token, subscribed: true, localOnly: false };
       } else {
-        console.warn(
-          '⚠️ Pas de token Firebase, fallback vers notifications locales'
-        );
-        return this.enableLocalNotifications();
+        debugLog('⚠️ Aucun token Firebase - notifications locales');
+        return { token: null, subscribed: false, localOnly: true };
       }
     } catch (error) {
-      console.error('❌ Erreur token Firebase:', error);
-      console.warn('⚠️ Fallback vers notifications locales');
-      return this.enableLocalNotifications();
+      prodWarn('⚠️ Erreur récupération token Firebase:', error);
+      return {
+        token: null,
+        subscribed: false,
+        localOnly: true,
+        error: error.message,
+      };
     }
   }
 
   // Activer les notifications locales comme fallback
   static async enableLocalNotifications() {
-    if (Notification.permission !== 'granted') {
-      throw new Error('Permission requise pour les notifications');
+    try {
+      const permission = await this.requestPermission();
+      if (permission.granted) {
+        debugLog('📱 Notifications locales activées');
+        return { success: true, permission: permission.permission };
+      } else {
+        return { success: false, permission: permission.permission };
+      }
+    } catch (error) {
+      prodError('❌ Erreur activation notifications locales:', error);
+      return { success: false, error: error.message };
     }
-
-    console.log('📱 Notifications locales activées');
-    return { type: 'local', enabled: true };
   }
 
   // Vérifier le statut des notifications
   static async checkStatus() {
-    const support = this.checkNotificationSupport();
+    try {
+      const support = this.checkNotificationSupport();
+      const permission = Notification.permission;
 
-    if (!support.supported) {
+      debugLog('📱 Permission actuelle:', permission);
+
+      if (permission === 'granted') {
+        const tokenResult = await this.getFirebaseToken();
+        debugLog('🔑 Tentative récupération token Firebase...');
+
+        const subscribed = tokenResult.subscribed;
+        debugLog('🔥 Token Firebase:', subscribed ? 'Obtenu' : 'Échec');
+      } else {
+        debugLog('📱 Mode notifications locales (pas de VAPID)');
+      }
+
+      return {
+        supported: support.notifications && support.serviceWorker,
+        permission,
+        subscribed: permission === 'granted',
+        support,
+      };
+    } catch (error) {
+      prodError('❌ Erreur vérification statut notifications:', error);
       return {
         supported: false,
-        permission: 'not-supported',
+        permission: 'denied',
         subscribed: false,
-        isMobile: support.isMobile,
-        debug: support,
+        error: error.message,
       };
     }
-
-    const permission = Notification.permission;
-    let subscribed = false;
-
-    console.log('📱 Permission actuelle:', permission);
-
-    if (permission === 'granted') {
-      try {
-        // Vérifier si on a un token Firebase ou des notifications locales activées
-        const vapidKey = process.env.REACT_APP_FIREBASE_VAPID_KEY;
-
-        if (vapidKey && vapidKey !== 'your_vapid_key_here' && messaging) {
-          console.log('🔑 Tentative récupération token Firebase...');
-          // Essayer d'obtenir un token Firebase
-          const token = await getToken(messaging, { vapidKey });
-          subscribed = !!token;
-          console.log('🔥 Token Firebase:', subscribed ? 'Obtenu' : 'Échec');
-        } else {
-          console.log('📱 Mode notifications locales (pas de VAPID)');
-          // Mode notifications locales
-          subscribed = true; // Si permission accordée, on peut faire des notifications locales
-        }
-      } catch (error) {
-        console.warn('⚠️ Erreur vérification abonnement:', error);
-        subscribed = true; // Mode dégradé avec notifications locales
-      }
-    }
-
-    return {
-      supported: true,
-      permission,
-      subscribed,
-      isMobile: support.isMobile,
-      debug: support,
-    };
   }
 
   // Envoyer une notification test locale
@@ -178,24 +170,22 @@ export class PushNotificationService {
       const isMobile = this.isMobile();
       const support = this.checkNotificationSupport();
 
-      console.log(
-        `📱 Envoi notification - Mobile: ${isMobile}, Support SW: ${support.hasServiceWorker}`
+      debugLog(
+        `📱 Envoi notification - Mobile: ${isMobile}, Support SW: ${support.serviceWorker}`
       );
 
       if (isMobile || !window.Notification || 'serviceWorker' in navigator) {
         // Utiliser le Service Worker (obligatoire sur mobile)
-        console.log(
-          '📱 Envoi notification via Service Worker (mobile/sécurisé)'
-        );
+        debugLog('📱 Envoi notification via Service Worker (mobile/sécurisé)');
 
         const registration = await navigator.serviceWorker.ready;
         await registration.showNotification(title, notificationOptions);
 
-        console.log('✅ Notification envoyée via Service Worker');
+        debugLog('✅ Notification envoyée via Service Worker');
         return;
       } else {
         // Fallback pour desktop (peu probable d'arriver ici maintenant)
-        console.log('💻 Envoi notification directe (desktop)');
+        debugLog('💻 Envoi notification directe (desktop)');
 
         const notification = new Notification(title, notificationOptions);
 
@@ -204,22 +194,22 @@ export class PushNotificationService {
           notification.close();
         };
 
-        console.log('✅ Notification envoyée directement');
+        debugLog('✅ Notification envoyée directement');
         return notification;
       }
     } catch (error) {
-      console.error('❌ Erreur envoi notification:', error);
+      debugError('❌ Erreur envoi notification:', error);
 
       // Fallback ultime : essayer l'autre méthode
       try {
         if ('serviceWorker' in navigator) {
-          console.log('🔄 Tentative fallback via Service Worker...');
+          debugLog('🔄 Tentative fallback via Service Worker...');
           const registration = await navigator.serviceWorker.ready;
           await registration.showNotification(title, notificationOptions);
-          console.log('✅ Notification fallback réussie');
+          debugLog('✅ Notification fallback réussie');
         }
       } catch (fallbackError) {
-        console.error('❌ Échec notification fallback:', fallbackError);
+        debugError('❌ Échec notification fallback:', fallbackError);
         throw new Error(
           "Impossible d'envoyer la notification sur cet appareil"
         );
@@ -248,9 +238,9 @@ export class PushNotificationService {
         }
       );
 
-      console.log('✅ Notification test envoyée');
+      debugLog('✅ Notification test envoyée');
     } catch (error) {
-      console.error('❌ Erreur notification test:', error);
+      debugError('❌ Erreur notification test:', error);
       throw error;
     }
   }
@@ -258,7 +248,7 @@ export class PushNotificationService {
   // Envoyer une notification push à un utilisateur spécifique
   static async sendPushToUser(userId, notificationData) {
     try {
-      console.log(
+      debugLog(
         `📱 Tentative envoi push à l'utilisateur ${userId}:`,
         notificationData
       );
@@ -270,26 +260,26 @@ export class PushNotificationService {
       // Vérifier si c'est l'utilisateur actuel (seul cas qu'on peut gérer)
       const currentUser = this.getCurrentUserId();
 
-      console.log(`🔍 Utilisateur actuel: ${currentUser}, Cible: ${userId}`);
+      debugLog(`🔍 Utilisateur actuel: ${currentUser}, Cible: ${userId}`);
 
       if (currentUser && currentUser === userId) {
-        console.log("📱 Envoi notification push à l'utilisateur actuel");
+        debugLog("📱 Envoi notification push à l'utilisateur actuel");
 
         // Vérifier les permissions
         const permission = Notification.permission;
-        console.log(`🔍 Permission notifications: ${permission}`);
+        debugLog(`🔍 Permission notifications: ${permission}`);
 
         if (permission !== 'granted') {
-          console.warn('⚠️ Permissions notifications non accordées');
+          debugWarn('⚠️ Permissions notifications non accordées');
           return { sent: false, reason: 'no_permission' };
         }
 
         // Vérifier si les notifications sont supportées
         const support = this.checkNotificationSupport();
-        console.log('🔍 Support notifications:', support);
+        debugLog('🔍 Support notifications:', support);
 
         // Envoyer la notification locale
-        console.log('📤 Envoi de la notification...');
+        debugLog('📤 Envoi de la notification...');
         await this.showTestNotification(
           notificationData.title || 'Qui est dispo',
           notificationData.body ||
@@ -304,17 +294,17 @@ export class PushNotificationService {
           }
         );
 
-        console.log("✅ Notification push envoyée à l'utilisateur actuel");
+        debugLog("✅ Notification push envoyée à l'utilisateur actuel");
         return { sent: true, method: 'local' };
       } else {
-        console.log(
+        debugLog(
           `ℹ️ Notification pour autre utilisateur (${userId} ≠ ${currentUser}) - stockage Firestore uniquement`
         );
         // Pour les autres utilisateurs, la notification sera visible quand ils ouvriront l'app
         return { sent: false, reason: 'other_user' };
       }
     } catch (error) {
-      console.error('❌ Erreur envoi notification push:', error);
+      debugError('❌ Erreur envoi notification push:', error);
       return { sent: false, reason: 'error', error: error.message };
     }
   }
@@ -330,7 +320,7 @@ export class PushNotificationService {
         window.firebase.auth &&
         window.firebase.auth().currentUser
       ) {
-        console.log('🔍 Utilisateur trouvé via window.firebase');
+        debugLog('🔍 Utilisateur trouvé via window.firebase');
         return window.firebase.auth().currentUser.uid;
       }
 
@@ -338,11 +328,11 @@ export class PushNotificationService {
       try {
         const { auth } = require('../firebase');
         if (auth?.currentUser?.uid) {
-          console.log('🔍 Utilisateur trouvé via require');
+          debugLog('🔍 Utilisateur trouvé via require');
           return auth.currentUser.uid;
         }
       } catch (requireError) {
-        console.warn('⚠️ Erreur require firebase:', requireError);
+        debugWarn('⚠️ Erreur require firebase:', requireError);
       }
 
       // Méthode 3: Via localStorage/sessionStorage (si disponible)
@@ -350,14 +340,14 @@ export class PushNotificationService {
         localStorage.getItem('currentUserId') ||
         sessionStorage.getItem('currentUserId');
       if (storageUserId) {
-        console.log('🔍 Utilisateur trouvé via storage');
+        debugLog('🔍 Utilisateur trouvé via storage');
         return storageUserId;
       }
 
-      console.warn('⚠️ Aucun utilisateur actuel trouvé');
+      debugWarn('⚠️ Aucun utilisateur actuel trouvé');
       return null;
     } catch (error) {
-      console.warn("⚠️ Impossible de récupérer l'utilisateur actuel:", error);
+      debugWarn("⚠️ Impossible de récupérer l'utilisateur actuel:", error);
       return null;
     }
   }
@@ -365,7 +355,7 @@ export class PushNotificationService {
   // Méthode unifiée pour créer notification Firestore + Push
   static async createNotificationWithPush(notificationData) {
     try {
-      console.log(
+      debugLog(
         '📱 Création notification complète (Firestore + Push):',
         notificationData
       );
@@ -390,7 +380,7 @@ export class PushNotificationService {
         requireInteraction: notificationData.requireInteraction || false,
       });
 
-      console.log('✅ Notification complète créée:', {
+      debugLog('✅ Notification complète créée:', {
         firestore: true,
         push: pushResult,
       });
@@ -401,7 +391,7 @@ export class PushNotificationService {
         push: pushResult,
       };
     } catch (error) {
-      console.error('❌ Erreur création notification complète:', error);
+      debugError('❌ Erreur création notification complète:', error);
       throw error;
     }
   }

@@ -13,6 +13,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
+import { debugLog, prodError } from '../utils/logger';
 import { db, isOnline, retryWithBackoff } from './firebaseUtils';
 import { NotificationService } from './notificationService';
 
@@ -168,6 +169,11 @@ export class InvitationService {
   // Envoyer des invitations à plusieurs amis pour une activité
   static async sendInvitations(fromUserId, activity, friendIds, location) {
     try {
+      debugLog(`🔍 [DEBUG] === DÉBUT ENVOI INVITATIONS ===`);
+      debugLog(
+        `🔍 [DEBUG] sendInvitations appelé: ${fromUserId} -> [${friendIds.join(', ')}] pour ${activity}`
+      );
+
       console.log(
         `📨 Envoi d'invitations ${activity} à ${friendIds.length} amis`
       );
@@ -183,6 +189,18 @@ export class InvitationService {
       console.log(
         `🔍 [DEBUG] Nombre d'invitations à envoyer: ${friendIds.length}`
       );
+
+      // Vérifier les invitations en attente
+      const pendingCheck = await this.checkExistingInvitation(
+        fromUserId,
+        fromUserId,
+        activity
+      );
+      if (!pendingCheck) {
+        debugLog(`🔍 [DEBUG] ⚠️ BLOCKED: invitation PENDING existe déjà`);
+        return { success: false, reason: 'pending_invitation_exists' };
+      }
+      debugLog(`🔍 [DEBUG] ✅ AUTORISÉ: aucune invitation PENDING`);
 
       // ENVOI DIRECT - Plus de vérification de blocage
       for (const friendId of friendIds) {
@@ -225,7 +243,7 @@ export class InvitationService {
         totalRequested: friendIds.length,
       };
     } catch (error) {
-      console.error('❌ Erreur envoi invitations:', error);
+      prodError('❌ Erreur envoi invitations:', error);
       throw new Error(
         `Erreur lors de l'envoi des invitations: ${error.message}`
       );
@@ -273,11 +291,11 @@ export class InvitationService {
           response === 'accepted'
         );
 
-        console.log(`✅ Réponse à l'invitation enregistrée: ${response}`);
+        debugLog(`✅ Réponse à l'invitation enregistrée: ${response}`);
         return response;
       });
     } catch (error) {
-      console.error('❌ Respond to invitation failed:', error);
+      prodError('❌ Respond to invitation failed:', error);
       throw new Error(
         `Impossible de répondre à l'invitation: ${error.message}`
       );
@@ -309,13 +327,12 @@ export class InvitationService {
       if (toDelete.length > 0) {
         const deletePromises = toDelete.map(doc => deleteDoc(doc.ref));
         await Promise.all(deletePromises);
-        console.log(`🧹 Supprimé ${toDelete.length} invitations expirées`);
+        debugLog(`🧹 Supprimé ${toDelete.length} invitations expirées`);
+        return toDelete.length;
       }
     } catch (error) {
-      console.warn(
-        '⚠️ Cleanup expired invitations error (non critique):',
-        error
-      );
+      prodError('❌ Cleanup expired invitations error (non critique):', error);
+      return 0;
     }
   }
 
@@ -414,8 +431,8 @@ export class InvitationService {
     }
 
     try {
-      console.log(
-        `🧹 Nettoyage invitations utilisateur ${userId} pour ${activity}...`
+      debugLog(
+        `🧹 Nettoyage des invitations pour ${userId} et activité ${activity}...`
       );
 
       const queries = [
@@ -437,16 +454,17 @@ export class InvitationService {
       if (allInvitations.length > 0) {
         const deletePromises = allInvitations.map(doc => deleteDoc(doc.ref));
         await Promise.all(deletePromises);
-        console.log(
+        debugLog(
           `✅ ${allInvitations.length} invitations supprimées pour ${userId} (${activity})`
         );
+        return allInvitations.length;
       } else {
-        console.log(
-          `ℹ️ Aucune invitation trouvée pour ${userId} (${activity})`
-        );
+        debugLog(`ℹ️ Aucune invitation trouvée pour ${userId} (${activity})`);
+        return 0;
       }
     } catch (error) {
-      console.error('❌ Erreur nettoyage invitations utilisateur:', error);
+      prodError('❌ Erreur nettoyage invitations utilisateur:', error);
+      return 0;
     }
   }
 
@@ -499,6 +517,10 @@ export class InvitationService {
     }
 
     try {
+      debugLog(
+        `🔍 Récupération des invitations pour l'utilisateur ${userId}...`
+      );
+
       const q = query(
         collection(db, 'invitations'),
         where('toUserId', '==', userId),
@@ -519,15 +541,13 @@ export class InvitationService {
         });
       });
 
-      console.log(
-        `📥 ${invitations.length} invitations trouvées pour ${userId}`
+      debugLog(
+        `✅ ${invitations.length} invitations récupérées pour ${userId}`
       );
       return invitations;
     } catch (error) {
-      console.error('❌ Erreur récupération invitations:', error);
-      throw new Error(
-        `Impossible de récupérer les invitations: ${error.message}`
-      );
+      prodError('❌ Erreur lors de la récupération des invitations:', error);
+      return [];
     }
   }
 

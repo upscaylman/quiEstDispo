@@ -2,8 +2,12 @@
 import { motion } from 'framer-motion';
 import { Bell, Moon, Palette, Smartphone, Sun } from 'lucide-react';
 import React from 'react';
-import NotificationTest from '../NotificationTest';
 import ProfileEditor from '../ProfileEditor';
+// Import conditionnel pour le développement
+const NotificationTest =
+  process.env.NODE_ENV === 'development'
+    ? require('../NotificationTest').default
+    : null;
 
 const SettingsScreen = ({
   // Props de state
@@ -25,8 +29,12 @@ const SettingsScreen = ({
   onShowDeleteAccount,
   onSignOut,
 }) => {
-  // Écran de debug des notifications
-  if (currentScreen === 'debug-notifications') {
+  // Écran de debug des notifications (seulement en dev)
+  if (
+    currentScreen === 'debug-notifications' &&
+    process.env.NODE_ENV === 'development' &&
+    NotificationTest
+  ) {
     return <NotificationTest user={user} darkMode={darkMode} />;
   }
 
@@ -214,41 +222,48 @@ const SettingsScreen = ({
             </motion.button>
             <motion.button
               whileTap={{ scale: 0.95 }}
-              onClick={onTestPushNotification}
-              className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded"
-            >
-              🧪 Tester
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.95 }}
               onClick={onCheckPushStatus}
               className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded"
             >
               🔍 Statut
             </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={onOpenDebugNotifications}
-              className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded"
-            >
-              🐛 Debug
-            </motion.button>
+            {/* Boutons de test seulement en développement */}
+            {process.env.NODE_ENV === 'development' && (
+              <>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onTestPushNotification}
+                  className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded"
+                >
+                  🧪 Tester
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onOpenDebugNotifications}
+                  className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded"
+                >
+                  🐛 Debug
+                </motion.button>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Section Test des Notifications Firestore */}
-      <div
-        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
-      >
-        <h3
-          className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+      {/* Section Test des Notifications Firestore (dev seulement) */}
+      {process.env.NODE_ENV === 'development' && NotificationTest && (
+        <div
+          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
         >
-          🧪 Test des Notifications Firestore
-        </h3>
+          <h3
+            className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+          >
+            🧪 Test des Notifications Firestore (dev)
+          </h3>
 
-        <NotificationTest darkMode={darkMode} />
-      </div>
+          <NotificationTest darkMode={darkMode} />
+        </div>
+      )}
 
       {/* Section Debug Notifications (dev) */}
       {process.env.NODE_ENV === 'development' && (
