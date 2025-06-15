@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useGPSNotifications } from './useGPSNotifications';
 
 // Fonction pour ouvrir les paramètres de localisation selon la plateforme
 const openDeviceLocationSettings = () => {
@@ -66,14 +65,18 @@ export const useGeolocation = () => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Hook pour les notifications GPS
-  const { notifyGPSEnabled, notifyGPSDisabled, notifyGPSUpdating } =
-    useGPSNotifications();
+  // Hook pour les notifications GPS (temporairement désactivé)
+  // const { notifyGPSEnabled, notifyGPSDisabled, notifyGPSUpdating } = useGPSNotifications();
+  const notifyGPSEnabled = () => {};
+  const notifyGPSDisabled = () => {};
+  const notifyGPSUpdating = () => {};
 
   // Utiliser useRef pour éviter les re-renders infinis
   const isRequesting = useRef(false);
   const lastLocationTime = useRef(0);
   const lastErrorType = useRef(null);
+  const stableLocationRef = useRef(null);
+  const requestCount = useRef(0);
 
   // Fonction principale de géolocalisation
   const requestGeolocation = useCallback(() => {
@@ -83,8 +86,18 @@ export const useGeolocation = () => {
       return;
     }
 
+    // Limiter le nombre de requêtes par minute pour éviter les boucles
+    requestCount.current += 1;
+    if (requestCount.current > 5) {
+      console.warn('⚠️ Trop de requêtes GPS, limitation temporaire');
+      setTimeout(() => {
+        requestCount.current = 0;
+      }, 60000); // Reset après 1 minute
+      return;
+    }
+
     // eslint-disable-next-line no-console
-    console.log('🌍 Requesting geolocation...');
+    console.log('🌍 Requesting geolocation... (#' + requestCount.current + ')');
 
     isRequesting.current = true;
     setLoading(true);
@@ -199,7 +212,7 @@ export const useGeolocation = () => {
       console.error('Error requesting geolocation:', err);
       handleError({ code: 999, message: "Erreur d'initialisation" });
     }
-  }, [location, error, notifyGPSEnabled, notifyGPSDisabled]);
+  }, [notifyGPSEnabled, notifyGPSDisabled]);
 
   // Première demande au montage du composant + watch position continue
   useEffect(() => {
@@ -303,33 +316,39 @@ export const useGeolocation = () => {
       // Surveillance périodique de l'état GPS (fallback)
       permissionCheckInterval = setInterval(() => {
         // Test silencieux pour détecter les changements de GPS
-        navigator.geolocation.getCurrentPosition(
-          position => {
-            // Si on récupère une position et qu'on avait une erreur, réessayer
-            if (
-              error &&
-              (error.includes('refusé') || error.includes('indisponible'))
-            ) {
+        // Seulement si on avait une erreur avant
+        if (
+          lastErrorType.current === 'denied' ||
+          lastErrorType.current === 'unavailable'
+        ) {
+          navigator.geolocation.getCurrentPosition(
+            position => {
               console.log('🔄 GPS semble réactivé - Relance géolocalisation');
               requestGeolocation();
-            }
-          },
-          err => {
-            // Erreur silencieuse, on ne fait rien
-          },
-          { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
-        );
-      }, 15000); // Vérifier toutes les 15 secondes
+            },
+            err => {
+              // Erreur silencieuse, on ne fait rien
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
+          );
+        }
+      }, 20000); // Vérifier toutes les 20 secondes (moins fréquent)
     }
 
     // Surveillance de la visibilité de l'application (en dehors du if navigator.geolocation)
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('🔄 App visible - Vérification GPS');
+      if (
+        !document.hidden &&
+        (lastErrorType.current === 'denied' ||
+          lastErrorType.current === 'unavailable')
+      ) {
+        console.log(
+          '🔄 App visible - Vérification GPS (erreur précédente détectée)'
+        );
         // Délai pour laisser le temps à l'utilisateur d'activer le GPS
         visibilityCheckTimeout = setTimeout(() => {
           requestGeolocation();
-        }, 1000);
+        }, 2000); // Délai plus long
       }
     };
 

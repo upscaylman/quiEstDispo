@@ -13,7 +13,6 @@ import PWAInstallPrompt from './components/PWAInstallPrompt';
 import UpdateNotification from './components/UpdateNotification';
 import { useAuth } from './hooks/useAuth';
 import { useGeolocation } from './hooks/useGeolocation';
-import { useGPSNotifications } from './hooks/useGPSNotifications';
 import { CookieService } from './services/cookieService';
 import {
   AuthService,
@@ -34,8 +33,8 @@ function App() {
     requestLocationPermission,
   } = useGeolocation();
 
-  // Hook pour les notifications GPS
-  const { gpsStatus } = useGPSNotifications();
+  // Hook pour les notifications GPS (temporairement désactivé)
+  // const { gpsStatus } = useGPSNotifications();
 
   // État principal
   const [currentScreen, setCurrentScreen] = useState('home');
