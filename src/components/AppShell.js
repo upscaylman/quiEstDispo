@@ -474,16 +474,17 @@ const AppShell = ({
       {/* Header */}
       {renderHeader()}
 
-      {/* Bandeau informatif pour la page carte si aucun ami */}
-      {currentScreen === 'map' && friends.length === 0 && (
-        <WarningBanner
-          icon={Users}
-          title="Aucun ami ajouté."
-          message="Invitez-les à vous rejoindre !"
-          darkMode={darkMode}
-          onInviteClick={onAddFriend}
-        />
-      )}
+      {/* Bandeau informatif si aucun ami (tous les écrans sauf settings et debug) */}
+      {['home', 'map', 'friends'].includes(currentScreen) &&
+        friends.length === 0 && (
+          <WarningBanner
+            icon={Users}
+            title="Aucun(e) ami(es)."
+            message="Invitez-les à vous rejoindre !"
+            darkMode={darkMode}
+            onInviteClick={onAddFriend}
+          />
+        )}
 
       {/* Bandeau informatif si des amis mais aucun disponible */}
       {currentScreen === 'map' &&
