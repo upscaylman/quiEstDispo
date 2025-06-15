@@ -242,7 +242,9 @@ const AppShell = ({
                         : 'bg-gray-200 hover:bg-gray-300'
                   } rounded-full flex items-center justify-center transition-all`}
                 >
-                  {user.avatar && user.avatar.startsWith('http') ? (
+                  {user.avatar &&
+                  (user.avatar.startsWith('http') ||
+                    user.avatar.startsWith('data:')) ? (
                     <img
                       src={user.avatar}
                       alt="Avatar"

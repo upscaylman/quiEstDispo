@@ -279,9 +279,18 @@ export const useAuth = () => {
       const currentUser = AuthService.getCurrentUser();
       if (currentUser) {
         console.log('🔄 Refreshing user data...');
-        const userData = await AuthService.createUserProfile(currentUser);
-        console.log('✅ User data refreshed:', userData);
-        setUser(userData);
+        // Utiliser getUserProfile pour récupérer les données Firestore à jour
+        const userData = await AuthService.getUserProfile(currentUser.uid);
+        if (userData) {
+          console.log('✅ User data refreshed from Firestore:', userData);
+          setUser(userData);
+        } else {
+          // Fallback : recréer le profil si il n'existe pas
+          console.log('⚠️ No Firestore data found, creating profile...');
+          const fallbackData = await AuthService.createUserProfile(currentUser);
+          console.log('✅ User profile created:', fallbackData);
+          setUser(fallbackData);
+        }
       }
     } catch (error) {
       console.error('❌ Error refreshing user data:', error);

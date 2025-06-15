@@ -54,7 +54,9 @@ const FriendsScreen = ({
           >
             {/* Avatar */}
             <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-              {friend.avatar && friend.avatar.startsWith('http') ? (
+              {friend.avatar &&
+              (friend.avatar.startsWith('http') ||
+                friend.avatar.startsWith('data:')) ? (
                 <img
                   src={friend.avatar}
                   alt="Avatar"

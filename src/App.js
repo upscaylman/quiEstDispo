@@ -25,7 +25,7 @@ import './styles/responsive.css';
 import { getMockDataForOfflineMode } from './utils/mockData';
 
 function App() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, refreshUserData, signOut } = useAuth();
   const {
     location,
     error: locationError,
@@ -1274,11 +1274,23 @@ function App() {
   }, [notifications, user, isAvailable, currentActivity, pendingInvitation]);
 
   const handleProfileUpdate = async updatedUser => {
-    // Mettre à jour l'état local de l'utilisateur si possible
-    // En pratique, on devrait déclencher un rechargement du profil utilisateur
-    console.log('📝 Profil mis à jour:', updatedUser);
-    // Le hook useProfileEditor fait déjà refreshUserData(), pas besoin de recharger la page
-    // window.location.reload(); // Supprimé pour éviter la redirection vers l'accueil
+    try {
+      console.log('📝 Profile update received:', updatedUser);
+
+      // Rafraîchir immédiatement les données utilisateur depuis Firestore
+      // pour synchroniser l'état global avec la nouvelle photo
+      await refreshUserData();
+
+      console.log(
+        '✅ User data refreshed in App.js - header should update now'
+      );
+    } catch (error) {
+      console.error(
+        '❌ Error refreshing user data in handleProfileUpdate:',
+        error
+      );
+      // En cas d'erreur, on continue sans interrompre l'expérience utilisateur
+    }
   };
 
   if (loading) {

@@ -1073,4 +1073,150 @@ export class AuthService {
       return { error: error.message };
     }
   }
+
+  // Upload d'une photo de profil (solution alternative sans App Check)
+  static async uploadUserPhoto(userId, file) {
+    console.log('📷 uploadUserPhoto appelée avec:', {
+      userId,
+      fileSize: file.size,
+      fileType: file.type,
+    });
+
+    if (!isOnline()) {
+      throw new Error('Connexion requise pour uploader la photo');
+    }
+
+    // Solution alternative : convertir en base64 et stocker dans Firestore
+    // Cela évite les problèmes App Check/CORS avec Firebase Storage
+    try {
+      console.log("🔄 Compression et conversion de l'image...");
+
+      // Compresser l'image si elle est trop grande
+      const compressedFile = await this.compressImage(file, 800, 0.8);
+      console.log('📏 Taille après compression:', compressedFile.size, 'bytes');
+
+      const base64String = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result;
+          // Récupérer seulement la partie base64 (sans le préfixe data:image/...)
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(compressedFile);
+      });
+
+      console.log('✅ Image convertie en base64, taille:', base64String.length);
+
+      const dataURL = `data:${compressedFile.type};base64,${base64String}`;
+
+      // Stocker l'image base64 directement dans Firestore
+      const photoData = {
+        type: 'base64',
+        data: base64String,
+        mimeType: compressedFile.type,
+        originalSize: file.size,
+        compressedSize: compressedFile.size,
+        uploadedAt: new Date().toISOString(),
+      };
+
+      await retryWithBackoff(async () => {
+        // Mettre à jour Firestore avec l'image base64
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, {
+          avatar: dataURL,
+          avatarData: photoData,
+          updatedAt: serverTimestamp(),
+        });
+
+        console.log('✅ Photo de profil mise à jour dans Firestore');
+      });
+
+      // Important : Déclencher la synchronisation pour que les amis voient le changement
+      console.log('🔄 Déclenchement de la synchronisation pour les amis...');
+      await this.notifyFriendsOfProfileUpdate(userId);
+
+      console.log('🔗 Data URL créée:', dataURL.substring(0, 100) + '...');
+      console.log(
+        '📊 Compression: ',
+        file.size,
+        '→',
+        compressedFile.size,
+        'bytes'
+      );
+
+      return dataURL;
+    } catch (error) {
+      console.error('❌ Erreur upload photo (base64):', error);
+      throw new Error(`Impossible d'uploader la photo: ${error.message}`);
+    }
+  }
+
+  // Notifier les amis d'une mise à jour de profil pour forcer la synchronisation
+  static async notifyFriendsOfProfileUpdate(userId) {
+    try {
+      // Cette méthode déclenche une mise à jour dans la collection users
+      // pour que les amis voient immédiatement les changements
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        profileUpdatedAt: serverTimestamp(),
+        // Force la synchronisation temps réel avec les listeners des amis
+        syncTrigger: new Date().getTime(),
+      });
+      console.log('✅ Notification de mise à jour de profil envoyée');
+    } catch (error) {
+      console.warn('⚠️ Erreur notification amis:', error);
+      // Ce n'est pas critique, on continue
+    }
+  }
+
+  // Compresser une image pour réduire sa taille
+  static async compressImage(file, maxWidth = 800, quality = 0.8) {
+    return new Promise(resolve => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+
+      img.onload = () => {
+        // Calculer les nouvelles dimensions en gardant le ratio
+        let { width, height } = img;
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxWidth) {
+            width = (width * maxWidth) / height;
+            height = maxWidth;
+          }
+        }
+
+        // Redimensionner le canvas
+        canvas.width = width;
+        canvas.height = height;
+
+        // Dessiner l'image redimensionnée
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convertir en blob avec compression
+        canvas.toBlob(
+          blob => {
+            // Créer un nouveau File avec le blob compressé
+            const compressedFile = new File([blob], file.name, {
+              type: file.type,
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          },
+          file.type,
+          quality
+        );
+      };
+
+      // Charger l'image
+      img.src = URL.createObjectURL(file);
+    });
+  }
 }

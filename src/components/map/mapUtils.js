@@ -257,7 +257,8 @@ export const createUserMarkerElement = (user, hasLocationPermission = true) => {
           position: relative;
         ">
           ${
-            avatarUrl && avatarUrl.startsWith('http')
+            avatarUrl &&
+            (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:'))
               ? `<img src="${avatarUrl}" style="
                  width: 100%; 
                  height: 100%; 
@@ -415,7 +416,8 @@ export const createFriendMarkerElement = (friend, onClick) => {
         position: relative;
       ">
         ${
-          avatarUrl && avatarUrl.startsWith('http')
+          avatarUrl &&
+          (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:'))
             ? `<img src="${avatarUrl}" style="
                width: 100%; 
                height: 100%; 

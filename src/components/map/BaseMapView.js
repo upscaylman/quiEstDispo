@@ -227,7 +227,11 @@ const BaseMapView = ({
                         selectedFriend.displayName ||
                         'Ami';
 
-                      if (avatarUrl && avatarUrl.startsWith('http')) {
+                      if (
+                        avatarUrl &&
+                        (avatarUrl.startsWith('http') ||
+                          avatarUrl.startsWith('data:'))
+                      ) {
                         return (
                           <img
                             src={avatarUrl}
