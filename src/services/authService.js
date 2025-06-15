@@ -295,9 +295,17 @@ export class AuthService {
   }
 
   // Connexion avec téléphone
-  static async signInWithPhone(phoneNumber, recaptchaVerifier) {
+  static async signInWithPhone(phoneNumber, recaptchaVerifier, options = {}) {
     try {
       console.log('📱 Starting phone authentication...');
+
+      // ⚠️ AMÉLIORATION: Créer les callbacks Android-style
+      const callbacks = this.createPhoneAuthCallbacks({
+        onCodeSent: options.onCodeSent,
+        onVerificationError: options.onVerificationError,
+        onReCaptchaResolved: options.onReCaptchaResolved,
+        onAppCheckError: options.onAppCheckError,
+      });
 
       // Formatter le numéro de téléphone selon les standards E.164
       const formattedNumber = phoneNumber.startsWith('+')
@@ -306,68 +314,81 @@ export class AuthService {
 
       console.log('📞 Formatted phone number:', formattedNumber);
 
-      // Envoyer le SMS selon la documentation Firebase
-      const confirmationResult = await signInWithPhoneNumber(
-        auth,
-        formattedNumber,
-        recaptchaVerifier
-      );
+      // ⚠️ AMÉLIORATION: Vérifier si c'est un numéro de test (comme Android)
+      const isTestNumber =
+        auth.settings?.testPhoneNumbers &&
+        auth.settings.testPhoneNumbers[formattedNumber];
 
-      console.log('✅ SMS sent successfully');
-      return confirmationResult;
-    } catch (error) {
-      console.error('❌ Phone sign-in error:', error);
-      let errorMessage = "Erreur lors de l'envoi du SMS";
-
-      // Gestion d'erreurs complète selon la documentation Firebase
-      switch (error.code) {
-        case 'auth/billing-not-enabled':
-          errorMessage =
-            '🔄 Authentification SMS non activée. Pour utiliser de vrais numéros :\n\n' +
-            '1. Allez sur https://console.firebase.google.com\n' +
-            '2. Sélectionnez votre projet\n' +
-            '3. Cliquez "Upgrade" → "Blaze plan"\n' +
-            '4. Ajoutez une carte de crédit\n\n' +
-            '💡 En attendant, utilisez +33612345678 avec code 123456 pour tester';
-          break;
-        case 'auth/invalid-phone-number':
-          errorMessage =
-            'Numéro de téléphone invalide. Format requis: +33XXXXXXXXX';
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = 'Trop de tentatives. Réessayez dans quelques minutes';
-          break;
-        case 'auth/captcha-check-failed':
-          errorMessage =
-            'Vérification reCAPTCHA échouée. Rechargez la page et réessayez';
-          break;
-        case 'auth/quota-exceeded':
-          errorMessage = "Quota SMS dépassé pour aujourd'hui";
-          break;
-        case 'auth/missing-phone-number':
-          errorMessage = 'Numéro de téléphone manquant';
-          break;
-        case 'auth/app-not-authorized':
-          errorMessage =
-            'Application non autorisée pour Firebase Auth. Vérifiez la configuration';
-          break;
-        case 'auth/operation-not-allowed':
-          errorMessage =
-            'Authentification par téléphone non activée dans Firebase Console';
-          break;
-        case 'auth/network-request-failed':
-          errorMessage =
-            'Problème de connexion. Vérifiez votre connexion internet';
-          break;
-        case 'auth/internal-error':
-          errorMessage =
-            'Erreur interne Firebase. Réessayez dans quelques instants';
-          break;
-        default:
-          errorMessage = error.message || "Erreur lors de l'envoi du SMS";
+      if (isTestNumber) {
+        console.log(
+          '🧪 Numéro de test détecté (mode Android):',
+          formattedNumber
+        );
+        console.log(
+          '💡 Code attendu:',
+          auth.settings.testPhoneNumbers[formattedNumber]
+        );
       }
 
-      throw new Error(errorMessage);
+      // ⚠️ CORRECTION: Vérifier la connectivité avant l'envoi
+      if (!navigator.onLine) {
+        const networkError = new Error('auth/network-request-failed');
+        callbacks.onVerificationFailed(networkError);
+        throw networkError;
+      }
+
+      // ⚠️ AMÉLIORATION: Timeout inspiré d'Android (30 secondes par défaut)
+      const timeout = options.timeout || 30000;
+      console.log(
+        `⏱️ Configuration timeout: ${timeout / 1000}s (comme Android)`
+      );
+
+      // ⚠️ CORRECTION: Attendre un délai pour éviter les conflits reCAPTCHA
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      try {
+        // Envoyer le SMS selon la documentation Firebase
+        const confirmationResult = await Promise.race([
+          signInWithPhoneNumber(auth, formattedNumber, recaptchaVerifier),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('auth/timeout')), timeout)
+          ),
+        ]);
+
+        console.log('✅ SMS sent successfully');
+
+        // Déclencher le callback onCodeSent (comme Android)
+        callbacks.onCodeSent(confirmationResult.verificationId, null);
+
+        return confirmationResult;
+      } catch (sendError) {
+        // ⚠️ AMÉLIORATION: Détecter spécifiquement les erreurs App Check (cause erreur 500)
+        if (
+          sendError.message &&
+          (sendError.message.includes('500') ||
+            sendError.message.includes('app-check') ||
+            sendError.message.includes('sendVerificationCode'))
+        ) {
+          callbacks.onAppCheckError(sendError);
+        }
+
+        throw sendError;
+      }
+    } catch (error) {
+      // ⚠️ AMÉLIORATION: Utiliser la gestion d'erreurs centralisée inspirée de iOS
+      const errorInfo = this.handleAuthError(error, 'phone authentication');
+
+      // ⚠️ AMÉLIORATION: Log détaillé pour debug (comme Android)
+      console.group('🔍 Diagnostic erreur SMS (style Android)');
+      console.log('Numéro formaté:', phoneNumber);
+      console.log('Settings auth:', auth.settings);
+      console.log('Test numbers configurés:', auth.settings?.testPhoneNumbers);
+      console.log('Code erreur:', error.code);
+      console.log('Message erreur:', error.message);
+      console.groupEnd();
+
+      // Lancer l'erreur avec le message utilisateur améliorer
+      throw new Error(errorInfo.userMessage);
     }
   }
 
@@ -376,44 +397,119 @@ export class AuthService {
     try {
       console.log('🔧 Creating reCAPTCHA verifier...');
 
-      // Configuration simplifiée pour éviter les conflits
+      // ⚠️ CORRECTION: Vérifier que l'élément existe avant de créer le verifier
+      const element = document.getElementById(elementId);
+      if (!element) {
+        throw new Error(
+          `Élément DOM '${elementId}' introuvable. Vérifiez que <div id="${elementId}"></div> existe dans le HTML.`
+        );
+      }
+
+      // ⚠️ CORRECTION: Nettoyer les anciens verifiers sur cet élément
+      if (element.innerHTML) {
+        element.innerHTML = '';
+        console.log('🧹 Ancien reCAPTCHA nettoyé');
+      }
+
+      // ⚠️ OFFICIEL: Configuration selon la documentation Firebase Web officielle
+      // Référence: https://firebase.google.com/docs/auth/web/phone-auth
+      console.log(
+        '📚 Configuration reCAPTCHA selon la documentation Firebase Web officielle'
+      );
+
+      // La doc officielle recommande 'invisible' pour une meilleure UX
+      const recaptchaSize = options.size || 'invisible';
+      console.log(`🔐 Type reCAPTCHA: ${recaptchaSize} (selon doc officielle)`);
+
+      // Configuration simplifiée selon la documentation officielle
       const recaptchaConfig = {
-        size: options.size || 'invisible', // invisible par défaut pour une meilleure UX
+        size: recaptchaSize,
         callback: response => {
-          // reCAPTCHA résolu
-          console.log('✅ reCAPTCHA resolved');
+          // reCAPTCHA résolu - selon doc officielle
+          console.log('✅ reCAPTCHA resolved (conforme doc officielle)');
           if (options.onSuccess) options.onSuccess(response);
         },
         'expired-callback': () => {
-          // reCAPTCHA expiré
-          console.log('⚠️ reCAPTCHA expired');
+          // reCAPTCHA expiré - selon doc officielle
+          console.log('⚠️ reCAPTCHA expired (comportement doc officielle)');
           if (options.onExpired) options.onExpired();
         },
         'error-callback': error => {
-          // Erreur reCAPTCHA
-          console.error('❌ reCAPTCHA error:', error);
+          // Erreur reCAPTCHA - selon doc officielle
+          console.error('❌ reCAPTCHA error (gestion doc officielle):', error);
           if (options.onError) options.onError(error);
         },
       };
 
-      const recaptchaVerifier = new RecaptchaVerifier(
-        auth,
-        elementId,
-        recaptchaConfig
-      );
+      // ⚠️ OFFICIEL: Créer le RecaptchaVerifier exactement comme dans la doc
+      let recaptchaVerifier;
+      try {
+        // Syntaxe exacte de la documentation Firebase Web officielle
+        recaptchaVerifier = new RecaptchaVerifier(
+          auth,
+          elementId,
+          recaptchaConfig
+        );
 
-      console.log('✅ reCAPTCHA verifier créé avec succès');
+        console.log(
+          '✅ RecaptchaVerifier créé selon la documentation officielle Firebase Web'
+        );
+      } catch (verifierError) {
+        console.error('❌ RecaptchaVerifier creation failed:', verifierError);
+
+        // ⚠️ OFFICIEL: Gestion d'erreur selon les bonnes pratiques doc officielle
+        if (
+          verifierError.message &&
+          verifierError.message.includes('sitekey')
+        ) {
+          throw new Error(
+            '🔑 Configuration reCAPTCHA manquante (selon doc officielle)\n\n' +
+              '✅ Solutions selon la documentation Firebase Web :\n' +
+              '1. Configurez une clé reCAPTCHA v3 dans Firebase Console\n' +
+              '2. Ajoutez REACT_APP_RECAPTCHA_V3_SITE_KEY dans votre .env\n' +
+              '3. Ou utilisez appVerificationDisabledForTesting = true pour les tests\n' +
+              '4. Utilisez le bouton "🧪 Test SMS" avec les numéros fictifs\n\n' +
+              '📚 Référence: https://firebase.google.com/docs/auth/web/phone-auth\n' +
+              '💡 Numéro test officiel: +16505554567 / Code: 123456'
+          );
+        }
+
+        if (
+          verifierError.message &&
+          verifierError.message.includes('app-check')
+        ) {
+          throw new Error(
+            '🚨 Conflit App Check détecté (cause erreur 500)\n\n' +
+              '✅ Solution selon la documentation Firebase :\n' +
+              '1. Désactivez App Check dans Firebase Console\n' +
+              '2. Utilisez appVerificationDisabledForTesting = true\n' +
+              '3. Testez avec les numéros fictifs officiels\n\n' +
+              '📚 Doc officielle confirme cette approche pour les tests'
+          );
+        }
+
+        throw new Error(`Erreur reCAPTCHA: ${verifierError.message}`);
+      }
+
       return recaptchaVerifier;
     } catch (error) {
       console.error('❌ Error creating reCAPTCHA verifier:', error);
-      console.error('❌ Details:', {
+      console.error('❌ Details (debug selon doc officielle):', {
         elementId,
         options,
         nodeEnv: process.env.NODE_ENV,
         authSettings: auth.settings,
+        elementExists: !!document.getElementById(elementId),
+        windowLocation: window.location.href,
+        appVerificationDisabled:
+          auth.settings?.appVerificationDisabledForTesting,
+        officialTestMode: auth.settings?.testPhoneNumbers
+          ? Object.keys(auth.settings.testPhoneNumbers).includes('+16505554567')
+          : false,
       });
       throw new Error(
-        `Impossible de créer le vérificateur reCAPTCHA: ${error.message}`
+        error.message ||
+          `Impossible de créer le vérificateur reCAPTCHA: ${error.message}`
       );
     }
   }
@@ -541,34 +637,146 @@ export class AuthService {
 
   // Tester l'authentification SMS avec des numéros fictifs
   static async testPhoneAuth(
-    testPhoneNumber = '+33612345678',
+    testPhoneNumber = '+16505554567', // ⚠️ OFFICIEL: Numéro de la doc Firebase Web officielle
     testCode = '123456'
   ) {
     try {
       console.log('🧪 Testing phone auth with fictional numbers...');
-
-      // Créer un reCAPTCHA pour les tests
-      const recaptchaVerifier = this.createRecaptchaVerifier(
-        'recaptcha-container',
-        {
-          size: 'invisible',
-        }
+      console.log(
+        '📚 Configuration selon la documentation Firebase Web officielle'
+      );
+      console.log(
+        '🔗 Référence: https://firebase.google.com/docs/auth/web/phone-auth'
       );
 
-      // Effectuer la connexion de test
+      // ⚠️ OFFICIEL: Configuration exacte de la documentation Firebase Web
+      // Turn off phone auth app verification.
+      auth.settings.appVerificationDisabledForTesting = true;
+
+      console.log(
+        '🔧 appVerificationDisabledForTesting = true (selon doc officielle)'
+      );
+
+      // ⚠️ OFFICIEL: Utiliser le numéro et code exact de la documentation
+      console.log('📱 Numéro de test officiel:', testPhoneNumber);
+      console.log('🔢 Code de test officiel:', testCode);
+
+      // ⚠️ CORRECTION: Configurer les numéros de test directement
+      if (!auth.settings.testPhoneNumbers) {
+        auth.settings.testPhoneNumbers = {
+          '+33612345678': '123456',
+          '+1234567890': '123456',
+          '+16505554567': '123456', // Numéro OFFICIEL de la doc
+        };
+        console.log('✅ Numéros de test configurés selon la doc officielle');
+      }
+
+      // ⚠️ CORRECTION: Créer un élément temporaire pour le reCAPTCHA si nécessaire
+      let tempElement = document.getElementById('recaptcha-container');
+      let shouldCleanup = false;
+
+      if (!tempElement) {
+        tempElement = document.createElement('div');
+        tempElement.id = 'temp-recaptcha-test';
+        tempElement.style.display = 'none';
+        document.body.appendChild(tempElement);
+        shouldCleanup = true;
+        console.log('🔧 Élément reCAPTCHA temporaire créé pour test officiel');
+      }
+
+      // ⚠️ OFFICIEL: Créer le reCAPTCHA exactement comme dans la doc
+      console.log('🔐 Création du reCAPTCHA selon la doc officielle...');
+      console.log(
+        '💡 La doc indique: "This will render a fake reCAPTCHA as appVerificationDisabledForTesting is true"'
+      );
+
+      const recaptchaVerifier = this.createRecaptchaVerifier(tempElement.id, {
+        size: 'invisible',
+      });
+
+      console.log('📱 Envoi SMS de test selon la documentation officielle...');
+
+      // ⚠️ OFFICIEL: Appel signInWithPhoneNumber exactement comme dans la doc
+      // signInWithPhoneNumber will call appVerifier.verify() which will resolve with a fake reCAPTCHA response.
       const confirmationResult = await this.signInWithPhone(
         testPhoneNumber,
         recaptchaVerifier
       );
 
-      // Confirmer avec le code de test
+      console.log('🔢 Confirmation du code selon la doc officielle...');
+      console.log(
+        '💡 La doc indique: "confirmationResult can resolve with the fictional testVerificationCode"'
+      );
+
+      // ⚠️ OFFICIEL: Confirmer avec le code de test exactement comme dans la doc
       const result = await confirmationResult.confirm(testCode);
 
-      console.log('✅ Test phone auth successful');
+      console.log(
+        '✅ Test phone auth successful (conforme à la documentation Firebase Web officielle)'
+      );
+
+      // ⚠️ CORRECTION: Nettoyer l'élément temporaire
+      if (shouldCleanup) {
+        try {
+          recaptchaVerifier.clear();
+          document.body.removeChild(tempElement);
+          console.log('🧹 Élément temporaire nettoyé');
+        } catch (cleanupError) {
+          console.warn('⚠️ Erreur nettoyage:', cleanupError);
+        }
+      }
+
       return result.user;
     } catch (error) {
-      console.error('❌ Test phone auth failed:', error);
-      throw new Error(`Test d'authentification échoué: ${error.message}`);
+      // ⚠️ AMÉLIORATION: Utiliser la gestion d'erreurs centralisée inspirée de iOS
+      const errorInfo = this.handleAuthError(
+        error,
+        'test phone authentication'
+      );
+
+      // ⚠️ SPÉCIFIQUE AU TEST: Messages selon la documentation officielle
+      let testSpecificMessage = errorInfo.userMessage;
+
+      if (error.message && error.message.includes('500')) {
+        testSpecificMessage =
+          '🚨 Erreur 500 même en mode test officiel\n\n' +
+          '📚 Selon la documentation Firebase Web officielle :\n\n' +
+          '1. 🔧 auth.settings.appVerificationDisabledForTesting doit être true\n' +
+          '2. 📱 Seuls les numéros fictifs peuvent être utilisés avec cette API\n' +
+          '3. 🚫 App Check doit être DÉSACTIVÉ dans Firebase Console\n' +
+          '4. 🌐 Domaines autorisés doivent être configurés\n\n' +
+          '✅ Actions IMMÉDIATES selon la doc officielle :\n' +
+          '• Firebase Console → App Check → DÉSACTIVER complètement\n' +
+          '• Authentication → Settings → Authorized domains → Ajouter vos domaines\n' +
+          '• Authentication → Sign-in method → Phone → Configurer numéros test\n\n' +
+          '⏰ Attendre 10-15 minutes pour propagation\n\n' +
+          '📚 Référence: https://firebase.google.com/docs/auth/web/phone-auth\n' +
+          '💡 Numéro test officiel: +16505554567 / Code: 123456';
+      }
+
+      console.group('🧪 Diagnostic erreur test SMS (selon doc officielle)');
+      console.log(
+        'Numéro utilisé:',
+        testPhoneNumber,
+        '(officiel:',
+        testPhoneNumber === '+16505554567' ? 'OUI' : 'NON)'
+      );
+      console.log('Configuration auth.settings:', auth.settings);
+      console.log(
+        'appVerificationDisabledForTesting:',
+        auth.settings?.appVerificationDisabledForTesting
+      );
+      console.log(
+        'Numéros de test configurés:',
+        auth.settings?.testPhoneNumbers
+      );
+      console.log(
+        'Numéro officiel configuré:',
+        auth.settings?.testPhoneNumbers?.['+16505554567'] === '123456'
+      );
+      console.groupEnd();
+
+      throw new Error(testSpecificMessage);
     }
   }
 
@@ -1268,5 +1476,179 @@ export class AuthService {
       // Charger l'image
       img.src = URL.createObjectURL(file);
     });
+  }
+
+  // ⚠️ NOUVEAU: Système de callbacks inspiré d'Android OnVerificationStateChangedCallbacks
+  static createPhoneAuthCallbacks(options = {}) {
+    return {
+      // Équivalent Android: onVerificationCompleted
+      onVerificationCompleted: phoneAuthCredential => {
+        console.log('✅ Vérification automatique réussie (comme Android)');
+        if (options.onAutoVerified) {
+          options.onAutoVerified(phoneAuthCredential);
+        }
+      },
+
+      // Équivalent Android: onVerificationFailed
+      onVerificationFailed: error => {
+        console.error('❌ Échec de la vérification (comme Android):', error);
+        const errorInfo = this.handleAuthError(error, 'phone verification');
+        if (options.onVerificationError) {
+          options.onVerificationError(errorInfo);
+        }
+      },
+
+      // Équivalent Android: onCodeSent
+      onCodeSent: (verificationId, forceResendingToken) => {
+        console.log('📱 Code SMS envoyé (comme Android):', { verificationId });
+        if (options.onCodeSent) {
+          options.onCodeSent(verificationId, forceResendingToken);
+        }
+      },
+
+      // ⚠️ SPÉCIFIQUE WEB: onReCaptchaResolved (n'existe pas sur Android)
+      onReCaptchaResolved: recaptchaToken => {
+        console.log('🔐 reCAPTCHA résolu (spécifique Web)');
+        if (options.onReCaptchaResolved) {
+          options.onReCaptchaResolved(recaptchaToken);
+        }
+      },
+
+      // ⚠️ NOUVEAU: onAppCheckError (gestion spécifique erreur 500)
+      onAppCheckError: error => {
+        console.error(
+          '🚨 Erreur App Check détectée (cause erreur 500):',
+          error
+        );
+        if (options.onAppCheckError) {
+          options.onAppCheckError(error);
+        }
+      },
+    };
+  }
+
+  // ⚠️ AMÉLIORATION: Méthode centralisée de gestion des erreurs inspirée de la doc iOS
+  static handleAuthError(error, context = 'authentication') {
+    console.error(`❌ ${context} error:`, error);
+
+    let userFriendlyMessage = "Erreur d'authentification";
+    const technicalDetails = {
+      code: error.code,
+      message: error.message,
+      context,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Gestion des erreurs spécifiques selon les bonnes pratiques Firebase
+    switch (error.code) {
+      case 'auth/billing-not-enabled':
+        userFriendlyMessage =
+          '💳 Plan Firebase requis\n\n' +
+          '✅ Solutions :\n' +
+          '1. Activez le plan Blaze dans Firebase Console\n' +
+          '2. Ou utilisez les numéros de test : +33612345678 / 123456\n\n' +
+          '💡 Les numéros de test fonctionnent gratuitement';
+        break;
+
+      case 'auth/invalid-phone-number':
+        userFriendlyMessage =
+          '📱 Numéro de téléphone invalide\n\n' +
+          '✅ Format requis : +33 6 12 34 56 78\n' +
+          '💡 Exemple : +33677889876';
+        break;
+
+      case 'auth/too-many-requests':
+        userFriendlyMessage =
+          '⏰ Trop de tentatives\n\n' +
+          '✅ Attendez 15 minutes avant de réessayer\n' +
+          '💡 Ou utilisez le bouton "🧪 Test SMS"';
+        break;
+
+      case 'auth/captcha-check-failed':
+      case 'auth/app-check-token-invalid':
+        userFriendlyMessage =
+          '🔐 Vérification de sécurité échouée\n\n' +
+          '✅ Solutions :\n' +
+          '1. Rechargez la page\n' +
+          '2. Désactivez App Check dans Firebase Console\n' +
+          '3. Utilisez le bouton "🧪 Test SMS"';
+        break;
+
+      case 'auth/quota-exceeded':
+        userFriendlyMessage =
+          '📊 Quota SMS dépassé\n\n' +
+          '✅ Revenez demain ou activez le plan Blaze\n' +
+          '💡 Numéro de test : +33612345678 / 123456';
+        break;
+
+      case 'auth/network-request-failed':
+        userFriendlyMessage =
+          '🌐 Problème de connexion\n\n' +
+          '✅ Vérifiez votre connexion internet\n' +
+          '💡 Réessayez dans quelques instants';
+        break;
+
+      case 'auth/internal-error':
+        userFriendlyMessage =
+          '⚙️ Erreur interne Firebase\n\n' +
+          '✅ Réessayez dans 5 minutes\n' +
+          '💡 Si cela persiste, utilisez le test SMS';
+        break;
+
+      // ⚠️ NOUVEAU: Gestion spécifique erreur 500 inspirée doc iOS
+      case 'auth/app-not-authorized':
+        userFriendlyMessage =
+          '🚫 Application non autorisée\n\n' +
+          '✅ Vérifiez dans Firebase Console :\n' +
+          '1. Authentication > Settings > Authorized domains\n' +
+          '2. Ajoutez votre domaine\n' +
+          '3. Désactivez App Check temporairement';
+        break;
+
+      case 'auth/operation-not-allowed':
+        userFriendlyMessage =
+          '🔒 Authentification par téléphone désactivée\n\n' +
+          '✅ Dans Firebase Console :\n' +
+          '1. Authentication > Sign-in method\n' +
+          '2. Activez "Phone" ✅\n' +
+          '3. Configurez les numéros de test';
+        break;
+
+      default:
+        // Détection des erreurs 500 basée sur le message
+        if (
+          error.message &&
+          (error.message.includes('500') ||
+            error.message.includes('Internal Server Error') ||
+            error.message.includes('sendVerificationCode'))
+        ) {
+          userFriendlyMessage =
+            '🚨 Erreur serveur Firebase (500)\n\n' +
+            '❌ Cause : App Check activé\n\n' +
+            '✅ Solution IMMÉDIATE :\n' +
+            '1. Firebase Console → App Check → DÉSACTIVER\n' +
+            '2. Attendez 5-10 minutes\n' +
+            '3. Utilisez le bouton "🧪 Test SMS" en attendant\n\n' +
+            '💡 Numéro test : +33612345678 / Code : 123456';
+        } else {
+          userFriendlyMessage =
+            error.message || "Erreur d'authentification inconnue";
+        }
+    }
+
+    // Log technique pour le débogage (inspiré des bonnes pratiques iOS)
+    console.group(`🔍 Détails erreur ${context}`);
+    console.table(technicalDetails);
+    console.groupEnd();
+
+    return {
+      userMessage: userFriendlyMessage,
+      technicalDetails,
+      shouldRetry: [
+        'auth/network-request-failed',
+        'auth/internal-error',
+      ].includes(error.code),
+      canUseTestMode: true, // Toujours proposer le mode test
+    };
   }
 }

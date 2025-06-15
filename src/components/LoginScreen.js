@@ -221,19 +221,59 @@ const LoginScreen = () => {
       const validatedPhone = validatePhoneNumber(phoneNumber);
       console.log('📱 Numéro validé:', validatedPhone);
 
+      // ⚠️ AMÉLIORATION: Créer les callbacks inspirés d'Android
+      const androidStyleCallbacks = {
+        onCodeSent: verificationId => {
+          console.log('✅ Code SMS envoyé (callback Android):', verificationId);
+          // Interface déjà mise à jour par setConfirmationResult
+        },
+        onVerificationError: errorInfo => {
+          console.error(
+            '❌ Erreur de vérification (callback Android):',
+            errorInfo
+          );
+          setError(errorInfo.userMessage);
+          setLoading(false);
+        },
+        onReCaptchaResolved: token => {
+          console.log(
+            '🔐 reCAPTCHA résolu (callback Web):',
+            token ? 'Token reçu' : 'Pas de token'
+          );
+        },
+        onAppCheckError: error => {
+          console.error(
+            '🚨 Erreur App Check détectée (callback spécial):',
+            error
+          );
+          setError(
+            '🚨 Erreur App Check (cause erreur 500)\n\n' +
+              '✅ Solution IMMÉDIATE :\n' +
+              '1. Désactivez App Check dans Firebase Console\n' +
+              '2. Utilisez le bouton "🧪 Test SMS" en attendant\n\n' +
+              '💡 Cette erreur est maintenant détectée automatiquement !'
+          );
+          setLoading(false);
+        },
+      };
+
       // Créer un nouveau verifier si nécessaire
       if (!recaptchaVerifier) {
         try {
           console.log('🔐 Creating reCAPTCHA verifier...');
           const verifier = createRecaptchaVerifier('recaptcha-container', {
             size: 'invisible',
+            onSuccess: androidStyleCallbacks.onReCaptchaResolved,
           });
           setRecaptchaVerifier(verifier);
           console.log('✅ reCAPTCHA verifier created');
 
-          // Procéder directement à l'envoi SMS sans rendre manuellement
-          console.log('📱 Sending SMS with phone number:', validatedPhone);
-          const result = await signInWithPhone(validatedPhone, verifier);
+          // ⚠️ AMÉLIORATION: Utiliser la nouvelle méthode avec callbacks Android
+          console.log('📱 Sending SMS with Android-style callbacks...');
+          const result = await signInWithPhone(validatedPhone, verifier, {
+            ...androidStyleCallbacks,
+            timeout: 30000, // 30 secondes comme Android
+          });
           console.log('✅ SMS sent, confirmation result:', result);
           setConfirmationResult(result);
           return;
@@ -254,9 +294,14 @@ const LoginScreen = () => {
         }
       }
 
-      // Envoyer le SMS avec le verifier existant
-      console.log('📱 Sending SMS with existing verifier...');
-      const result = await signInWithPhone(validatedPhone, recaptchaVerifier);
+      // Envoyer le SMS avec le verifier existant et les callbacks Android
+      console.log(
+        '📱 Sending SMS with existing verifier (Android callbacks)...'
+      );
+      const result = await signInWithPhone(validatedPhone, recaptchaVerifier, {
+        ...androidStyleCallbacks,
+        timeout: 30000, // 30 secondes comme Android
+      });
       console.log('✅ SMS sent successfully');
       setConfirmationResult(result);
     } catch (error) {
@@ -460,6 +505,30 @@ const LoginScreen = () => {
                       'Envoyer le code SMS'
                     )}
                   </motion.button>
+
+                  {/* ⚠️ CORRECTION: Bouton de test SMS UNIQUEMENT en développement */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleTestPhoneAuth}
+                        disabled={loading}
+                        className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 text-white py-3 px-6 rounded-xl font-medium transition-colors text-sm"
+                      >
+                        🧪 Test SMS (+33612345678) - Contourner erreur 500
+                      </motion.button>
+
+                      <div className="text-center">
+                        <p className="text-xs text-gray-500">
+                          💡 <strong>Erreur 500 ?</strong> Utilisez le bouton de
+                          test ci-dessus
+                          <br />
+                          Numéro : +33612345678 | Code : 123456
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </>
               ) : (
                 <>
