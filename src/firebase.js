@@ -33,13 +33,6 @@ const firebaseConfig = {
   measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
 };
 
-// Debug: Afficher la configuration Firebase (sans les clés sensibles)
-console.log('📝 Firebase Config:', {
-  authDomain: firebaseConfig.authDomain,
-  projectId: firebaseConfig.projectId,
-  storageBucket: firebaseConfig.storageBucket,
-});
-
 // Vérifier que les variables d'environnement sont définies
 if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'your_api_key_here') {
   console.error(

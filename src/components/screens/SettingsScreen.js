@@ -198,110 +198,56 @@ const SettingsScreen = ({
                       ? 'Autorisées mais non configurées'
                       : pushNotificationStatus.permission === 'denied'
                         ? 'Refusées par le navigateur'
-                        : pushNotificationStatus.supported
-                          ? 'Disponibles sur ce navigateur'
-                          : 'Non supportées sur ce navigateur'}
+                        : 'Non configurées'}
                 </p>
               </div>
             </div>
+          </div>
 
-            {pushNotificationStatus.supported && (
-              <div className="flex items-center space-x-2">
-                {/* Toggle Switch */}
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={
-                    pushNotificationStatus.subscribed
-                      ? null
-                      : onEnablePushNotifications
-                  }
-                  disabled={pushNotificationStatus.subscribed}
-                  className={`w-14 h-8 rounded-full p-1 transition-colors ${
-                    pushNotificationStatus.subscribed
-                      ? 'bg-green-500'
-                      : pushNotificationStatus.permission === 'denied'
-                        ? 'bg-red-500'
-                        : darkMode
-                          ? 'bg-gray-600'
-                          : 'bg-gray-300'
-                  }`}
-                >
-                  <div
-                    className={`w-6 h-6 rounded-full bg-white transition-transform ${
-                      pushNotificationStatus.subscribed
-                        ? 'translate-x-6'
-                        : 'translate-x-0'
-                    }`}
-                  />
-                </motion.button>
-
-                {/* Bouton Test */}
-                {pushNotificationStatus.subscribed && (
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={onTestPushNotification}
-                    className={`p-2 rounded-full ${
-                      darkMode
-                        ? 'bg-gray-700 hover:bg-gray-600'
-                        : 'bg-gray-100 hover:bg-gray-200'
-                    } transition-colors`}
-                    title="Tester les notifications"
-                  >
-                    <Bell
-                      size={16}
-                      className={darkMode ? 'text-gray-300' : 'text-gray-600'}
-                    />
-                  </motion.button>
-                )}
-
-                {/* Bouton Vérifier */}
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={onCheckPushStatus}
-                  className={`p-2 rounded-full ${
-                    darkMode
-                      ? 'bg-gray-700 hover:bg-gray-600'
-                      : 'bg-gray-100 hover:bg-gray-200'
-                  } transition-colors`}
-                  title="Vérifier le statut"
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M21 12c-1 0-3-1-3-3s2-3 3-3 3 1 3 3-2 3-3 3"></path>
-                    <path d="M6 12c1 0 3-1 3-3s-2-3-3-3-3 1-3 3 2 3 3 3"></path>
-                    <path d="M13 12h1"></path>
-                  </svg>
-                </motion.button>
-              </div>
-            )}
-
-            {/* Si non supporté */}
-            {!pushNotificationStatus.supported && (
-              <div className="text-red-500">
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <path d="M15 9l-6 6"></path>
-                  <path d="M9 9l6 6"></path>
-                </svg>
-              </div>
-            )}
+          <div className="flex flex-wrap gap-2 mt-3">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={onEnablePushNotifications}
+              className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded"
+            >
+              🔔 Activer
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={onTestPushNotification}
+              className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded"
+            >
+              🧪 Tester
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={onCheckPushStatus}
+              className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded"
+            >
+              🔍 Statut
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={onOpenDebugNotifications}
+              className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded"
+            >
+              🐛 Debug
+            </motion.button>
           </div>
         </div>
+      </div>
+
+      {/* Section Test des Notifications Firestore */}
+      <div
+        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
+      >
+        <h3
+          className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+        >
+          🧪 Test des Notifications Firestore
+        </h3>
+
+        <NotificationTest darkMode={darkMode} />
       </div>
 
       {/* Section Debug Notifications (dev) */}

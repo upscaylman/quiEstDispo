@@ -2,7 +2,8 @@
 export { AuthService } from './authService';
 export { AvailabilityService } from './availabilityService';
 export { FriendsService } from './friendsService';
-export { InvitationService, NotificationService } from './invitationService';
+export { InvitationService } from './invitationService';
+export { NotificationService } from './notificationService';
 
 // Exports d'utilitaires
 export {
@@ -10,3 +11,6 @@ export {
   isOnline,
   retryWithBackoff,
 } from './firebaseUtils';
+
+// Export de l'ancien service pour compatibilité (à supprimer après migration)
+export * from './firebaseService';

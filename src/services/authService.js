@@ -812,35 +812,117 @@ export class AuthService {
     }
   }
 
-  // Supprimer le compte utilisateur
+  // Ré-authentifier l'utilisateur si nécessaire pour la suppression
+  static async reauthenticateForDeletion() {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('Aucun utilisateur connecté');
+    }
+
+    // Vérifier si l'utilisateur peut supprimer son compte
+    try {
+      // Test rapide pour vérifier les permissions
+      await currentUser.getIdToken(true);
+      return true;
+    } catch (error) {
+      if (error.code === 'auth/requires-recent-login') {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  // Supprimer complètement un compte utilisateur
   static async deleteUserAccount(userId) {
     if (!isOnline()) {
-      throw new Error('Connexion requise pour supprimer le compte');
+      throw new Error('Connexion internet requise pour supprimer le compte');
     }
 
     try {
-      await retryWithBackoff(async () => {
-        // Supprimer le document utilisateur
-        const userRef = doc(db, 'users', userId);
-        await deleteDoc(userRef);
+      console.log(`🗑️ Suppression complète du compte ${userId}...`);
 
-        // Supprimer les données associées
+      // 0. Vérifier d'abord si on peut supprimer le compte Auth
+      const canDelete = await this.reauthenticateForDeletion();
+      if (!canDelete) {
+        throw new Error(
+          'Pour des raisons de sécurité, vous devez vous reconnecter avant de supprimer votre compte. ' +
+            'Veuillez vous déconnecter et vous reconnecter, puis réessayer.'
+        );
+      }
+
+      await retryWithBackoff(async () => {
+        // 1. Supprimer toutes les disponibilités de l'utilisateur
         const availabilitiesQuery = query(
           collection(db, 'availabilities'),
           where('userId', '==', userId)
         );
         const availabilitiesSnapshot = await getDocs(availabilitiesQuery);
+        for (const doc of availabilitiesSnapshot.docs) {
+          await deleteDoc(doc.ref);
+        }
+        console.log('✅ Disponibilités supprimées');
 
-        const deletePromises = availabilitiesSnapshot.docs.map(doc =>
-          deleteDoc(doc.ref)
+        // 2. Supprimer toutes les notifications envoyées et reçues
+        const notificationsToQuery = query(
+          collection(db, 'notifications'),
+          where('to', '==', userId)
         );
-        await Promise.all(deletePromises);
+        const notificationsFromQuery = query(
+          collection(db, 'notifications'),
+          where('from', '==', userId)
+        );
 
-        console.log('✅ User account deleted successfully');
+        const [notificationsToSnapshot, notificationsFromSnapshot] =
+          await Promise.all([
+            getDocs(notificationsToQuery),
+            getDocs(notificationsFromQuery),
+          ]);
+
+        const notificationDeletePromises = [
+          ...notificationsToSnapshot.docs.map(doc => deleteDoc(doc.ref)),
+          ...notificationsFromSnapshot.docs.map(doc => deleteDoc(doc.ref)),
+        ];
+        await Promise.all(notificationDeletePromises);
+        console.log('✅ Notifications supprimées');
+
+        // 3. Supprimer les relations d'amitié
+        const friendsQuery = query(
+          collection(db, 'friends'),
+          where('users', 'array-contains', userId)
+        );
+        const friendsSnapshot = await getDocs(friendsQuery);
+        for (const doc of friendsSnapshot.docs) {
+          await deleteDoc(doc.ref);
+        }
+        console.log("✅ Relations d'amitié supprimées");
+
+        // 4. Supprimer le document utilisateur
+        const userRef = doc(db, 'users', userId);
+        await deleteDoc(userRef);
+        console.log('✅ Document utilisateur supprimé');
+
+        // 5. Supprimer l'utilisateur Firebase Auth
+        const currentUser = auth.currentUser;
+        if (currentUser && currentUser.uid === userId) {
+          await currentUser.delete();
+          console.log('✅ Compte Firebase Auth supprimé');
+        }
+
+        console.log('🎉 Suppression terminée avec succès !');
       });
+
+      return { success: true, verification: { success: true } };
     } catch (error) {
-      console.error('❌ Delete user account failed:', error);
-      throw new Error(`Impossible de supprimer le compte: ${error.message}`);
+      console.error('❌ Erreur lors de la suppression du compte:', error);
+
+      if (error.code === 'auth/requires-recent-login') {
+        throw new Error(
+          'Pour des raisons de sécurité, vous devez vous reconnecter avant de supprimer votre compte. ' +
+            'Veuillez vous déconnecter et vous reconnecter, puis réessayer.'
+        );
+      }
+
+      throw new Error(`Erreur lors de la suppression: ${error.message}`);
     }
   }
 

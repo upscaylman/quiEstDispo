@@ -18,6 +18,8 @@ import { db, isOnline, retryWithBackoff } from './firebaseUtils';
 export class NotificationService {
   // Écouter les notifications
   static onNotifications(userId, callback) {
+    console.log('🔔 [DEBUG] onNotifications appelé pour userId:', userId);
+
     if (!isOnline()) {
       console.warn('⚠️ Offline mode, no notifications');
       callback([]);
@@ -27,21 +29,49 @@ export class NotificationService {
     try {
       const q = query(
         collection(db, 'notifications'),
-        where('to', '==', userId)
+        where('to', '==', userId),
+        orderBy('createdAt', 'desc')
       );
 
-      return onSnapshot(q, snapshot => {
-        const notifications = snapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter(notif => !notif.read)
-          .sort((a, b) => {
-            const aTime = a.createdAt?.toDate?.() || new Date();
-            const bTime = b.createdAt?.toDate?.() || new Date();
-            return bTime - aTime;
+      console.log('🔔 [DEBUG] Création du listener onSnapshot...');
+
+      return onSnapshot(
+        q,
+        snapshot => {
+          console.log(
+            '🔔 [DEBUG] onSnapshot déclenché, taille:',
+            snapshot.size
+          );
+
+          const notifications = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .sort((a, b) => {
+              const aTime = a.createdAt?.toDate?.() || new Date();
+              const bTime = b.createdAt?.toDate?.() || new Date();
+              return bTime - aTime;
+            });
+
+          console.log(
+            '🔔 [DEBUG] Notifications traitées:',
+            notifications.length
+          );
+          notifications.forEach((notif, index) => {
+            console.log(`🔔 [DEBUG] Notification ${index + 1}:`, {
+              id: notif.id,
+              type: notif.type,
+              message: notif.message,
+              read: notif.read,
+              createdAt: notif.createdAt?.toDate?.()?.toLocaleString(),
+            });
           });
 
-        callback(notifications);
-      });
+          callback(notifications);
+        },
+        error => {
+          console.error('🔔 [DEBUG] Erreur onSnapshot:', error);
+          callback([]);
+        }
+      );
     } catch (error) {
       console.warn('Warning: Could not listen to notifications:', error);
       callback([]);
@@ -175,6 +205,14 @@ export class NotificationService {
     message,
     data = {}
   ) {
+    console.log('🔔 [DEBUG] createNotification appelé:', {
+      toUserId,
+      fromUserId,
+      type,
+      message,
+      data,
+    });
+
     if (!isOnline()) {
       console.warn('⚠️ Offline mode, cannot create notification');
       return;
@@ -182,7 +220,9 @@ export class NotificationService {
 
     try {
       await retryWithBackoff(async () => {
-        await addDoc(collection(db, 'notifications'), {
+        console.log('🔔 [DEBUG] Ajout du document dans Firestore...');
+
+        const docRef = await addDoc(collection(db, 'notifications'), {
           to: toUserId,
           from: fromUserId,
           type,
@@ -191,8 +231,11 @@ export class NotificationService {
           read: false,
           createdAt: serverTimestamp(),
         });
+
+        console.log('🔔 [DEBUG] Notification créée avec ID:', docRef.id);
       });
     } catch (error) {
+      console.error('🔔 [DEBUG] Erreur createNotification:', error);
       console.warn('Warning: Could not create notification:', error);
     }
   }
@@ -320,6 +363,8 @@ export class NotificationService {
 
   // Récupérer les notifications d'un utilisateur
   static async getNotifications(userId) {
+    console.log('🔔 [DEBUG] getNotifications appelé pour userId:', userId);
+
     if (!isOnline()) {
       console.warn('⚠️ Offline mode, no notifications');
       return [];
@@ -329,18 +374,98 @@ export class NotificationService {
       const q = query(
         collection(db, 'notifications'),
         where('to', '==', userId),
-        where('read', '==', false),
         orderBy('createdAt', 'desc')
       );
 
+      console.log('🔔 [DEBUG] Exécution de la requête getDocs...');
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
+
+      console.log('🔔 [DEBUG] Requête terminée, taille:', querySnapshot.size);
+
+      const notifications = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
       }));
+
+      console.log('🔔 [DEBUG] Notifications récupérées:', notifications.length);
+      notifications.forEach((notif, index) => {
+        console.log(`🔔 [DEBUG] Notification ${index + 1}:`, {
+          id: notif.id,
+          type: notif.type,
+          message: notif.message,
+          read: notif.read,
+          createdAt: notif.createdAt?.toDate?.()?.toLocaleString(),
+        });
+      });
+
+      return notifications;
     } catch (error) {
+      console.error('🔔 [DEBUG] Erreur getNotifications:', error);
       console.warn('Warning: Could not get notifications:', error);
       return [];
+    }
+  }
+
+  // Supprimer définitivement une notification
+  static async deleteNotification(notificationId) {
+    if (!isOnline()) {
+      console.warn('⚠️ Offline mode, cannot delete notification');
+      return;
+    }
+
+    try {
+      await retryWithBackoff(async () => {
+        const notificationRef = doc(db, 'notifications', notificationId);
+        await deleteDoc(notificationRef);
+      });
+      console.log(`✅ Notification ${notificationId} supprimée`);
+    } catch (error) {
+      console.warn('Warning: Could not delete notification:', error);
+      throw error;
+    }
+  }
+
+  // Marquer toutes les notifications comme lues (sans les supprimer)
+  static async markAllAsReadOnVisit(userId) {
+    if (!isOnline()) {
+      console.warn('⚠️ Offline mode, cannot mark notifications as read');
+      return;
+    }
+
+    try {
+      const q = query(
+        collection(db, 'notifications'),
+        where('to', '==', userId),
+        where('read', '==', false)
+      );
+
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        console.log('ℹ️ Aucune notification non lue à marquer');
+        return;
+      }
+
+      const updatePromises = querySnapshot.docs.map(docRef =>
+        retryWithBackoff(() =>
+          updateDoc(docRef.ref, {
+            read: true,
+            readAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          })
+        )
+      );
+
+      await Promise.all(updatePromises);
+
+      console.log(
+        `✅ ${querySnapshot.docs.length} notification(s) marquée(s) comme lue(s) lors de la visite`
+      );
+    } catch (error) {
+      console.warn(
+        'Warning: Could not mark notifications as read on visit:',
+        error
+      );
     }
   }
 

@@ -1,172 +1,231 @@
 import React, { useEffect, useState } from 'react';
-import PushNotificationService from '../services/pushNotificationService';
+import { useAuth } from '../hooks/useAuth';
+import { NotificationService } from '../services/firebaseService';
 
-const NotificationTest = ({ user, darkMode }) => {
+const NotificationTest = ({ darkMode = false }) => {
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [logs, setLogs] = useState([]);
-  const [status, setStatus] = useState(null);
 
-  const addLog = (message, type = 'info') => {
+  const addLog = message => {
     const timestamp = new Date().toLocaleTimeString();
-    setLogs(prev => [...prev, { message, type, timestamp }]);
+    setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
+    console.log(`[NotificationTest] ${message}`);
   };
 
-  const checkNotificationStatus = async () => {
-    try {
-      addLog('🔍 Vérification du statut des notifications...', 'info');
-
-      const status = await PushNotificationService.checkStatus();
-      setStatus(status);
-
-      addLog(`✅ Statut: ${JSON.stringify(status)}`, 'success');
-
-      // Vérifier l'utilisateur actuel
-      const currentUserId = PushNotificationService.getCurrentUserId();
-      addLog(`🔍 Utilisateur actuel détecté: ${currentUserId}`, 'info');
-      addLog(`🔍 Utilisateur connecté: ${user?.uid}`, 'info');
-
-      // Vérifier les permissions
-      addLog(`🔍 Permission: ${Notification.permission}`, 'info');
-    } catch (error) {
-      addLog(`❌ Erreur: ${error.message}`, 'error');
+  // Test de récupération des notifications
+  const testGetNotifications = async () => {
+    if (!user) {
+      addLog('❌ Aucun utilisateur connecté');
+      return;
     }
-  };
 
-  const requestPermission = async () => {
+    setLoading(true);
+    setError(null);
+    addLog(`🔍 Test récupération notifications pour ${user.uid}`);
+
     try {
-      addLog('📱 Demande de permission...', 'info');
-      await PushNotificationService.requestPermission();
-      addLog('✅ Permission accordée', 'success');
-      await checkNotificationStatus();
-    } catch (error) {
-      addLog(`❌ Erreur permission: ${error.message}`, 'error');
-    }
-  };
+      const result = await NotificationService.getNotifications(user.uid);
+      addLog(`✅ Récupération réussie: ${result.length} notifications`);
+      setNotifications(result);
 
-  const testNotification = async () => {
-    try {
-      addLog('🧪 Test notification...', 'info');
-      await PushNotificationService.sendTestPushNotification();
-      addLog('✅ Notification test envoyée', 'success');
-    } catch (error) {
-      addLog(`❌ Erreur test: ${error.message}`, 'error');
-    }
-  };
-
-  const testFriendInvitation = async () => {
-    try {
-      addLog("👥 Test invitation d'ami...", 'info');
-
-      if (!user?.uid) {
-        addLog("❌ Pas d'utilisateur connecté", 'error');
-        return;
+      if (result.length === 0) {
+        addLog("ℹ️ Aucune notification trouvée - c'est peut-être normal");
+      } else {
+        result.forEach((notif, index) => {
+          addLog(
+            `📋 Notification ${index + 1}: ${notif.type} - "${notif.message}"`
+          );
+        });
       }
-
-      // Simuler l'envoi d'une invitation à soi-même pour tester
-      await PushNotificationService.sendPushToUser(user.uid, {
-        title: "👥 Nouvelle demande d'ami",
-        body: "Test d'invitation d'ami",
-        tag: 'friend-invitation',
-        data: {
-          type: 'friend_invitation',
-          fromUserId: user.uid,
-          fromUserName: 'Test User',
-          invitationId: 'test-123',
-        },
-        requireInteraction: true,
-      });
-
-      addLog('✅ Test invitation envoyé', 'success');
-    } catch (error) {
-      addLog(`❌ Erreur test invitation: ${error.message}`, 'error');
+    } catch (err) {
+      addLog(`❌ Erreur récupération: ${err.message}`);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const clearLogs = () => {
-    setLogs([]);
+  // Test de création d'une notification de test
+  const testCreateNotification = async () => {
+    if (!user) {
+      addLog('❌ Aucun utilisateur connecté');
+      return;
+    }
+
+    setLoading(true);
+    addLog('🧪 Création notification de test...');
+
+    try {
+      await NotificationService.createNotification(
+        user.uid, // À soi-même
+        user.uid, // De soi-même
+        'test',
+        '🧪 Notification de test créée automatiquement',
+        { testData: true, createdAt: new Date().toISOString() }
+      );
+      addLog('✅ Notification de test créée');
+
+      // Attendre un peu puis recharger
+      setTimeout(() => {
+        testGetNotifications();
+      }, 1000);
+    } catch (err) {
+      addLog(`❌ Erreur création: ${err.message}`);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Test du listener en temps réel
+  const testListener = () => {
+    if (!user) {
+      addLog('❌ Aucun utilisateur connecté');
+      return;
+    }
+
+    addLog('👂 Test du listener en temps réel...');
+
+    const unsubscribe = NotificationService.onNotifications(
+      user.uid,
+      notifications => {
+        addLog(`🔄 Listener déclenché: ${notifications.length} notifications`);
+        setNotifications(notifications);
+      }
+    );
+
+    // Nettoyer après 10 secondes
+    setTimeout(() => {
+      unsubscribe();
+      addLog('🛑 Listener arrêté');
+    }, 10000);
+  };
+
+  // Test automatique au montage
   useEffect(() => {
-    checkNotificationStatus();
-  }, []);
+    if (user) {
+      addLog('🚀 Démarrage des tests automatiques');
+      testGetNotifications();
+    }
+  }, [user]);
+
+  if (!user) {
+    return (
+      <div
+        className={`p-4 rounded-lg ${darkMode ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-900'}`}
+      >
+        <h3 className="text-lg font-bold mb-2">🧪 Test des Notifications</h3>
+        <p>Veuillez vous connecter pour tester les notifications.</p>
+      </div>
+    );
+  }
 
   return (
     <div
-      className={`p-4 max-w-2xl mx-auto ${darkMode ? 'text-white' : 'text-gray-900'}`}
+      className={`p-4 rounded-lg ${darkMode ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-900'}`}
     >
-      <h2 className="text-xl font-bold mb-4">🔧 Test des Notifications Push</h2>
+      <h3 className="text-lg font-bold mb-4">🧪 Test des Notifications</h3>
 
-      <div className="space-y-3 mb-4">
+      {/* Informations utilisateur */}
+      <div className="mb-4 p-3 rounded bg-blue-100 dark:bg-blue-900">
+        <p>
+          <strong>Utilisateur:</strong> {user.displayName || user.email}
+        </p>
+        <p>
+          <strong>UID:</strong> {user.uid}
+        </p>
+      </div>
+
+      {/* Boutons de test */}
+      <div className="flex flex-wrap gap-2 mb-4">
         <button
-          onClick={checkNotificationStatus}
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
+          onClick={testGetNotifications}
+          disabled={loading}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
         >
-          🔍 Vérifier le statut
+          {loading ? '⏳' : '🔍'} Récupérer notifications
         </button>
 
         <button
-          onClick={requestPermission}
-          className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded"
+          onClick={testCreateNotification}
+          disabled={loading}
+          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
         >
-          📱 Demander permission
+          {loading ? '⏳' : '🧪'} Créer notification test
         </button>
 
         <button
-          onClick={testNotification}
-          className="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded"
+          onClick={testListener}
+          disabled={loading}
+          className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 disabled:opacity-50"
         >
-          🧪 Test notification
-        </button>
-
-        <button
-          onClick={testFriendInvitation}
-          className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded"
-        >
-          👥 Test invitation ami
-        </button>
-
-        <button
-          onClick={clearLogs}
-          className="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded"
-        >
-          🗑️ Effacer logs
+          👂 Tester listener (10s)
         </button>
       </div>
 
-      <div
-        className={`border rounded p-4 h-80 overflow-y-auto ${darkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-300 bg-gray-50'}`}
-      >
-        <h3 className="font-semibold mb-2">📋 Logs de diagnostic</h3>
-        {logs.length === 0 ? (
-          <p className="text-gray-500 italic">Aucun log pour le moment...</p>
+      {/* Erreur */}
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded">
+          <strong>Erreur:</strong> {error}
+        </div>
+      )}
+
+      {/* Résultats */}
+      <div className="mb-4">
+        <h4 className="font-bold mb-2">
+          📊 Résultats ({notifications.length} notifications)
+        </h4>
+        {notifications.length === 0 ? (
+          <p className="text-gray-500">Aucune notification trouvée</p>
         ) : (
-          <div className="space-y-1">
-            {logs.map((log, index) => (
+          <div className="space-y-2">
+            {notifications.map((notif, index) => (
               <div
-                key={index}
-                className={`text-sm p-2 rounded ${
-                  log.type === 'error'
-                    ? 'bg-red-100 text-red-800'
-                    : log.type === 'success'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-blue-100 text-blue-800'
-                }`}
+                key={notif.id || index}
+                className={`p-2 rounded ${darkMode ? 'bg-gray-700' : 'bg-white'} border`}
               >
-                <span className="text-xs text-gray-600">[{log.timestamp}]</span>{' '}
-                {log.message}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="font-medium">{notif.type}</span>
+                    <span
+                      className={`ml-2 px-2 py-1 text-xs rounded ${notif.read ? 'bg-gray-200 text-gray-600' : 'bg-blue-200 text-blue-800'}`}
+                    >
+                      {notif.read ? 'Lu' : 'Non lu'}
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-500">
+                    {notif.createdAt?.toDate?.()?.toLocaleString() ||
+                      'Pas de date'}
+                  </span>
+                </div>
+                <p className="mt-1">{notif.message}</p>
+                {notif.data && (
+                  <pre className="mt-1 text-xs bg-gray-100 dark:bg-gray-600 p-1 rounded overflow-x-auto">
+                    {JSON.stringify(notif.data, null, 2)}
+                  </pre>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {status && (
-        <div className="mt-4 p-3 border rounded">
-          <h4 className="font-semibold">📊 Statut actuel</h4>
-          <pre className="text-xs mt-2 overflow-x-auto">
-            {JSON.stringify(status, null, 2)}
-          </pre>
+      {/* Logs */}
+      <div>
+        <h4 className="font-bold mb-2">📝 Logs de débogage</h4>
+        <div
+          className={`p-3 rounded text-sm font-mono max-h-60 overflow-y-auto ${darkMode ? 'bg-gray-900 text-green-400' : 'bg-black text-green-300'}`}
+        >
+          {logs.length === 0 ? (
+            <p>Aucun log pour le moment...</p>
+          ) : (
+            logs.map((log, index) => <div key={index}>{log}</div>)
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };

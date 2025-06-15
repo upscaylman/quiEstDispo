@@ -155,7 +155,7 @@ const AppShell = ({
     if (currentScreen === 'settings' || currentScreen === 'notifications') {
       return (
         <div
-          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm px-responsive py-4 sticky top-0 z-10`}
+          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm px-responsive py-4 sticky top-0 z-50`}
         >
           <div className="flex items-center">
             {/* Flèche de retour */}
@@ -213,7 +213,7 @@ const AppShell = ({
     // Header normal pour les autres pages
     return (
       <div
-        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm px-responsive py-4 sticky top-0 z-10`}
+        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm px-responsive py-4 sticky top-0 z-50`}
       >
         <div className="flex items-center justify-between">
           {/* Avatar profil à gauche */}

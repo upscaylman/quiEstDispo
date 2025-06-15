@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import AddFriendModal from './components/AddFriendModal';
 import AppShell from './components/AppShell';
 import CookieConsent from './components/CookieConsent';
+import DeleteAccountModal from './components/DeleteAccountModal';
 import LoginScreen from './components/LoginScreen';
 import { MapView } from './components/map';
 import MapboxMapView from './components/map/MapboxMapView';
@@ -56,6 +57,7 @@ function App() {
     if (screen === 'notifications') {
       // Marquer la visite au centre de notifications
       setLastNotificationCenterVisit(Date.now());
+      // Note: Le marquage automatique comme "lu" est maintenant géré dans NotificationsScreen
     }
     if (screen === 'friends') {
       // Marquer la visite à l'onglet amis
@@ -69,7 +71,8 @@ function App() {
     return notifications.filter(notification => {
       const notificationTime =
         notification.createdAt?.toDate?.()?.getTime() || Date.now();
-      return notificationTime > lastNotificationCenterVisit;
+      const isUnread = !notification.read;
+      return isUnread && notificationTime > lastNotificationCenterVisit;
     }).length;
   };
 
@@ -83,7 +86,10 @@ function App() {
         'friend_invitation_accepted',
         'friend_removed',
       ].includes(notification.type);
-      return isFriendRelated && notificationTime > lastFriendsTabVisit;
+      const isUnread = !notification.read;
+      return (
+        isFriendRelated && isUnread && notificationTime > lastFriendsTabVisit
+      );
     }).length;
   };
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
@@ -93,7 +99,7 @@ function App() {
     const cookieTheme = CookieService.getThemePreference();
     if (cookieTheme) return cookieTheme;
     const saved = localStorage.getItem('themeMode');
-    return saved || 'light';
+    return saved || 'auto';
   });
 
   const [darkMode, setDarkMode] = useState(false);
@@ -566,10 +572,18 @@ function App() {
 
   const markAllNotificationsAsRead = async () => {
     try {
-      await NotificationService.markAllAsRead(user.uid);
+      // Nouvelle logique : supprimer toutes les notifications
+      const deletePromises = notifications.map(notification =>
+        NotificationService.deleteNotification(notification.id)
+      );
+
+      await Promise.all(deletePromises);
       setNotifications([]);
+
+      console.log('✅ Toutes les notifications ont été supprimées');
     } catch (error) {
-      console.error('Erreur marquage toutes notifications:', error);
+      console.error('Erreur suppression toutes notifications:', error);
+      alert(`Erreur lors de la suppression: ${error.message}`);
     }
   };
 
@@ -610,6 +624,29 @@ function App() {
       if (response === 'accepted') {
         const freshFriends = await FriendsService.getFriends(user.uid);
         setFriends(freshFriends);
+
+        // Créer une notification de confirmation pour celui qui accepte
+        // (en plus de celle créée automatiquement pour l'expéditeur dans FriendsService)
+        const userName = user.displayName || user.name || 'Vous';
+
+        // Récupérer le nom de l'expéditeur depuis la notification originale
+        const originalNotification = notifications.find(
+          n => n.id === notificationId
+        );
+        const senderName =
+          originalNotification?.data?.fromUserName || 'Un utilisateur';
+
+        await NotificationService.createNotification(
+          user.uid, // À soi-même
+          user.uid, // De soi-même
+          'friend_added_confirmation', // Type
+          `✅ ${senderName} a été ajouté à vos amis !`,
+          {
+            action: 'friend_accepted_by_me',
+            friendName: senderName,
+            acceptedAt: new Date().toISOString(),
+          }
+        );
       }
 
       console.log(
@@ -649,8 +686,42 @@ function App() {
           notification.data.fromUserId // respondingToUserId
         );
 
+        // Créer une notification de confirmation pour l'expéditeur
+        const userName = user.displayName || user.name || 'Un ami';
+        const activityName = notification.data.activity;
+
+        await NotificationService.createNotification(
+          notification.data.fromUserId, // À qui
+          user.uid, // De qui
+          'activity_accepted', // Type
+          `✅ ${userName} a accepté votre invitation pour ${activityName} !`,
+          {
+            activity: activityName,
+            acceptedBy: user.uid,
+            acceptedByName: userName,
+            originalInvitationId: notification.data.invitationId,
+          }
+        );
+
         console.log(
           `✅ Vous avez accepté l'invitation pour ${notification.data.activity} de ${notification.data.fromUserName}`
+        );
+      } else {
+        // Créer une notification de déclin pour l'expéditeur
+        const userName = user.displayName || user.name || 'Un ami';
+        const activityName = notification.data.activity;
+
+        await NotificationService.createNotification(
+          notification.data.fromUserId, // À qui
+          user.uid, // De qui
+          'activity_declined', // Type
+          `❌ ${userName} a décliné votre invitation pour ${activityName}`,
+          {
+            activity: activityName,
+            declinedBy: user.uid,
+            declinedByName: userName,
+            originalInvitationId: notification.data.invitationId,
+          }
         );
       }
 
@@ -662,8 +733,12 @@ function App() {
           response
         );
 
-        // Si accepté, faire partager la localisation à l'expéditeur
+        // Si accepté, faire partager les localisations mutuellement
         if (response === 'accepted') {
+          // 1. Partager la localisation de celui qui accepte
+          await AvailabilityService.shareLocationOnAcceptance(user.uid);
+
+          // 2. Partager aussi la localisation de l'expéditeur (partage mutuel)
           await AvailabilityService.shareLocationOnAcceptance(
             notification.data.fromUserId
           );
@@ -1036,12 +1111,30 @@ function App() {
         // Configurer le listener pour les notifications en temps réel
         unsubscribeNotifications = NotificationService.onNotifications(
           user.uid,
-          setNotifications
+          newNotifications => {
+            console.log(
+              '🔔 App.js - Notifications reçues via listener:',
+              newNotifications
+            );
+            console.log(
+              '🔔 App.js - Nombre de notifications via listener:',
+              newNotifications?.length || 0
+            );
+            setNotifications(newNotifications);
+          }
         );
 
         // Charger les notifications initialement
         const notificationsData = await NotificationService.getNotifications(
           user.uid
+        );
+        console.log(
+          '🔔 App.js - Notifications chargées initialement:',
+          notificationsData
+        );
+        console.log(
+          '🔔 App.js - Nombre de notifications initiales:',
+          notificationsData?.length || 0
         );
         setNotifications(notificationsData);
       } catch (error) {
@@ -1194,6 +1287,14 @@ function App() {
           onGoToSettings={handleGoToSettings}
           darkMode={darkMode}
         />
+
+        {/* Modal de suppression de compte */}
+        <DeleteAccountModal
+          isOpen={showDeleteAccountModal}
+          onClose={() => setShowDeleteAccountModal(false)}
+          onConfirm={handleDeleteAccount}
+          darkMode={darkMode}
+        />
       </div>
     );
   }
@@ -1278,6 +1379,14 @@ function App() {
         isOpen={showPhoneRequiredModal}
         onClose={() => setShowPhoneRequiredModal(false)}
         onGoToSettings={handleGoToSettings}
+        darkMode={darkMode}
+      />
+
+      {/* Modal de suppression de compte */}
+      <DeleteAccountModal
+        isOpen={showDeleteAccountModal}
+        onClose={() => setShowDeleteAccountModal(false)}
+        onConfirm={handleDeleteAccount}
         darkMode={darkMode}
       />
     </>
