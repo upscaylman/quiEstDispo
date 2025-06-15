@@ -480,10 +480,11 @@ const AppShell = ({
         friends.length === 0 && (
           <WarningBanner
             icon={Users}
-            title="Aucun(e) ami(es)."
-            message="Invitez-les à vous rejoindre !"
+            title=""
+            message="Invitez vos ami(e)s à vous rejoindre"
             darkMode={darkMode}
             onInviteClick={onAddFriend}
+            clickableWord="rejoindre"
           />
         )}
 
@@ -493,8 +494,8 @@ const AppShell = ({
         availableFriends.length === 0 && (
           <WarningBanner
             icon={Users}
-            title="Aucun ami disponible."
-            message="Invitez vos amis à vous rejoindre !"
+            title=""
+            message="Invitez vos ami(e)s à vous rejoindre"
             darkMode={darkMode}
             onInviteClick={onOpenActivitySelector}
             variant="purple"
