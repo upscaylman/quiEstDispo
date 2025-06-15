@@ -32,6 +32,7 @@ const AppShell = ({
   useMapbox,
   themeMode,
   pushNotificationStatus,
+  pendingInvitation,
 
   // Props de modales
   showInviteFriendsModal,
@@ -449,6 +450,7 @@ const AppShell = ({
             isOnline={isOnline}
             user={user}
             notifications={notifications}
+            pendingInvitation={pendingInvitation}
             onSetAvailability={onSetAvailability}
             onStopAvailability={onStopAvailability}
             onTerminateActivity={onTerminateActivity}

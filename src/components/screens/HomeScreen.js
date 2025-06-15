@@ -29,6 +29,7 @@ const HomeScreen = ({
   isOnline,
   user,
   notifications,
+  pendingInvitation,
 
   // Props de fonctions
   onSetAvailability,
@@ -134,6 +135,7 @@ const HomeScreen = ({
             requestLocationPermission={onRequestLocationPermission}
             darkMode={darkMode}
             onInviteMoreFriends={onInviteFriends}
+            pendingInvitation={pendingInvitation}
           />
 
           {/* Section Inviter des amis */}

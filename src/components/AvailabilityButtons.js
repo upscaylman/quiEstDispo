@@ -23,6 +23,7 @@ const AvailabilityButtons = ({
   requestLocationPermission,
   darkMode,
   onInviteMoreFriends, // Nouvelle prop pour inviter plus d'amis
+  pendingInvitation, // 🎯 NOUVEAU: État d'invitation en attente
 }) => {
   const [timeLeft, setTimeLeft] = useState(45 * 60);
 
@@ -101,6 +102,53 @@ const AvailabilityButtons = ({
       hoverColor: 'hover:bg-indigo-600',
     },
   ];
+
+  // 🎯 NOUVEAU: Afficher le message d'invitation en attente
+  if (pendingInvitation) {
+    const activity = activities.find(a => a.id === pendingInvitation.activity);
+    const ActivityIcon = activity?.icon || Users;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border-2 border-orange-200`}
+      >
+        <div className="text-center">
+          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ActivityIcon size={32} className="text-orange-600" />
+          </div>
+          <h3 className="text-xl font-bold text-orange-700 mb-2">
+            Invitation en attente
+          </h3>
+          <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-4`}>
+            Tu as invité {pendingInvitation.count} ami
+            {pendingInvitation.count > 1 ? 's' : ''} pour{' '}
+            <span className="font-semibold">
+              {activity?.label || pendingInvitation.activity}
+            </span>
+          </p>
+
+          <div className="mb-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+            <div className="flex items-center justify-center mb-2">
+              <Clock size={20} className="mr-2 text-orange-600" />
+              <span className="text-orange-700 font-medium">
+                En attente d'acceptation
+              </span>
+            </div>
+            <p className="text-sm text-orange-600">
+              Le décompte commencera quand quelqu'un acceptera ton invitation
+            </p>
+          </div>
+
+          <div className="text-xs text-gray-500">
+            Envoyé il y a{' '}
+            {Math.floor((Date.now() - pendingInvitation.sentAt) / 60000)} min
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
 
   if (isAvailable) {
     const progressPercentage = (timeLeft / (45 * 60)) * 100;

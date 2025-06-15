@@ -42,6 +42,10 @@ function App() {
   const [friends, setFriends] = useState([]);
   const [availableFriends, setAvailableFriends] = useState([]);
   const [notifications, setNotifications] = useState([]);
+
+  // 🎯 NOUVEAU: État pour les invitations en attente
+  const [pendingInvitation, setPendingInvitation] = useState(null); // { activity: 'coffee', sentAt: timestamp, friendIds: [...] }
+
   const [lastNotificationCenterVisit, setLastNotificationCenterVisit] =
     useState(Date.now());
   const [lastFriendsTabVisit, setLastFriendsTabVisit] = useState(Date.now());
@@ -260,8 +264,15 @@ function App() {
         location
       );
 
-      // Log de succès simplifié - PAS de démarrage de disponibilité ici
+      // 🎯 NOUVEAU: Définir l'état d'invitation en attente
       if (result.count > 0) {
+        setPendingInvitation({
+          activity,
+          sentAt: new Date().getTime(),
+          friendIds,
+          count: result.count,
+        });
+
         console.log(
           `✅ ${result.count} invitation${result.count > 1 ? 's' : ''} envoyée${result.count > 1 ? 's' : ''} pour ${activity}! En attente d'acceptation...`
         );
@@ -1171,6 +1182,17 @@ function App() {
           notification
         );
 
+        // 🎯 NOUVEAU: Supprimer l'état d'invitation en attente car quelqu'un a accepté
+        if (
+          pendingInvitation &&
+          pendingInvitation.activity === notification.data.activity
+        ) {
+          console.log(
+            '🎯 [AUTO] Suppression invitation en attente car acceptée'
+          );
+          setPendingInvitation(null);
+        }
+
         // Démarrer la disponibilité avec décompte pour l'expéditeur original
         if (!isAvailable || currentActivity !== notification.data.activity) {
           await handleStartAvailability(
@@ -1193,7 +1215,7 @@ function App() {
         );
       }
     });
-  }, [notifications, user, isAvailable, currentActivity]);
+  }, [notifications, user, isAvailable, currentActivity, pendingInvitation]);
 
   const handleProfileUpdate = async updatedUser => {
     // Mettre à jour l'état local de l'utilisateur si possible
@@ -1251,6 +1273,7 @@ function App() {
           currentScreen={currentScreen}
           themeMode={themeMode}
           pushNotificationStatus={pushNotificationStatus}
+          pendingInvitation={pendingInvitation}
           onScreenChange={handleScreenChange}
           onThemeToggle={() => setDarkMode(!darkMode)}
           onThemeChange={setThemeMode}
@@ -1347,6 +1370,7 @@ function App() {
         currentScreen={currentScreen}
         themeMode={themeMode}
         pushNotificationStatus={pushNotificationStatus}
+        pendingInvitation={pendingInvitation}
         onScreenChange={handleScreenChange}
         onThemeToggle={() => setDarkMode(!darkMode)}
         onThemeChange={setThemeMode}
