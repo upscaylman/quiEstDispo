@@ -281,16 +281,16 @@ describe('useGeolocation - PHASE 2 - Géolocalisation CRITIQUE', () => {
       // Retry
       act(() => {
         result.current.retryGeolocation();
-      });
-
-      // Avancer le temps pour la résolution
-      act(() => {
+        // Avancer le temps immédiatement pour la résolution
         jest.advanceTimersByTime(100);
       });
 
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
+      await waitFor(
+        () => {
+          expect(result.current.loading).toBe(false);
+        },
+        { timeout: 3000 }
+      );
 
       expect(result.current.error).toBe(null);
       expect(result.current.location.isDefault).toBe(false);

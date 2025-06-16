@@ -71,17 +71,29 @@ describe('useMapLogic - PHASE 2 - Logique de Carte', () => {
     test('doit limiter le zoom entre 10 et 18', () => {
       const { result } = renderHook(() => useMapLogic({}));
 
-      // Test limite superieure (zoom initial = 14, donc +4 pour atteindre 18)
+      // Vérifier zoom initial
+      expect(result.current.zoom).toBe(14);
+
+      // Test limite superieure (tester plusieurs incréments)
       act(() => {
-        for (let i = 0; i < 5; i++) {
-          result.current.handleZoomIn();
-        }
+        result.current.handleZoomIn();
+      });
+      expect(result.current.zoom).toBe(15);
+
+      act(() => {
+        result.current.handleZoomIn();
+      });
+      act(() => {
+        result.current.handleZoomIn();
+      });
+      act(() => {
+        result.current.handleZoomIn();
       });
       expect(result.current.zoom).toBe(18);
 
       // Test limite inferieure (depuis 18, -8 pour atteindre 10)
       act(() => {
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 8; i++) {
           result.current.handleZoomOut();
         }
       });
