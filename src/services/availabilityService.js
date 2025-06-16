@@ -82,6 +82,56 @@ export class AvailabilityService {
     }
   }
 
+  // 🔥 NOUVEAU: Nettoyer les availabilities expirées
+  static async cleanupExpiredAvailabilities() {
+    if (!isOnline()) {
+      console.warn('⚠️ Offline mode, cannot cleanup expired availabilities');
+      return;
+    }
+
+    try {
+      console.log('🧹 [DEBUG] Nettoyage des availabilities expirées...');
+
+      const now = new Date();
+      const cutoffTime = new Date(now.getTime() - 45 * 60 * 1000); // 45 minutes ago
+
+      const expiredQuery = query(
+        collection(db, 'availabilities'),
+        where('isActive', '==', true)
+      );
+
+      const snapshot = await getDocs(expiredQuery);
+      const deletePromises = [];
+
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const createdAt =
+          data.createdAt?.toDate?.() || new Date(data.createdAt);
+
+        if (createdAt < cutoffTime) {
+          console.log(
+            `🧹 [DEBUG] Suppression availability expirée: ${doc.id} (créée: ${createdAt.toISOString()})`
+          );
+          deletePromises.push(deleteDoc(doc.ref));
+        }
+      });
+
+      if (deletePromises.length > 0) {
+        await Promise.all(deletePromises);
+        console.log(
+          `🧹 [DEBUG] ✅ ${deletePromises.length} availabilities expirées supprimées`
+        );
+      } else {
+        console.log(`🧹 [DEBUG] ℹ️ Aucune availability expirée trouvée`);
+      }
+
+      return deletePromises.length;
+    } catch (error) {
+      console.error('❌ Erreur nettoyage availabilities expirées:', error);
+      return 0;
+    }
+  }
+
   // Arrêter sa disponibilité
   static async stopAvailability(userId, availabilityId) {
     if (!isOnline()) {
@@ -295,6 +345,13 @@ export class AvailabilityService {
             return;
           }
 
+          // 🔥 FIX COMPTEUR: Nettoyer d'abord les availabilities expirées de Firestore
+          try {
+            await this.cleanupExpiredAvailabilities();
+          } catch (cleanupError) {
+            console.warn('⚠️ Erreur nettoyage automatique:', cleanupError);
+          }
+
           const q = query(
             collection(db, 'availabilities'),
             where('userId', 'in', friendIds),
@@ -302,9 +359,10 @@ export class AvailabilityService {
           );
 
           onSnapshot(q, async snapshot => {
-            console.log(
-              `👥 [DEBUG] onAvailableFriends: ${snapshot.docs.length} documents trouvés`
-            );
+            // 🐛 FIX: Supprimer log qui boucle en continu
+            // console.log(
+            //   `👥 [DEBUG] onAvailableFriends: ${snapshot.docs.length} documents trouvés`
+            // );
             const availabilities = [];
 
             // Récupérer les réponses déjà données par l'utilisateur
@@ -321,10 +379,12 @@ export class AvailabilityService {
             for (const docSnap of snapshot.docs) {
               // @ts-ignore - Propriétés dynamiques de Firestore
               const availability = { id: docSnap.id, ...docSnap.data() };
-              console.log(
-                // @ts-ignore
-                `👥 [DEBUG] Traitement availability ${availability.id} de ${availability['userId']} (${availability['activity']})`
-              );
+
+              // 🐛 FIX: Supprimer log qui boucle en continu
+              // console.log(
+              //   // @ts-ignore
+              //   `👥 [DEBUG] Traitement availability ${availability.id} de ${availability['userId']} (${availability['activity']})`
+              // );
 
               // Toujours inclure si cet ami nous a rejoint (réciprocité)
               // @ts-ignore
@@ -336,9 +396,10 @@ export class AvailabilityService {
                 respondedActivityIds.has(availability.id) &&
                 !shouldIncludeForReciprocity
               ) {
-                console.log(
-                  `👥 [DEBUG] Exclu ${availability.id} (déjà répondu)`
-                );
+                // 🐛 FIX: Supprimer log qui boucle en continu
+                // console.log(
+                //   `👥 [DEBUG] Exclu ${availability.id} (déjà répondu)`
+                // );
                 continue;
               }
 
@@ -355,9 +416,10 @@ export class AvailabilityService {
                     availability['respondingToUserId'] = userId;
                   }
 
-                  console.log(
-                    `👥 [DEBUG] Inclus ${availability.id} (${availability['friend']['name']})`
-                  );
+                  // 🐛 FIX: Supprimer log qui boucle en continu
+                  // console.log(
+                  //   `👥 [DEBUG] Inclus ${availability.id} (${availability['friend']['name']})`
+                  // );
                   availabilities.push(availability);
                 }
               } catch (error) {
@@ -366,9 +428,10 @@ export class AvailabilityService {
             }
             /* eslint-enable */
 
-            console.log(
-              `👥 [DEBUG] Total à afficher: ${availabilities.length} cartes`
-            );
+            // 🐛 FIX: Supprimer log qui boucle en continu
+            // console.log(
+            //   `👥 [DEBUG] Total à afficher: ${availabilities.length} cartes`
+            // );
 
             // Filtrer les activités expirées (plus de 45 minutes)
             const now = new Date().getTime();
@@ -395,9 +458,10 @@ export class AvailabilityService {
               this.cleanupResponsesForActivities(expiredActivityIds, userId);
             }
 
-            console.log(
-              `👥 [DEBUG] Après filtrage expirées: ${activeAvailabilities.length} cartes`
-            );
+            // 🐛 FIX: Supprimer log qui boucle en continu
+            // console.log(
+            //   `👥 [DEBUG] Après filtrage expirées: ${activeAvailabilities.length} cartes`
+            // );
 
             // Trier par ordre chronologique (plus récent en premier)
             activeAvailabilities.sort((a, b) => {
