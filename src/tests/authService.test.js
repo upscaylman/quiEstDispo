@@ -1,5 +1,6 @@
+// @ts-nocheck
 import { auth } from '../firebase';
-import { signInWithPhone, signOut } from '../services/authService';
+import { AuthService } from '../services/authService.js';
 
 // Mock Firebase
 jest.mock('../firebase', () => ({
@@ -23,7 +24,7 @@ describe('AuthService', () => {
 
       auth.signInWithPhoneNumber.mockResolvedValue(mockConfirmationResult);
 
-      const result = await signInWithPhone('+16505554567');
+      const result = await AuthService.signInWithPhone('+16505554567');
 
       expect(auth.signInWithPhoneNumber).toHaveBeenCalledWith(
         '+16505554567',
@@ -38,7 +39,7 @@ describe('AuthService', () => {
 
       auth.signInWithPhoneNumber.mockRejectedValue(appCheckError);
 
-      await expect(signInWithPhone('+16505554567')).rejects.toThrow(
+      await expect(AuthService.signInWithPhone('+16505554567')).rejects.toThrow(
         'App Check error'
       );
     });
@@ -49,7 +50,7 @@ describe('AuthService', () => {
 
       auth.signInWithPhoneNumber.mockRejectedValue(invalidPhoneError);
 
-      await expect(signInWithPhone('invalid')).rejects.toThrow(
+      await expect(AuthService.signInWithPhone('invalid')).rejects.toThrow(
         'Invalid phone number'
       );
     });
@@ -59,7 +60,7 @@ describe('AuthService', () => {
     test('should successfully sign out user', async () => {
       auth.signOut.mockResolvedValue();
 
-      await signOut();
+      await AuthService.signOut();
 
       expect(auth.signOut).toHaveBeenCalled();
     });
