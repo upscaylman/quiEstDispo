@@ -95,6 +95,9 @@ export class AvailabilityService {
           `🛑 [DEBUG] Arrêt availability ${availabilityId} pour ${userId}`
         );
 
+        // 🔥 NOUVEAU: Notifier les amis AVANT de supprimer
+        await this.notifyFriendsOfDeparture(userId, availabilityId);
+
         if (availabilityId && !availabilityId.startsWith('offline-')) {
           console.log(
             `🛑 [DEBUG] Suppression document availability ${availabilityId}`
@@ -140,63 +143,108 @@ export class AvailabilityService {
         );
 
         const friendsWhoJoinedSnapshot = await getDocs(friendsWhoJoinedQuery);
-        for (const activityDoc of friendsWhoJoinedSnapshot.docs) {
-          const activityData = activityDoc.data();
-          if (activityData.joinedByFriend) {
-            console.log(
-              `📢 [DEBUG] Notification d'annulation à ${activityData.joinedByFriend}`
-            );
-            // Note: La notification sera envoyée par la logique parent dans App.js
+        if (friendsWhoJoinedSnapshot.size > 0) {
+          console.log(
+            `🧹 [DEBUG] ${friendsWhoJoinedSnapshot.size} amis à notifier de l'annulation`
+          );
+
+          for (const friendAvailabilityDoc of friendsWhoJoinedSnapshot.docs) {
+            const friendAvailabilityData = friendAvailabilityDoc.data();
+            if (friendAvailabilityData.joinedByFriend) {
+              // Notifier que l'activité est annulée
+              console.log(
+                `🧹 [DEBUG] Notification annulation à ${friendAvailabilityData.joinedByFriend}`
+              );
+            }
           }
         }
 
-        // 🐛 FIX: Nettoyer les réponses de l'utilisateur qui s'arrête
-        if (availabilityId && !availabilityId.startsWith('offline-')) {
-          await this.cleanupResponsesForActivities([availabilityId]);
-        }
-
-        console.log(`🛑 [DEBUG] Mise à jour user ${userId}`);
+        // Mettre à jour le profil utilisateur
         const userRef = doc(db, 'users', userId);
         await updateDoc(userRef, {
           isAvailable: false,
           currentActivity: null,
           availabilityId: null,
+          location: null, // 🔥 IMPORTANT: Nettoyer la location partagée
           updatedAt: serverTimestamp(),
         });
-        console.log(`🛑 [DEBUG] ✅ User ${userId} mis à jour`);
 
-        // Nettoyer TOUTES les invitations PENDING de cet utilisateur
         console.log(
-          `🧹 [DEBUG] Nettoyage invitations PENDING de ${userId} (arrêt disponibilité)`
+          `🛑 [DEBUG] ✅ Arrêt de disponibilité terminé pour ${userId}`
         );
-
-        const invitationsQuery = await getDocs(
-          query(
-            collection(db, 'invitations'),
-            where('fromUserId', '==', userId),
-            where('status', '==', 'pending')
-          )
-        );
-
-        if (invitationsQuery.size > 0) {
-          const deletePromises = invitationsQuery.docs.map(doc =>
-            deleteDoc(doc.ref)
-          );
-          await Promise.all(deletePromises);
-          console.log(
-            `🧹 [DEBUG] ✅ ${invitationsQuery.size} invitations PENDING supprimées`
-          );
-        } else {
-          console.log(`🧹 [DEBUG] ℹ️ Aucune invitation PENDING à supprimer`);
-        }
-
-        console.log(`🛑 [DEBUG] === ARRÊT DISPONIBILITÉ TERMINÉ ===`);
       });
     } catch (error) {
       console.warn('⚠️ Stop availability error:', error);
       throw new Error(
         `Impossible d'arrêter la disponibilité: ${error.message}`
       );
+    }
+  }
+
+  // 🔥 NOUVELLE MÉTHODE: Notifier les amis du départ
+  static async notifyFriendsOfDeparture(userId, availabilityId) {
+    try {
+      console.log(`📢 [DEBUG] Notification départ pour ${userId}`);
+
+      // Récupérer l'availability pour obtenir l'activité et les détails
+      const availabilityRef = doc(db, 'availabilities', availabilityId);
+      const availabilitySnap = await getDoc(availabilityRef);
+
+      if (!availabilitySnap.exists()) {
+        console.log(`📢 [DEBUG] Availability ${availabilityId} n'existe plus`);
+        return;
+      }
+
+      const availabilityData = availabilitySnap.data();
+      const activity = availabilityData.activity;
+
+      // Récupérer le nom de l'utilisateur qui part
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+      const userName = userSnap.exists()
+        ? userSnap.data().displayName || userSnap.data().name || 'Un ami'
+        : 'Un ami';
+
+      // Trouver tous les amis qui avaient rejoint cette activité
+      const activeParticipantsQuery = query(
+        collection(db, 'availabilities'),
+        where('joinedByFriend', '==', userId),
+        where('isActive', '==', true)
+      );
+
+      const participantsSnapshot = await getDocs(activeParticipantsQuery);
+
+      console.log(
+        `📢 [DEBUG] ${participantsSnapshot.size} participants à notifier`
+      );
+
+      // Notifier chaque participant
+      for (const participantDoc of participantsSnapshot.docs) {
+        const participantData = participantDoc.data();
+        const participantUserId = participantData.userId;
+
+        console.log(`📢 [DEBUG] Notification à ${participantUserId}`);
+
+        // Créer notification de départ
+        await addDoc(collection(db, 'notifications'), {
+          to: participantUserId,
+          from: userId,
+          type: 'friend_left_activity',
+          message: `👋 ${userName} a quitté l'activité ${activity}`,
+          data: {
+            activity,
+            leftUserId: userId,
+            leftUserName: userName,
+          },
+          read: false,
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      console.log(`📢 [DEBUG] ✅ Notifications de départ envoyées`);
+    } catch (error) {
+      console.error('❌ Erreur notification départ:', error);
+      // Ne pas faire échouer l'arrêt de disponibilité
     }
   }
 
