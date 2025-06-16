@@ -1,26 +1,25 @@
 // Utilitaire de logging conditionnel
-const isDevelopment = process.env.NODE_ENV === 'development';
 
 export const debugLog = (...args) => {
-  if (isDevelopment) {
+  if (process.env.NODE_ENV === 'development') {
     console.log(...args);
   }
 };
 
 export const debugInfo = (...args) => {
-  if (isDevelopment) {
+  if (process.env.NODE_ENV === 'development') {
     console.info(...args);
   }
 };
 
 export const debugWarn = (...args) => {
-  if (isDevelopment) {
+  if (process.env.NODE_ENV === 'development') {
     console.warn(...args);
   }
 };
 
 export const debugError = (...args) => {
-  if (isDevelopment) {
+  if (process.env.NODE_ENV === 'development') {
     console.error(...args);
   }
 };

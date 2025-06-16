@@ -89,7 +89,8 @@ export const calculateDistance = (lat1, lng1, lat2, lng2) => {
 
 // Formater la distance pour l'affichage
 export const formatDistance = distance => {
-  if (!distance || isNaN(distance)) return '?';
+  if (distance === null || distance === undefined || isNaN(distance))
+    return '?';
   if (distance < 1) {
     return `${Math.round(distance * 1000)}m`;
   }

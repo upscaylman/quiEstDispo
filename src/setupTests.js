@@ -29,6 +29,40 @@ if (typeof global.TextDecoder === 'undefined') {
   };
 }
 
+// Mock pour framer-motion pour éviter les erreurs addListener
+jest.mock('framer-motion', () => ({
+  motion: {
+    div: ({ children, className, style, ...props }) => {
+      const React = require('react');
+      return React.createElement(
+        'div',
+        { className, style, ...props },
+        children
+      );
+    },
+    span: ({ children, className, style, ...props }) => {
+      const React = require('react');
+      return React.createElement(
+        'span',
+        { className, style, ...props },
+        children
+      );
+    },
+    button: ({ children, className, style, ...props }) => {
+      const React = require('react');
+      return React.createElement(
+        'button',
+        { className, style, ...props },
+        children
+      );
+    },
+  },
+  AnimatePresence: ({ children }) => {
+    const React = require('react');
+    return React.createElement('div', {}, children);
+  },
+}));
+
 // Polyfills pour l'environnement navigateur
 if (typeof global.window === 'undefined') {
   global.window = {};

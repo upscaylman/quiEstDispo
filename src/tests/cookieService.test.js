@@ -2,23 +2,9 @@
 /* eslint-disable no-console */
 
 describe('CookieService - Test simple - PRIORITE #4', () => {
-  const localStorageMock = {
-    store: {},
-    getItem: jest.fn(key => localStorageMock.store[key] || null),
-    setItem: jest.fn((key, value) => {
-      localStorageMock.store[key] = value;
-    }),
-  };
-
   beforeEach(() => {
-    localStorageMock.store = {};
-    localStorageMock.getItem.mockClear();
-    localStorageMock.setItem.mockClear();
-
-    Object.defineProperty(window, 'localStorage', {
-      value: localStorageMock,
-      writable: true,
-    });
+    // Nettoyer localStorage avant chaque test
+    localStorage.clear();
 
     console.log = jest.fn();
     console.warn = jest.fn();
@@ -26,8 +12,8 @@ describe('CookieService - Test simple - PRIORITE #4', () => {
 
   describe('Tests basiques du service cookies', () => {
     test('localStorage mock doit fonctionner', () => {
-      localStorageMock.setItem('test', 'value');
-      expect(localStorageMock.getItem('test')).toBe('value');
+      localStorage.setItem('test', 'value');
+      expect(localStorage.getItem('test')).toBe('value');
     });
 
     test('doit simuler le comportement de base', () => {
@@ -56,11 +42,9 @@ describe('CookieService - Test simple - PRIORITE #4', () => {
         version: '1.0',
       };
 
-      localStorageMock.setItem('cookie_consent', JSON.stringify(consentData));
+      localStorage.setItem('cookie_consent', JSON.stringify(consentData));
 
-      expect(localStorageMock.setItem).toHaveBeenCalled();
-
-      const saved = localStorageMock.getItem('cookie_consent');
+      const saved = localStorage.getItem('cookie_consent');
       expect(saved).toBeDefined();
 
       const parsed = JSON.parse(saved);
