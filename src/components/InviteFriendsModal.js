@@ -10,7 +10,7 @@ import {
   Wine,
   X,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { db } from '../services/firebaseUtils';
 
 const InviteFriendsModal = ({
@@ -27,8 +27,6 @@ const InviteFriendsModal = ({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(activity);
   const [firestoreInvitations, setFirestoreInvitations] = useState([]);
-  const [friendsWithBilateralRelations, setFriendsWithBilateralRelations] =
-    useState(new Set());
 
   useEffect(() => {
     if (isOpen) {
@@ -84,7 +82,7 @@ const InviteFriendsModal = ({
     }
   }, [isOpen, currentUserId, selectedActivity]);
 
-  useEffect(() => {
+  const friendsWithBilateralRelations = useMemo(() => {
     const bilateralRelations = new Set();
 
     notifications.forEach(notif => {
@@ -135,14 +133,14 @@ const InviteFriendsModal = ({
       }
     });
 
-    setFriendsWithBilateralRelations(bilateralRelations);
-
     if (process.env.NODE_ENV === 'development') {
       console.log(
         `🚫 [DEBUG] Relations bilatérales finales pour ${selectedActivity}:`,
         Array.from(bilateralRelations)
       );
     }
+
+    return bilateralRelations;
   }, [firestoreInvitations, notifications, selectedActivity, currentUserId]);
 
   const activities = {
