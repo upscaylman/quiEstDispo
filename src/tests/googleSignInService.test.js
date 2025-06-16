@@ -413,7 +413,12 @@ describe('GoogleSignInService - PHASE 2 - Services Google', () => {
       expect(typeof GoogleSignInService.revoke).toBe('function');
     });
 
-    test.skip('doit fonctionner avec un workflow complet simulé', async () => {
+    test('doit fonctionner avec un workflow complet simulé', async () => {
+      // S'assurer que window.google est correctement configuré
+      window.google = {
+        accounts: mockGoogleAccounts,
+      };
+
       // 1. Initialisation
       await GoogleSignInService.initialize('test-client-id');
 
@@ -426,13 +431,19 @@ describe('GoogleSignInService - PHASE 2 - Services Google', () => {
       // 3. Déconnexion
       GoogleSignInService.signOut();
 
-      // 4. Révocation
+      // 4. Révocation - Setup du mock juste avant l'appel
+      mockGoogleAccounts.oauth2.revoke.mockImplementation((token, callback) => {
+        callback();
+      });
       await GoogleSignInService.revoke('access-token');
 
       expect(mockGoogleAccounts.id.initialize).toHaveBeenCalled();
       expect(signInWithCredential).toHaveBeenCalled();
       expect(mockGoogleAccounts.id.disableAutoSelect).toHaveBeenCalled();
-      expect(mockGoogleAccounts.oauth2.revoke).toHaveBeenCalled();
+      expect(mockGoogleAccounts.oauth2.revoke).toHaveBeenCalledWith(
+        'access-token',
+        expect.any(Function)
+      );
       expect(result).toEqual(
         expect.objectContaining({
           user: expect.any(Object),

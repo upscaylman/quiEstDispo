@@ -5,11 +5,35 @@
 // learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
 
+// POLYFILL CRITIQUE : Doit être importé en premier pour éviter les erreurs undici
+import 'web-streams-polyfill';
+
 // Setup pour les tests Jest
 
 // Polyfill simple pour ReadableStream
 if (typeof global.ReadableStream === 'undefined') {
-  global.ReadableStream = class ReadableStream {};
+  global.ReadableStream = class ReadableStream {
+    constructor() {}
+    getReader() {
+      return {
+        read: () => Promise.resolve({ done: true, value: undefined }),
+        releaseLock: () => {},
+        cancel: () => Promise.resolve(),
+      };
+    }
+    cancel() {
+      return Promise.resolve();
+    }
+    pipeTo() {
+      return Promise.resolve();
+    }
+    pipeThrough() {
+      return this;
+    }
+    tee() {
+      return [this, this];
+    }
+  };
 }
 
 // Polyfill pour TextEncoder/TextDecoder (requis par Firebase)

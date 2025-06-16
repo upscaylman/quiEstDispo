@@ -3,14 +3,12 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import CookieConsent from '../components/CookieConsent';
 
-// Mock CookieService
-const mockCookieService = {
-  getConsent: jest.fn(),
-  setConsent: jest.fn(),
-};
-
+// Mock CookieService - doit être défini avant le jest.mock
 jest.mock('../services/cookieService', () => ({
-  CookieService: mockCookieService,
+  CookieService: {
+    getConsent: jest.fn(),
+    setConsent: jest.fn(),
+  },
 }));
 
 // Mock framer-motion
@@ -24,6 +22,11 @@ jest.mock('framer-motion', () => ({
     ),
   },
 }));
+
+// Récupérer le mock après l'import
+const {
+  CookieService: mockCookieService,
+} = require('../services/cookieService');
 
 describe('CookieConsent - Composant UI simple', () => {
   beforeEach(() => {

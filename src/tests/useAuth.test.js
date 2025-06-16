@@ -3,9 +3,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { useAuth } from '../hooks/useAuth';
 
-// Polyfill pour ReadableStream dans l'environnement de test
-global.ReadableStream = global.ReadableStream || class ReadableStream {};
-
 // Mock AuthService avec toutes les méthodes
 jest.mock('../services/authService', () => ({
   AuthService: {
@@ -220,15 +217,18 @@ describe('useAuth Hook - PHASE 2 - Hooks Authentication', () => {
 
       const { result } = renderHook(() => useAuth());
 
+      let caughtError;
       await act(async () => {
         try {
           await result.current.signInWithGoogle();
         } catch (error) {
-          expect(error.message).toContain(
-            'Vous pouvez essayer le mode redirection'
-          );
+          caughtError = error;
         }
       });
+
+      expect(caughtError.message).toContain(
+        'Vous pouvez essayer le mode redirection'
+      );
     });
 
     test('doit vérifier résultat redirection Google', async () => {
@@ -393,25 +393,35 @@ describe('useAuth Hook - PHASE 2 - Hooks Authentication', () => {
       expect(mockAuthService.signOut).toHaveBeenCalled();
     });
 
-    test.skip('doit gérer les erreurs de déconnexion', async () => {
+    test('doit gérer les erreurs de déconnexion', async () => {
+      // Mock console.error pour capturer les logs d'erreur
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
       mockAuthService.onAuthStateChanged.mockImplementation(() => jest.fn());
       const signOutError = new Error('Sign out failed');
       mockAuthService.signOut.mockRejectedValue(signOutError);
 
       const { result } = renderHook(() => useAuth());
 
+      let caughtError;
       await act(async () => {
         try {
           await result.current.signOut();
         } catch (error) {
-          expect(error).toBe(signOutError);
+          caughtError = error;
         }
       });
 
-      expect(console.error).toHaveBeenCalledWith(
+      expect(caughtError).toBe(signOutError);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('❌ Erreur dans useAuth.signOut:'),
         signOutError
       );
+
+      // Nettoyer le spy
+      consoleErrorSpy.mockRestore();
     });
   });
 

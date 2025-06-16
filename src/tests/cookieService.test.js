@@ -1,6 +1,32 @@
 // @ts-nocheck
 /* eslint-disable no-console */
 
+// Mock localStorage pour ce test
+const mockLocalStorage = (() => {
+  let store = {};
+
+  return {
+    getItem: jest.fn(key => store[key] || null),
+    setItem: jest.fn((key, value) => {
+      store[key] = String(value);
+    }),
+    removeItem: jest.fn(key => {
+      delete store[key];
+    }),
+    clear: jest.fn(() => {
+      store = {};
+    }),
+    get length() {
+      return Object.keys(store).length;
+    },
+    key: jest.fn(index => Object.keys(store)[index] || null),
+  };
+})();
+
+// Remplacer localStorage global
+global.localStorage = mockLocalStorage;
+const localStorage = mockLocalStorage;
+
 describe('CookieService - Test simple - PRIORITE #4', () => {
   beforeEach(() => {
     // Nettoyer localStorage avant chaque test
