@@ -858,6 +858,10 @@ function App() {
             activityToCancel
           );
 
+          // 🔥 NOUVEAU: Nettoyer les availabilities expirées pour éviter les participants fantômes
+          console.log('🛑 [DEBUG] 🧹 Nettoyage des availabilities expirées...');
+          await AvailabilityService.cleanupExpiredAvailabilities();
+
           // 🔥 NOUVEAU: Forcer le rechargement de la liste des amis disponibles
           console.log('🛑 [DEBUG] 🔄 Rechargement des amis disponibles...');
           const updatedAvailableFriends =

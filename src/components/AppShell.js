@@ -1,7 +1,6 @@
 // Composant AppShell - Structure principale et navigation
 import { motion } from 'framer-motion';
 import { ArrowLeft, Bell, Coffee, MapPin, Users } from 'lucide-react';
-import React from 'react';
 import InviteFriendsModal from './InviteFriendsModal';
 import NotificationBadge from './NotificationBadge';
 import WarningBanner from './WarningBanner';
@@ -518,6 +517,7 @@ const AppShell = ({
         friends={friends}
         notifications={notifications}
         darkMode={darkMode}
+        currentUserId={user?.uid} // 🔥 NOUVEAU: ID utilisateur pour logique bilatérale
       />
 
       {/* Éléments enfants (modales, etc.) */}
