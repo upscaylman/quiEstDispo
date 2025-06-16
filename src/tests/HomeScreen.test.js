@@ -49,7 +49,7 @@ jest.mock('../components/AvailabilityButtons', () => {
   };
 });
 
-// Mock MapView
+// Mock MapView avec le bon chemin depuis src/tests/
 jest.mock('../components/map', () => ({
   MapView: function MockMapView(props) {
     return (
@@ -60,7 +60,7 @@ jest.mock('../components/map', () => ({
   },
 }));
 
-// Mock MapboxMapView
+// Mock MapboxMapView avec le bon chemin depuis src/tests/
 jest.mock('../components/map/MapboxMapView', () => {
   return function MockMapboxMapView(props) {
     return (
