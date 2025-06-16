@@ -168,7 +168,7 @@ describe('ErrorHandler Utils - Gestion erreurs Firebase', () => {
   describe('Interception des erreurs console', () => {
     test('doit intercepter console.error pour Firebase', () => {
       // Nouvelle instance pour tester l'interception
-      const handler = new ErrorHandler();
+      new ErrorHandler(); // Pas besoin de stocker dans une variable
 
       // Cette erreur doit être filtrée
       console.error('net::ERR_ABORTED 400 Firebase error');
@@ -177,7 +177,7 @@ describe('ErrorHandler Utils - Gestion erreurs Firebase', () => {
     });
 
     test('doit laisser passer les erreurs non-Firebase', () => {
-      const handler = new ErrorHandler();
+      new ErrorHandler(); // Pas besoin de stocker dans une variable
 
       // Cette erreur ne doit pas être filtrée
       console.error('Real application error');

@@ -149,7 +149,7 @@ export const generateAvatarHTML = (user, containerStyle = '') => {
   `;
 };
 
-export default {
+const AvatarUtils = {
   isValidAvatarUrl,
   getAvatarUrl,
   getDisplayName,
@@ -157,3 +157,5 @@ export default {
   AvatarDisplay,
   generateAvatarHTML,
 };
+
+export default AvatarUtils;

@@ -1,5 +1,5 @@
 // Application refactorisée avec AppShell et components modulaires
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import AddFriendModal from './components/AddFriendModal';
 import AppShell from './components/AppShell';
 import CookieConsent from './components/CookieConsent';
@@ -389,8 +389,11 @@ function App() {
 
   // Supprimer un ami
   const handleRemoveFriend = async (friendId, friendName) => {
+    // Utiliser window.confirm pour éviter l'erreur ESLint
     if (
-      !confirm(`Voulez-vous vraiment supprimer ${friendName} de vos amis ?`)
+      !window.confirm(
+        `Voulez-vous vraiment supprimer ${friendName} de vos amis ?`
+      )
     ) {
       return;
     }
