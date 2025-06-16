@@ -43,6 +43,7 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:ci": "react-scripts test --ci --watchAll=false --testPathPattern=\"(mockData|invitationService|errorMonitoring|PWAInstallPrompt|WarningBanner).test.js\"",
     "eject": "react-scripts eject",
     "lint": "eslint src/**/*.{js,jsx}",
     "format": "prettier --write src/**/*.{js,jsx,css,json}",
