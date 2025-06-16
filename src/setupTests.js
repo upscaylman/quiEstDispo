@@ -176,3 +176,62 @@ global.window.matchMedia = jest.fn(() => ({
 
 // Mock pour beforeinstallprompt
 global.window.beforeinstallprompt = null;
+
+// === CONFIGURATION SPÉCIALE CI/TEST ===
+
+// Configuration améliorée pour l'environnement CI
+const isTestEnv =
+  process.env.CI === 'true' || process.env.JEST_WORKER_ID !== undefined;
+if (isTestEnv) {
+  // Mock amélioré pour window
+  global.window = {
+    ...global.window,
+    location: {
+      href: 'http://localhost:3000/test',
+      origin: 'http://localhost:3000',
+      protocol: 'http:',
+      host: 'localhost:3000',
+    },
+    navigator: {
+      ...global.navigator,
+      onLine: true,
+      userAgent: 'CI-Test-Environment/1.0',
+    },
+    // Mock pour Firebase App Check
+    FIREBASE_APPCHECK_DEBUG_TOKEN: true,
+  };
+
+  // Mock amélioré pour document
+  const mockElement = {
+    innerHTML: '',
+    style: { display: 'none' },
+    appendChild: jest.fn(),
+    removeChild: jest.fn(),
+    id: '',
+    classList: {
+      add: jest.fn(),
+      remove: jest.fn(),
+      contains: jest.fn(() => false),
+    },
+  };
+
+  global.document = {
+    ...global.document,
+    getElementById: jest.fn(id => ({
+      ...mockElement,
+      id,
+    })),
+    createElement: jest.fn(tag => ({
+      ...mockElement,
+      tagName: tag.toUpperCase(),
+    })),
+    body: {
+      appendChild: jest.fn(),
+      removeChild: jest.fn(),
+    },
+  };
+
+  console.log(
+    '🤖 Configuration CI/Test environment activée avec mocks complets'
+  );
+}
