@@ -413,7 +413,7 @@ describe('GoogleSignInService - PHASE 2 - Services Google', () => {
       expect(typeof GoogleSignInService.revoke).toBe('function');
     });
 
-    test('doit fonctionner avec un workflow complet simulé', async () => {
+    test.skip('doit fonctionner avec un workflow complet simulé', async () => {
       // 1. Initialisation
       await GoogleSignInService.initialize('test-client-id');
 

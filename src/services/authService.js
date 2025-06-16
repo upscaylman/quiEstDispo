@@ -279,14 +279,17 @@ export class AuthService {
       throw new Error('Numéro de téléphone trop long');
     }
 
-    // Validation spécifique pour les numéros français (+33)
+    // Validation spécifique pour les numéros mobiles français (+336/+337 UNIQUEMENT)
     if (cleaned.startsWith('+33')) {
       const frenchNumber = cleaned.substring(3); // Enlever +33
       if (frenchNumber.length !== 9) {
         throw new Error('Le numéro français doit avoir 9 chiffres après +33');
       }
-      if (!frenchNumber.match(/^[1-7][0-9]{8}$/)) {
-        throw new Error('Format de numéro français invalide');
+      // CONTRAINTE MÉTIER: Seuls les mobiles français 06 et 07 sont acceptés
+      if (!frenchNumber.match(/^[67][0-9]{8}$/)) {
+        throw new Error(
+          'Seuls les numéros mobiles français (+336, +337) sont acceptés'
+        );
       }
     }
 

@@ -3,28 +3,31 @@
 import { act, renderHook } from '@testing-library/react';
 import { useAuth } from '../hooks/useAuth';
 
-// === MOCKS COMPLETS ===
-const mockAuthService = {
-  onAuthStateChanged: jest.fn(),
-  signInWithGoogle: jest.fn(),
-  signInWithGoogleRedirect: jest.fn(),
-  signInWithFacebook: jest.fn(),
-  signInWithFacebookRedirect: jest.fn(),
-  getGoogleRedirectResult: jest.fn(),
-  getFacebookRedirectResult: jest.fn(),
-  signInWithPhone: jest.fn(),
-  confirmPhoneCode: jest.fn(),
-  createRecaptchaVerifier: jest.fn(),
-  signOut: jest.fn(),
-  testPhoneAuth: jest.fn(),
-  createUserProfile: jest.fn(),
-  cleanupOrphanedAuthAccount: jest.fn(),
-};
+// Polyfill pour ReadableStream dans l'environnement de test
+global.ReadableStream = global.ReadableStream || class ReadableStream {};
 
-// Mock AuthService
-jest.mock('../services/firebaseService', () => ({
-  AuthService: mockAuthService,
+// Mock AuthService avec toutes les méthodes
+jest.mock('../services/authService', () => ({
+  AuthService: {
+    onAuthStateChanged: jest.fn(),
+    signInWithGoogle: jest.fn(),
+    signInWithGoogleRedirect: jest.fn(),
+    signInWithFacebook: jest.fn(),
+    signInWithFacebookRedirect: jest.fn(),
+    getGoogleRedirectResult: jest.fn(),
+    getFacebookRedirectResult: jest.fn(),
+    signInWithPhone: jest.fn(),
+    confirmPhoneCode: jest.fn(),
+    createRecaptchaVerifier: jest.fn(),
+    signOut: jest.fn(),
+    testPhoneAuth: jest.fn(),
+    createUserProfile: jest.fn(),
+    cleanupOrphanedAuthAccount: jest.fn(),
+  },
 }));
+
+// Récupérer le mock pour les tests
+const mockAuthService = require('../services/authService').AuthService;
 
 describe('useAuth Hook - PHASE 2 - Hooks Authentication', () => {
   const mockUser = {
