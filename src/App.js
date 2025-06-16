@@ -1,5 +1,5 @@
 // Application refactorisée avec AppShell et components modulaires
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import AddFriendModal from './components/AddFriendModal';
 import AppShell from './components/AppShell';
@@ -61,6 +61,13 @@ function App() {
   const [showInviteFriendsModal, setShowInviteFriendsModal] = useState(false);
   const [selectedInviteActivity, setSelectedInviteActivity] = useState(null);
   const [showPhoneRequiredModal, setShowPhoneRequiredModal] = useState(false);
+
+  // État pour les notifications push
+  const [pushNotificationStatus] = useState({
+    supported: false,
+    permission: 'default',
+    subscribed: false,
+  });
 
   // Fonction pour gérer le changement d'écran avec logique notifications
   const handleScreenChange = screen => {
@@ -126,11 +133,6 @@ function App() {
 
   // État système
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [pushNotificationStatus, setPushNotificationStatus] = useState({
-    supported: false,
-    permission: 'default',
-    subscribed: false,
-  });
 
   // Gestion des notifications push (handlers manquants)
   const handleEnablePushNotifications = async () => {

@@ -48,12 +48,6 @@
     "format": "prettier --write src/**/*.{js,jsx,css,json}",
     "convert-svg": "node scripts/convert-svg-to-png.js"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
   "browserslist": {
     "production": [
       ">0.2%",
