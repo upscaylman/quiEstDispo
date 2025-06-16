@@ -6,20 +6,20 @@ const mockLocalStorage = (() => {
   let store = {};
 
   return {
-    getItem: jest.fn(key => store[key] || null),
-    setItem: jest.fn((key, value) => {
+    getItem: key => store[key] || null,
+    setItem: (key, value) => {
       store[key] = String(value);
-    }),
-    removeItem: jest.fn(key => {
+    },
+    removeItem: key => {
       delete store[key];
-    }),
-    clear: jest.fn(() => {
+    },
+    clear: () => {
       store = {};
-    }),
+    },
     get length() {
       return Object.keys(store).length;
     },
-    key: jest.fn(index => Object.keys(store)[index] || null),
+    key: index => Object.keys(store)[index] || null,
   };
 })();
 
