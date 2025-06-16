@@ -9,7 +9,7 @@ import {
   Wine,
   X,
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const InviteFriendsModal = ({
   isOpen,
@@ -44,6 +44,44 @@ const InviteFriendsModal = ({
     : null;
   const Icon = currentActivity?.icon;
 
+  // 🔥 NOUVEAU BUG #2 FIX: Calculer les amis avec relations bilatérales à exclure
+  const friendsWithBilateralRelations = new Set();
+
+  // Parcourir les notifications pour identifier les relations bilatérales
+  notifications.forEach(notif => {
+    if (
+      notif.type === 'invitation' &&
+      notif.data?.activity === selectedActivity &&
+      !notif.read
+    ) {
+      // Si on a reçu une invitation pour cette activité, on ne peut pas réinviter cette personne
+      friendsWithBilateralRelations.add(notif.from);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(
+          `🚫 [DEBUG] Exclusion bilatérale: ${notif.from} (nous a invités pour ${selectedActivity})`
+        );
+      }
+    }
+  });
+
+  // 🔥 NOUVEAU: Également exclure les amis à qui on a déjà envoyé une invitation en attente
+  // (pour éviter les doublons même si l'autre n'a pas encore répondu)
+  notifications.forEach(notif => {
+    if (
+      notif.type === 'invitation_sent' &&
+      notif.data?.activity === selectedActivity &&
+      !notif.read
+    ) {
+      // Si on a envoyé une invitation en attente, ne pas permettre de réinviter
+      friendsWithBilateralRelations.add(notif.to);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(
+          `🚫 [DEBUG] Exclusion invitation en attente: ${notif.to} (on lui a déjà envoyé pour ${selectedActivity})`
+        );
+      }
+    }
+  });
+
   const friendsWhoInvitedUs = new Set(
     notifications
       .filter(notif => {
@@ -64,7 +102,12 @@ const InviteFriendsModal = ({
           });
         }
 
-        return isInvitation && sameActivity && unread;
+        return (
+          isInvitation &&
+          sameActivity &&
+          unread &&
+          !friendsWithBilateralRelations.has(notif.from)
+        );
       })
       .map(notif => notif.from)
   );
@@ -276,7 +319,11 @@ const InviteFriendsModal = ({
 
                 <div className="space-y-3 max-h-64 overflow-y-auto">
                   {friends
-                    .filter(friend => !friendsWhoInvitedUs.has(friend.id))
+                    .filter(
+                      friend =>
+                        !friendsWhoInvitedUs.has(friend.id) &&
+                        !friendsWithBilateralRelations.has(friend.id)
+                    )
                     .map(friend => {
                       const isDisabled = false;
 

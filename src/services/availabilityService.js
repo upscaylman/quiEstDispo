@@ -159,18 +159,21 @@ export class AvailabilityService {
           }
         }
 
-        // Mettre à jour le profil utilisateur
+        // 🔥 NOUVEAU BUG #1 FIX: Forcer le nettoyage immédiat de la position sur la carte
+        // Mettre à jour le profil utilisateur avec nettoyage explicite de la location
         const userRef = doc(db, 'users', userId);
         await updateDoc(userRef, {
           isAvailable: false,
           currentActivity: null,
           availabilityId: null,
           location: null, // 🔥 IMPORTANT: Nettoyer la location partagée
+          lastLocationUpdate: serverTimestamp(), // 🔥 NOUVEAU: Forcer la détection de changement
+          positionShared: false, // 🔥 NOUVEAU: Marquer comme non partagée explicitement
           updatedAt: serverTimestamp(),
         });
 
         console.log(
-          `🛑 [DEBUG] ✅ Arrêt de disponibilité terminé pour ${userId}`
+          `🛑 [DEBUG] ✅ Arrêt de disponibilité terminé pour ${userId} - Position cachée sur carte`
         );
       });
     } catch (error) {
