@@ -1,3 +1,4 @@
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Check,
@@ -10,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { db } from '../services/firebaseUtils';
 
 const InviteFriendsModal = ({
   isOpen,
@@ -19,16 +21,129 @@ const InviteFriendsModal = ({
   friends = [],
   notifications = [],
   darkMode = false,
+  currentUserId = null,
 }) => {
   const [selectedFriends, setSelectedFriends] = useState(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(activity);
+  const [firestoreInvitations, setFirestoreInvitations] = useState([]);
+  const [friendsWithBilateralRelations, setFriendsWithBilateralRelations] =
+    useState(new Set());
 
   useEffect(() => {
     if (isOpen) {
       setSelectedActivity(activity);
     }
   }, [isOpen, activity]);
+
+  useEffect(() => {
+    const fetchFirestoreInvitations = async () => {
+      if (!currentUserId || !selectedActivity) return;
+
+      try {
+        const sentQuery = query(
+          collection(db, 'invitations'),
+          where('fromUserId', '==', currentUserId),
+          where('activity', '==', selectedActivity),
+          where('status', '==', 'pending')
+        );
+
+        const receivedQuery = query(
+          collection(db, 'invitations'),
+          where('toUserId', '==', currentUserId),
+          where('activity', '==', selectedActivity),
+          where('status', '==', 'pending')
+        );
+
+        const [sentSnapshot, receivedSnapshot] = await Promise.all([
+          getDocs(sentQuery),
+          getDocs(receivedQuery),
+        ]);
+
+        const allInvitations = [
+          ...sentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+          ...receivedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+        ];
+
+        setFirestoreInvitations(allInvitations);
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            `🔍 [DEBUG] Invitations Firestore pour ${selectedActivity}:`,
+            allInvitations
+          );
+        }
+      } catch (error) {
+        console.error('❌ Erreur récupération invitations Firestore:', error);
+        setFirestoreInvitations([]);
+      }
+    };
+
+    if (isOpen && currentUserId && selectedActivity) {
+      fetchFirestoreInvitations();
+    }
+  }, [isOpen, currentUserId, selectedActivity]);
+
+  useEffect(() => {
+    const bilateralRelations = new Set();
+
+    notifications.forEach(notif => {
+      if (
+        notif.type === 'invitation' &&
+        notif.data?.activity === selectedActivity &&
+        !notif.read
+      ) {
+        bilateralRelations.add(notif.from);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            `🚫 [DEBUG] Exclusion bilatérale: ${notif.from} (nous a invités pour ${selectedActivity})`
+          );
+        }
+      }
+    });
+
+    firestoreInvitations.forEach(invitation => {
+      if (invitation.fromUserId === currentUserId) {
+        bilateralRelations.add(invitation.toUserId);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            `🚫 [DEBUG] Exclusion bilatérale Firestore: ${invitation.toUserId} (on lui a envoyé une invitation)`
+          );
+        }
+      } else if (invitation.toUserId === currentUserId) {
+        bilateralRelations.add(invitation.fromUserId);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            `🚫 [DEBUG] Exclusion bilatérale Firestore: ${invitation.fromUserId} (nous a envoyé une invitation)`
+          );
+        }
+      }
+    });
+
+    notifications.forEach(notif => {
+      if (
+        notif.type === 'invitation_sent' &&
+        notif.data?.activity === selectedActivity &&
+        !notif.read
+      ) {
+        bilateralRelations.add(notif.to);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            `🚫 [DEBUG] Exclusion invitation en attente: ${notif.to} (on lui a déjà envoyé pour ${selectedActivity})`
+          );
+        }
+      }
+    });
+
+    setFriendsWithBilateralRelations(bilateralRelations);
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        `🚫 [DEBUG] Relations bilatérales finales pour ${selectedActivity}:`,
+        Array.from(bilateralRelations)
+      );
+    }
+  }, [firestoreInvitations, notifications, selectedActivity, currentUserId]);
 
   const activities = {
     coffee: { label: 'Coffee', icon: Coffee, color: 'bg-amber-500' },
@@ -43,44 +158,6 @@ const InviteFriendsModal = ({
     ? activities[selectedActivity]
     : null;
   const Icon = currentActivity?.icon;
-
-  // 🔥 NOUVEAU BUG #2 FIX: Calculer les amis avec relations bilatérales à exclure
-  const friendsWithBilateralRelations = new Set();
-
-  // Parcourir les notifications pour identifier les relations bilatérales
-  notifications.forEach(notif => {
-    if (
-      notif.type === 'invitation' &&
-      notif.data?.activity === selectedActivity &&
-      !notif.read
-    ) {
-      // Si on a reçu une invitation pour cette activité, on ne peut pas réinviter cette personne
-      friendsWithBilateralRelations.add(notif.from);
-      if (process.env.NODE_ENV === 'development') {
-        console.log(
-          `🚫 [DEBUG] Exclusion bilatérale: ${notif.from} (nous a invités pour ${selectedActivity})`
-        );
-      }
-    }
-  });
-
-  // 🔥 NOUVEAU: Également exclure les amis à qui on a déjà envoyé une invitation en attente
-  // (pour éviter les doublons même si l'autre n'a pas encore répondu)
-  notifications.forEach(notif => {
-    if (
-      notif.type === 'invitation_sent' &&
-      notif.data?.activity === selectedActivity &&
-      !notif.read
-    ) {
-      // Si on a envoyé une invitation en attente, ne pas permettre de réinviter
-      friendsWithBilateralRelations.add(notif.to);
-      if (process.env.NODE_ENV === 'development') {
-        console.log(
-          `🚫 [DEBUG] Exclusion invitation en attente: ${notif.to} (on lui a déjà envoyé pour ${selectedActivity})`
-        );
-      }
-    }
-  });
 
   const friendsWhoInvitedUs = new Set(
     notifications
