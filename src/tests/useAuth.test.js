@@ -258,8 +258,8 @@ describe('useAuth Hook - PHASE 2 - Hooks Authentication', () => {
     });
   });
 
-  describe('📘 Facebook Authentication', () => {
-    test('doit connecter avec Facebook en mode popup', async () => {
+  describe('📘 Facebook Authentication (NON IMPLÉMENTÉE - masquée en production)', () => {
+    test('doit connecter avec Facebook en mode popup (développement uniquement)', async () => {
       mockAuthService.onAuthStateChanged.mockImplementation(() => jest.fn());
       mockAuthService.signInWithFacebook.mockResolvedValue({ user: mockUser });
 
@@ -270,11 +270,12 @@ describe('useAuth Hook - PHASE 2 - Hooks Authentication', () => {
         signInResult = await result.current.signInWithFacebook();
       });
 
+      // Note: Facebook auth existe dans useAuth mais interface masquée en production
       expect(mockAuthService.signInWithFacebook).toHaveBeenCalled();
       expect(signInResult).toEqual({ user: mockUser });
     });
 
-    test('doit connecter avec Facebook en mode redirection', async () => {
+    test('doit connecter avec Facebook en mode redirection (développement uniquement)', async () => {
       mockAuthService.onAuthStateChanged.mockImplementation(() => jest.fn());
       mockAuthService.signInWithFacebookRedirect.mockResolvedValue();
 
@@ -285,11 +286,12 @@ describe('useAuth Hook - PHASE 2 - Hooks Authentication', () => {
         signInResult = await result.current.signInWithFacebook(true);
       });
 
+      // Note: Code prêt mais UI Facebook non visible en production
       expect(mockAuthService.signInWithFacebookRedirect).toHaveBeenCalled();
       expect(signInResult).toBe(null);
     });
 
-    test('doit vérifier résultat redirection Facebook', async () => {
+    test('doit vérifier résultat redirection Facebook (développement uniquement)', async () => {
       mockAuthService.onAuthStateChanged.mockImplementation(() => jest.fn());
       mockAuthService.getFacebookRedirectResult.mockResolvedValue({
         user: mockUser,
@@ -302,6 +304,7 @@ describe('useAuth Hook - PHASE 2 - Hooks Authentication', () => {
         redirectResult = await result.current.checkFacebookRedirectResult();
       });
 
+      // Note: Méthode existe mais interface Facebook masquée en production
       expect(mockAuthService.getFacebookRedirectResult).toHaveBeenCalled();
       expect(redirectResult).toEqual({ user: mockUser });
     });
@@ -311,7 +314,7 @@ describe('useAuth Hook - PHASE 2 - Hooks Authentication', () => {
     const mockRecaptcha = { verify: jest.fn(), clear: jest.fn() };
     const mockConfirmationResult = { confirm: jest.fn() };
 
-    test('doit envoyer SMS pour authentification téléphone', async () => {
+    test('doit envoyer SMS pour authentification téléphone (UNIQUEMENT +336/+337)', async () => {
       mockAuthService.onAuthStateChanged.mockImplementation(() => jest.fn());
       mockAuthService.signInWithPhone.mockResolvedValue(mockConfirmationResult);
 
@@ -320,13 +323,13 @@ describe('useAuth Hook - PHASE 2 - Hooks Authentication', () => {
       let phoneResult;
       await act(async () => {
         phoneResult = await result.current.signInWithPhone(
-          '+33123456789',
+          '+33612345678', // Seuls +336/+337 acceptés en production
           mockRecaptcha
         );
       });
 
       expect(mockAuthService.signInWithPhone).toHaveBeenCalledWith(
-        '+33123456789',
+        '+33612345678',
         mockRecaptcha
       );
       expect(phoneResult).toBe(mockConfirmationResult);

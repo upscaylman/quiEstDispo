@@ -122,13 +122,14 @@ describe('AuthService - PHASE 2 - Logique Métier Core', () => {
     });
   });
 
-  describe('📘 Facebook Authentication', () => {
-    test('doit connecter avec Facebook avec succès', async () => {
+  describe('📘 Facebook Authentication (NON IMPLÉMENTÉE - masquée en production)', () => {
+    test('doit connecter avec Facebook avec succès (développement uniquement)', async () => {
       const { signInWithPopup } = require('firebase/auth');
       signInWithPopup.mockResolvedValue(mockResult);
 
       jest.spyOn(AuthService, 'createUserProfile').mockResolvedValue(mockUser);
 
+      // Note: Facebook auth existe dans le code mais n'apparaît PAS en interface prod
       const result = await AuthService.signInWithFacebook();
 
       expect(signInWithPopup).toHaveBeenCalled();
@@ -141,12 +142,14 @@ describe('AuthService - PHASE 2 - Logique Métier Core', () => {
   });
 
   describe('📱 Phone Authentication', () => {
-    test('doit valider et formater le numéro de téléphone français', () => {
+    test('doit valider et formater UNIQUEMENT les numéros mobiles français +336/+337', () => {
       const validCases = [
-        ['0123456789', '+33123456789'],
-        ['+33123456789', '+33123456789'],
-        ['06 12 34 56 78', '+33612345678'],
-        ['+33 6 12 34 56 78', '+33612345678'],
+        ['0612345678', '+33612345678'], // 06 mobile français
+        ['0712345678', '+33712345678'], // 07 mobile français
+        ['+33612345678', '+33612345678'], // +336 déjà formaté
+        ['+33712345678', '+33712345678'], // +337 déjà formaté
+        ['06 12 34 56 78', '+33612345678'], // Avec espaces
+        ['07 12 34 56 78', '+33712345678'], // Avec espaces
       ];
 
       validCases.forEach(([input, expected]) => {
@@ -155,30 +158,40 @@ describe('AuthService - PHASE 2 - Logique Métier Core', () => {
       });
     });
 
-    test('doit rejeter les numéros invalides', () => {
+    test('doit rejeter les numéros NON mobiles français (seuls +336/+337 acceptés)', () => {
       const invalidCases = [
         '',
+        'abc',
         '123',
-        '+1234567890', // US number
-        'abcdefghij',
-        '012345678', // Too short
-        '01234567890', // Too long
+        '0123456789', // Fixe français (01) - REJETÉ
+        '0212345678', // Fixe français (02) - REJETÉ
+        '0312345678', // Fixe français (03) - REJETÉ
+        '0412345678', // Fixe français (04) - REJETÉ
+        '0512345678', // Fixe français (05) - REJETÉ
+        '0812345678', // Numéro spécial (08) - REJETÉ
+        '0912345678', // Numéro spécial (09) - REJETÉ
+        '+33123456789', // Fixe +331 - REJETÉ
+        '+1234567890', // USA - REJETÉ
+        '+44123456789', // UK - REJETÉ
+        '012345678', // Trop court
+        '01234567890', // Trop long
       ];
 
-      invalidCases.forEach(invalid => {
-        expect(() => {
-          AuthService.validateAndFormatPhoneNumber(invalid);
-        }).toThrow('Numéro de téléphone invalide');
+      invalidCases.forEach(input => {
+        expect(() => AuthService.validateAndFormatPhoneNumber(input)).toThrow(
+          'Seuls les numéros mobiles français (+336, +337) sont acceptés'
+        );
       });
     });
 
-    test('doit envoyer SMS avec succès', async () => {
+    test('doit envoyer SMS avec succès (UNIQUEMENT +336/+337 en production)', async () => {
       const { signInWithPhoneNumber } = require('firebase/auth');
       signInWithPhoneNumber.mockResolvedValue(mockConfirmationResult);
 
       const mockRecaptcha = { verify: jest.fn(), clear: jest.fn() };
+      // Note: En production, seuls les numéros +336 et +337 fonctionnent
       const result = await AuthService.signInWithPhone(
-        '+33123456789',
+        '+33612345678', // Numéro mobile français valide
         mockRecaptcha
       );
 
