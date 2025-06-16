@@ -71,17 +71,17 @@ describe('useMapLogic - PHASE 2 - Logique de Carte', () => {
     test('doit limiter le zoom entre 10 et 18', () => {
       const { result } = renderHook(() => useMapLogic({}));
 
-      // Test limite superieure
+      // Test limite superieure (zoom initial = 14, donc +4 pour atteindre 18)
       act(() => {
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 5; i++) {
           result.current.handleZoomIn();
         }
       });
       expect(result.current.zoom).toBe(18);
 
-      // Test limite inferieure
+      // Test limite inferieure (depuis 18, -8 pour atteindre 10)
       act(() => {
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 10; i++) {
           result.current.handleZoomOut();
         }
       });
@@ -139,6 +139,11 @@ describe('useMapLogic - PHASE 2 - Logique de Carte', () => {
         useMapLogic({ userLocation: mockUserLocation })
       );
 
+      // S'assurer que mapCenter est bien défini
+      expect(result.current.mapCenter).toBeDefined();
+      expect(result.current.mapCenter.lat).toBeDefined();
+      expect(result.current.mapCenter.lng).toBeDefined();
+
       const pixelCoords = result.current.latLngToPixel(48.8566, 2.3522);
 
       expect(pixelCoords).toHaveProperty('x');
@@ -149,6 +154,11 @@ describe('useMapLogic - PHASE 2 - Logique de Carte', () => {
 
     test('doit gerer les coordonnees invalides', () => {
       const { result } = renderHook(() => useMapLogic({}));
+
+      // Même sans userLocation, mapCenter doit avoir une valeur par défaut
+      expect(result.current.mapCenter).toBeDefined();
+      expect(result.current.mapCenter.lat).toBeDefined();
+      expect(result.current.mapCenter.lng).toBeDefined();
 
       const pixelCoords = result.current.latLngToPixel(null, null);
 

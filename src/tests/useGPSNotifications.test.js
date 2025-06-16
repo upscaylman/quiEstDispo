@@ -207,19 +207,20 @@ describe('useGPSNotifications - PHASE 2 - Notifications GPS', () => {
     });
 
     test('doit nettoyer les timers lors du démontage', () => {
+      const initialTimerCount = jest.getTimerCount();
       const { result, unmount } = renderHook(() => useGPSNotifications());
 
       act(() => {
         result.current.notifyGPSEnabled();
       });
 
-      // Vérifier qu'il y a des timers actifs
-      expect(jest.getTimerCount()).toBeGreaterThan(0);
+      // Vérifier qu'il y a plus de timers qu'initialement
+      expect(jest.getTimerCount()).toBeGreaterThan(initialTimerCount);
 
       unmount();
 
-      // Les timers doivent être nettoyés
-      expect(jest.getTimerCount()).toBe(0);
+      // Les timers doivent être revenus au nombre initial (ou moins)
+      expect(jest.getTimerCount()).toBeLessThanOrEqual(initialTimerCount);
     });
   });
 

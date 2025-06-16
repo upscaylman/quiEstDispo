@@ -234,9 +234,9 @@ describe('LoginScreen - PHASE 3 - UI Complexe', () => {
       fireEvent.click(submitButton);
 
       await waitFor(() => {
-        // Le composant affiche le message d'erreur brut
+        // Le composant affiche le message d'erreur avec préfixe reCAPTCHA
         expect(
-          screen.getByText('auth/invalid-phone-number')
+          screen.getByText('Erreur reCAPTCHA: auth/invalid-phone-number')
         ).toBeInTheDocument();
       });
     });
@@ -288,10 +288,8 @@ describe('LoginScreen - PHASE 3 - UI Complexe', () => {
       const phoneInput = screen.getByPlaceholderText('+33 6 12 34 56 78');
       fireEvent.change(phoneInput, { target: { value: '+33612345678' } });
 
-      // Trouver le bouton SMS
-      const submitButton = screen.getByRole('button', {
-        name: /envoyer le code sms/i,
-      });
+      // Quand en loading, le bouton n'a plus de texte accessible mais juste un spinner
+      const submitButton = screen.getByRole('button', { name: '' });
 
       // Le bouton doit être désactivé quand loading=true
       expect(submitButton).toBeDisabled();

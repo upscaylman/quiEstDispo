@@ -116,7 +116,9 @@ export const useMapLogic = ({
   useEffect(() => {
     if (!isFollowingUser) return;
     const bounds = calculateMapBounds(filteredFriends, userLocation);
-    setMapCenter(bounds);
+    if (bounds && bounds.lat && bounds.lng) {
+      setMapCenter(bounds);
+    }
   }, [filteredFriends, userLocation, isFollowingUser]);
 
   useEffect(() => {

@@ -281,6 +281,10 @@ describe('useGeolocation - PHASE 2 - Géolocalisation CRITIQUE', () => {
       // Retry
       act(() => {
         result.current.retryGeolocation();
+      });
+
+      // Avancer le temps pour la résolution
+      act(() => {
         jest.advanceTimersByTime(100);
       });
 
