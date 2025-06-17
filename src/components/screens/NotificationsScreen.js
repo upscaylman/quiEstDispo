@@ -102,50 +102,15 @@ const NotificationsScreen = ({
     });
   };
 
-  // Fonction pour détecter et supprimer les doublons de notifications
-  const removeDuplicateNotifications = notifications => {
-    const seen = new Map();
-    return notifications.filter(notif => {
-      // Créer une clé unique basée sur le message et la date (arrondie à la minute)
-      const dateKey = notif.createdAt?.toDate?.()?.getTime()
-        ? Math.floor(notif.createdAt.toDate().getTime() / 60000) // Arrondir à la minute
-        : 'no-date';
-      const uniqueKey = `${notif.message}-${dateKey}`;
-
-      if (seen.has(uniqueKey)) {
-        // Si doublon trouvé, garder celui qui a des boutons d'action ou qui est supprimable
-        const existing = seen.get(uniqueKey);
-        const hasActions = ['friend_invitation', 'invitation'].includes(
-          notif.type
-        );
-        const existingHasActions = ['friend_invitation', 'invitation'].includes(
-          existing.type
-        );
-
-        // Prioriser les notifications avec actions (boutons Accepter/Refuser)
-        if (hasActions && !existingHasActions) {
-          seen.set(uniqueKey, notif);
-          return true;
-        }
-        // Sinon, garder l'existante
-        return false;
-      } else {
-        seen.set(uniqueKey, notif);
-        return true;
-      }
-    });
-  };
-
-  // Appliquer le filtre anti-doublon sur toutes les notifications
-  const filteredNotifications = removeDuplicateNotifications(notifications);
+  // Plus besoin de filtre anti-doublon, le problème était dans le code source
 
   // Organiser les notifications par thème et les trier par date
   const friendInvitations = sortNotificationsByDate(
-    filteredNotifications.filter(notif => notif.type === 'friend_invitation')
+    notifications.filter(notif => notif.type === 'friend_invitation')
   );
 
   const friendNotifications = sortNotificationsByDate(
-    filteredNotifications.filter(notif =>
+    notifications.filter(notif =>
       [
         'friend_invitation_accepted',
         'friend_added_confirmation',
@@ -155,17 +120,13 @@ const NotificationsScreen = ({
   );
 
   const activityInvitations = sortNotificationsByDate(
-    filteredNotifications.filter(notif => notif.type === 'invitation')
+    notifications.filter(notif => notif.type === 'invitation')
   );
 
   // 🐛 DEBUG: Logs pour débugger les invitations
   useEffect(() => {
     console.log('🐛 [DEBUG] NotificationsScreen - Analyse des invitations:');
     console.log('🐛 [DEBUG] Total notifications:', notifications.length);
-    console.log(
-      '🐛 [DEBUG] Notifications après filtre doublon:',
-      filteredNotifications.length
-    );
     console.log(
       "🐛 [DEBUG] Invitations d'activité trouvées:",
       activityInvitations.length
@@ -188,22 +149,22 @@ const NotificationsScreen = ({
       console.log("🐛 [DEBUG] ❌ Aucune invitation d'activité trouvée !");
 
       // Analyser tous les types de notifications présents
-      const notificationTypes = filteredNotifications.map(n => n.type);
+      const notificationTypes = notifications.map(n => n.type);
       const uniqueTypes = [...new Set(notificationTypes)];
       console.log('🐛 [DEBUG] Types de notifications présents:', uniqueTypes);
 
       // Afficher quelques notifications pour analyse
-      if (filteredNotifications.length > 0) {
+      if (notifications.length > 0) {
         console.log(
           '🐛 [DEBUG] Première notification pour analyse:',
-          filteredNotifications[0]
+          notifications[0]
         );
       }
     }
-  }, [notifications, filteredNotifications, activityInvitations]);
+  }, [notifications, activityInvitations]);
 
   const activityResponses = sortNotificationsByDate(
-    filteredNotifications.filter(notif =>
+    notifications.filter(notif =>
       [
         'invitation_response',
         'activity_accepted',
@@ -216,7 +177,7 @@ const NotificationsScreen = ({
   );
 
   const otherNotifications = sortNotificationsByDate(
-    filteredNotifications.filter(
+    notifications.filter(
       notif =>
         ![
           'friend_invitation',
@@ -254,7 +215,7 @@ const NotificationsScreen = ({
   // Supprimer toutes les notifications SAUF les invitations
   const handleDeleteAllNonInvitations = async () => {
     try {
-      const notificationsToDelete = filteredNotifications.filter(
+      const notificationsToDelete = notifications.filter(
         n => !['friend_invitation', 'invitation'].includes(n.type)
       );
 
@@ -271,9 +232,7 @@ const NotificationsScreen = ({
     const offsetX = Number(info?.offset?.x) || 0;
 
     // Trouver la notification pour vérifier son type
-    const notification = filteredNotifications.find(
-      n => n.id === notificationId
-    );
+    const notification = notifications.find(n => n.id === notificationId);
 
     // Ne pas permettre le swipe pour les invitations
     if (
@@ -664,7 +623,7 @@ const NotificationsScreen = ({
   return (
     <div className="px-responsive py-4">
       {/* Instructions d'utilisation pour mobile */}
-      {filteredNotifications.length > 0 && (
+      {notifications.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -676,7 +635,7 @@ const NotificationsScreen = ({
       )}
 
       {/* Bouton "Tout supprimer" en haut - seulement pour les notifications supprimables */}
-      {filteredNotifications.filter(
+      {notifications.filter(
         n => !['friend_invitation', 'invitation'].includes(n.type)
       ).length > 0 && (
         <div className="flex justify-end mb-4">
@@ -697,7 +656,7 @@ const NotificationsScreen = ({
       )}
 
       {/* Sections thématiques */}
-      {filteredNotifications.length > 0 ? (
+      {notifications.length > 0 ? (
         <div className="space-y-6">
           {/* Section Demandes d'amitié */}
           {renderSection("Demandes d'amitié", Users, friendInvitations, 'blue')}

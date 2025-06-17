@@ -125,14 +125,15 @@ const HomeScreen = ({
     if (!notifications) return [];
 
     return notifications.filter(notification => {
-      // Afficher les invitations d'amis et d'événements non lues
+      // Afficher SEULEMENT les invitations qui nécessitent une action
+      // Exclure les notifications de déclinaison/réponses
       return (
         !notification.read &&
         [
           'friend_invitation',
           'invitation',
-          'invitation_sent',
-          'activity_accepted_start_timer',
+          // 'invitation_sent', // Retirer - ce sont les invitations qu'on a envoyées
+          // 'activity_accepted_start_timer', // Retirer - notification de démarrage
         ].includes(notification.type)
       );
     });

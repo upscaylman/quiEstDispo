@@ -771,24 +771,8 @@ function App() {
         console.log(
           `✅ Vous avez accepté l'invitation pour ${notification.data.activity} de ${notification.data.fromUserName} - Décompte démarré !`
         );
-      } else {
-        // Créer une notification de déclin pour l'expéditeur
-        const userName = user.displayName || user.name || 'Un ami';
-        const activityName = notification.data.activity;
-
-        await NotificationService.createNotification(
-          notification.data.fromUserId, // À qui
-          user.uid, // De qui
-          'activity_declined', // Type
-          `❌ ${userName} a décliné votre invitation pour ${activityName}`,
-          {
-            activity: activityName,
-            declinedBy: user.uid,
-            declinedByName: userName,
-            originalInvitationId: notification.data.invitationId,
-          }
-        );
       }
+      // Note: La notification de déclin est créée automatiquement par respondToInvitation()
 
       // Répondre à l'invitation dans Firebase (pour les deux cas accepted/declined)
       if (notification.data.invitationId) {
