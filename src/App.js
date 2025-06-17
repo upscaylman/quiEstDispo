@@ -510,6 +510,20 @@ function App() {
       console.log(
         `📬 Notification envoyée: ${responseType} pour ${activityName}`
       );
+
+      // Si accepté, faire partager les localisations mutuellement
+      if (responseType === 'accepted') {
+        // 🔥 RÉCIPROCITÉ CORRIGÉE: Utiliser la nouvelle méthode de partage mutuel
+        await AvailabilityService.enableMutualLocationSharing(
+          user.uid, // Celui qui accepte
+          friendId, // L'expéditeur
+          activityName
+        );
+
+        console.log(
+          `🔄 [RÉCIPROCITÉ] Partage mutuel activé entre ${user.uid} ↔ ${friendId}`
+        );
+      }
     } catch (error) {
       console.error('Erreur envoi notification de réponse:', error);
     }
@@ -786,12 +800,15 @@ function App() {
 
         // Si accepté, faire partager les localisations mutuellement
         if (response === 'accepted') {
-          // 1. Partager la localisation de celui qui accepte
-          await AvailabilityService.shareLocationOnAcceptance(user.uid);
+          // 🔥 RÉCIPROCITÉ CORRIGÉE: Utiliser la nouvelle méthode de partage mutuel
+          await AvailabilityService.enableMutualLocationSharing(
+            user.uid, // Celui qui accepte
+            notification.data.fromUserId, // L'expéditeur
+            notification.data.activity
+          );
 
-          // 2. Partager aussi la localisation de l'expéditeur (partage mutuel)
-          await AvailabilityService.shareLocationOnAcceptance(
-            notification.data.fromUserId
+          console.log(
+            `🔄 [RÉCIPROCITÉ] Partage mutuel activé entre ${user.uid} ↔ ${notification.data.fromUserId}`
           );
         }
       } else {
