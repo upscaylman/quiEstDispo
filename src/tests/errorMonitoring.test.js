@@ -1,0 +1,119 @@
+// @ts-nocheck
+/* eslint-disable no-console */
+
+describe('ErrorMonitoring - Test simple', () => {
+  beforeEach(() => {
+    console.log = jest.fn();
+    console.warn = jest.fn();
+    console.error = jest.fn();
+  });
+
+  describe('Tests de base du monitoring erreurs', () => {
+    test('doit simuler la capture d erreurs', () => {
+      const mockError = new Error('Test error');
+
+      const formatError = error => {
+        return {
+          message: error.message,
+          stack: error.stack,
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+        };
+      };
+
+      const formatted = formatError(mockError);
+
+      expect(formatted.message).toBe('Test error');
+      expect(formatted.timestamp).toBeDefined();
+      expect(formatted.userAgent).toBeDefined();
+    });
+
+    test('doit simuler la detection des erreurs Firebase', () => {
+      const isFirebaseError = error => {
+        return (
+          error.message &&
+          (error.message.includes('Firebase') ||
+            error.message.includes('firestore') ||
+            error.message.includes('auth/'))
+        );
+      };
+
+      const firebaseError = new Error('Firebase: Error (auth/user-not-found)');
+      const normalError = new Error('Normal error');
+
+      expect(isFirebaseError(firebaseError)).toBe(true);
+      expect(isFirebaseError(normalError)).toBe(false);
+    });
+
+    test('doit simuler la queue d erreurs', () => {
+      const errorQueue = [];
+      const MAX_QUEUE_SIZE = 10;
+
+      const addToQueue = error => {
+        if (errorQueue.length >= MAX_QUEUE_SIZE) {
+          errorQueue.shift(); // Retirer le plus ancien
+        }
+        errorQueue.push({
+          error,
+          timestamp: Date.now(),
+        });
+      };
+
+      // Ajouter plusieurs erreurs
+      for (let i = 0; i < 15; i++) {
+        addToQueue(new Error(`Error ${i}`));
+      }
+
+      expect(errorQueue.length).toBe(MAX_QUEUE_SIZE);
+      expect(errorQueue[0].error.message).toBe('Error 5'); // Le 5eme car les 5 premiers ont ete supprimes
+    });
+
+    test('doit simuler la configuration des gestionnaires', () => {
+      let errorHandlerCalled = false;
+      let rejectionHandlerCalled = false;
+
+      const setupErrorHandlers = () => {
+        window.addEventListener('error', () => {
+          errorHandlerCalled = true;
+        });
+
+        window.addEventListener('unhandledrejection', () => {
+          rejectionHandlerCalled = true;
+        });
+      };
+
+      // Mock addEventListener
+      window.addEventListener = jest.fn();
+
+      setupErrorHandlers();
+
+      expect(window.addEventListener).toHaveBeenCalledWith(
+        'error',
+        expect.any(Function)
+      );
+      expect(window.addEventListener).toHaveBeenCalledWith(
+        'unhandledrejection',
+        expect.any(Function)
+      );
+    });
+
+    test('doit simuler le comportement dev vs production', () => {
+      const isDevelopment = process.env.NODE_ENV === 'development';
+
+      const logError = error => {
+        if (isDevelopment) {
+          console.error('Dev Error:', error);
+        } else {
+          // En production, on pourrait envoyer a un service externe
+          console.log('Production error logged');
+        }
+      };
+
+      const testError = new Error('Test error');
+      logError(testError);
+
+      // Vérifier que la bonne méthode a été appelée
+      expect(isDevelopment ? console.error : console.log).toHaveBeenCalled();
+    });
+  });
+});

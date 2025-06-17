@@ -9,7 +9,7 @@ import {
   Utensils,
   Wine,
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const AvailabilityButtons = ({
   isAvailable,
@@ -27,6 +27,10 @@ const AvailabilityButtons = ({
 }) => {
   const [timeLeft, setTimeLeft] = useState(45 * 60);
 
+  // 🔥 CORRECTION: Ref stable pour onStopAvailability
+  const onStopAvailabilityRef = useRef(onStopAvailability);
+  onStopAvailabilityRef.current = onStopAvailability;
+
   useEffect(() => {
     if (!isAvailable || !availabilityStartTime) {
       setTimeLeft(45 * 60);
@@ -41,7 +45,7 @@ const AvailabilityButtons = ({
       setTimeLeft(remaining);
 
       if (remaining <= 0) {
-        onStopAvailability();
+        onStopAvailabilityRef.current(); // 🔥 UTILISER la ref stable
       }
     };
 
@@ -50,7 +54,7 @@ const AvailabilityButtons = ({
     const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
-  }, [isAvailable, availabilityStartTime, onStopAvailability]);
+  }, [isAvailable, availabilityStartTime]); // 🔥 SUPPRIMER onStopAvailability des dépendances
 
   const formatTime = seconds => {
     const mins = Math.floor(seconds / 60);

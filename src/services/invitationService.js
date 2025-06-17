@@ -30,14 +30,15 @@ export class InvitationService {
         `🔍 [DEBUG] Vérification invitation PENDING: ${userId1} <-> ${userId2} pour ${activity}`
       );
 
-      // 🔥 FORCE CLEANUP: Nettoyer TOUTES les invitations expirées/anciennes d'abord
+      // 🧹 CLEANUP: Nettoyer seulement les invitations vraiment expirées (pas les actives récentes)
       console.log(
-        `🔥 [FORCE] Nettoyage forcé des invitations expirées pour ${userId1}`
+        `🧹 [CLEANUP] Nettoyage des invitations expirées pour ${userId1} <-> ${userId2}`
       );
-      await this.cleanupOldInvitations(userId1, userId2, activity);
+      await this.cleanupExpiredInvitationsOnly(userId1, userId2, activity);
 
       // Maintenant re-vérifier après nettoyage - DANS LES DEUX SENS
-      const invitationQuery1 = await getDocs(
+      // Vérifier les invitations PENDING (qui bloquent)
+      const pendingQuery1 = await getDocs(
         query(
           collection(db, 'invitations'),
           where('fromUserId', '==', userId1),
@@ -47,7 +48,7 @@ export class InvitationService {
         )
       );
 
-      const invitationQuery2 = await getDocs(
+      const pendingQuery2 = await getDocs(
         query(
           collection(db, 'invitations'),
           where('fromUserId', '==', userId2),
@@ -57,22 +58,157 @@ export class InvitationService {
         )
       );
 
-      const totalPending = invitationQuery1.size + invitationQuery2.size;
+      // Vérifier aussi les invitations ACCEPTED récentes (relation bilatérale active)
+      const acceptedQuery1 = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('fromUserId', '==', userId1),
+          where('toUserId', '==', userId2),
+          where('activity', '==', activity),
+          where('status', '==', 'accepted')
+        )
+      );
+
+      const acceptedQuery2 = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('fromUserId', '==', userId2),
+          where('toUserId', '==', userId1),
+          where('activity', '==', activity),
+          where('status', '==', 'accepted')
+        )
+      );
+
+      const totalPending = pendingQuery1.size + pendingQuery2.size;
+      const totalAccepted = acceptedQuery1.size + acceptedQuery2.size;
 
       console.log(
-        `🔍 [DEBUG] Invitations PENDING trouvées après nettoyage: ${totalPending}`
+        `🔍 [DEBUG] Après nettoyage: ${totalPending} pending, ${totalAccepted} accepted`
       );
 
       if (totalPending > 0) {
         console.log(`🔍 [DEBUG] ⚠️ BLOCKED: invitation PENDING existe déjà`);
         return true; // true = invitation active = BLOQUER
+      } else if (totalAccepted > 0) {
+        console.log(
+          `🔍 [DEBUG] ⚠️ BLOCKED: relation bilatérale ACCEPTED active`
+        );
+        return true; // true = relation bilatérale = BLOQUER aussi
       } else {
-        console.log(`🔍 [DEBUG] ✅ AUTORISÉ: aucune invitation PENDING`);
+        console.log(
+          `🔍 [DEBUG] ✅ AUTORISÉ: aucune invitation/relation active`
+        );
         return false; // false = pas d'invitation active = AUTORISER
       }
     } catch (error) {
       console.error('❌ Erreur vérification invitation existante:', error);
       return false; // En cas d'erreur, autoriser l'invitation
+    }
+  }
+
+  // Nettoyer SEULEMENT les invitations vraiment expirées (pas les actives récentes)
+  static async cleanupExpiredInvitationsOnly(userId1, userId2, activity) {
+    if (!isOnline()) return;
+
+    try {
+      console.log(`🧹 [EXPIRED ONLY] === DÉBUT NETTOYAGE EXPIRÉ SEULEMENT ===`);
+      console.log(
+        `🧹 [EXPIRED ONLY] Nettoyage expiré ${userId1} <-> ${userId2} pour ${activity}`
+      );
+
+      const cutoffTime = new Date(Date.now() - 45 * 60 * 1000); // 45 minutes
+      console.log(`🧹 [EXPIRED ONLY] Cutoff time: ${cutoffTime.toISOString()}`);
+
+      // Chercher toutes les invitations pour cette activité entre ces 2 utilisateurs
+      const oldInvitationsQuery1 = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('fromUserId', '==', userId1),
+          where('toUserId', '==', userId2),
+          where('activity', '==', activity)
+        )
+      );
+
+      const oldInvitationsQuery2 = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('fromUserId', '==', userId2),
+          where('toUserId', '==', userId1),
+          where('activity', '==', activity)
+        )
+      );
+
+      console.log(
+        `🧹 [EXPIRED ONLY] Invitations trouvées ${userId1}->${userId2}: ${oldInvitationsQuery1.size}`
+      );
+      console.log(
+        `🧹 [EXPIRED ONLY] Invitations trouvées ${userId2}->${userId1}: ${oldInvitationsQuery2.size}`
+      );
+
+      const deletePromises = [];
+      let deletedCount = 0;
+      let keptCount = 0;
+
+      [...oldInvitationsQuery1.docs, ...oldInvitationsQuery2.docs].forEach(
+        doc => {
+          const data = doc.data();
+          const createdAt = data.createdAt?.toDate
+            ? data.createdAt.toDate()
+            : new Date(data.createdAt);
+          const isOld = createdAt <= cutoffTime;
+          const status = data.status;
+
+          console.log(
+            `🧹 [EXPIRED ONLY] Analyse invitation ${doc.id}: créée ${createdAt.toISOString()}, status: ${status}, expirée: ${isOld}`
+          );
+
+          // SUPPRIMER SEULEMENT si : vraiment expiré (>45min) ET (declined/expired) OU si accepted (pas utile de garder)
+          // GARDER les invitations pending récentes et les accepted récentes (pour les relations bilatérales)
+          if (isOld && ['declined', 'expired'].includes(status)) {
+            console.log(
+              `🧹 [EXPIRED ONLY] ✅ SUPPRESSION invitation expirée: ${doc.id} (${status})`
+            );
+            deletePromises.push(deleteDoc(doc.ref));
+            deletedCount++;
+          } else if (status === 'accepted' && isOld) {
+            // Garder les accepted récentes mais supprimer les très anciennes
+            const veryOldCutoff = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 heures
+            if (createdAt <= veryOldCutoff) {
+              console.log(
+                `🧹 [EXPIRED ONLY] ✅ SUPPRESSION invitation accepted très ancienne: ${doc.id}`
+              );
+              deletePromises.push(deleteDoc(doc.ref));
+              deletedCount++;
+            } else {
+              console.log(
+                `🧹 [EXPIRED ONLY] ⚠️ CONSERVATION invitation accepted récente: ${doc.id}`
+              );
+              keptCount++;
+            }
+          } else {
+            console.log(
+              `🧹 [EXPIRED ONLY] ⚠️ CONSERVATION invitation: ${doc.id} (${status}, ${isOld ? 'ancienne' : 'récente'})`
+            );
+            keptCount++;
+          }
+        }
+      );
+
+      if (deletePromises.length > 0) {
+        await Promise.all(deletePromises);
+        console.log(
+          `🧹 [EXPIRED ONLY] ✅ ${deletedCount} invitation(s) expirée(s) supprimée(s), ${keptCount} conservée(s)`
+        );
+      } else {
+        console.log(
+          `🧹 [EXPIRED ONLY] ℹ️ Aucune invitation expirée à supprimer (${keptCount} conservées)`
+        );
+      }
+
+      console.log(`🧹 [EXPIRED ONLY] === FIN NETTOYAGE EXPIRÉ SEULEMENT ===`);
+    } catch (error) {
+      console.error('❌ Erreur nettoyage invitations expirées:', error);
+      // Ne pas faire échouer la vérification si le nettoyage échoue
     }
   }
 
@@ -86,7 +222,7 @@ export class InvitationService {
         `🧹 [DEBUG] Nettoyage ${userId1} <-> ${userId2} pour ${activity}`
       );
 
-      const cutoffTime = new Date(Date.now() - 15 * 60 * 1000); // 15 minutes
+      const cutoffTime = new Date(Date.now() - 45 * 60 * 1000); // 45 minutes (même durée que les availabilities)
       console.log(`🧹 [DEBUG] Cutoff time: ${cutoffTime.toISOString()}`);
 
       // Chercher toutes les invitations pour cette activité entre ces 2 utilisateurs
@@ -169,6 +305,14 @@ export class InvitationService {
   // Envoyer des invitations à plusieurs amis pour une activité
   static async sendInvitations(fromUserId, activity, friendIds, location) {
     try {
+      console.log(`🔥 [INVITATION SERVICE] === DÉBUT ENVOI INVITATIONS ===`);
+      console.log(`🔥 [INVITATION SERVICE] Paramètres:`, {
+        fromUserId,
+        activity,
+        friendIds,
+        location,
+      });
+
       debugLog(`🔍 [DEBUG] === DÉBUT ENVOI INVITATIONS ===`);
       debugLog(
         `🔍 [DEBUG] sendInvitations appelé: ${fromUserId} -> [${friendIds.join(', ')}] pour ${activity}`
@@ -190,24 +334,41 @@ export class InvitationService {
         `🔍 [DEBUG] Nombre d'invitations à envoyer: ${friendIds.length}`
       );
 
-      // ENVOI DIRECT - Vérifier pour chaque ami individuellement
-      for (const friendId of friendIds) {
-        console.log(`🔍 [DEBUG] Création invitation pour ${friendId}`);
+      // 🔥 PROTECTION ANTI-DOUBLON: Vérifier chaque ami individuellement
+      let successCount = 0;
+      let blockedCount = 0;
 
-        // Vérifier les invitations en attente pour cet ami spécifique
-        const pendingCheck = await this.checkExistingInvitation(
+      for (const friendId of friendIds) {
+        console.log(`🔥 [INVITATION SERVICE] Traitement ami ${friendId}...`);
+
+        // 🔥 VÉRIFICATION STRICTE: Blocage total si invitation/relation active
+        console.log(
+          `🔥 [INVITATION SERVICE] Vérification anti-doublon pour ${friendId}...`
+        );
+        const isDuplicate = await this.checkExistingInvitation(
           fromUserId,
           friendId,
           activity
         );
-        if (pendingCheck) {
-          debugLog(
-            `🔍 [DEBUG] ⚠️ BLOCKED: invitation PENDING existe déjà pour ${friendId}`
+        console.log(
+          `🔥 [INVITATION SERVICE] Résultat anti-doublon: ${isDuplicate ? 'BLOQUÉ' : 'AUTORISÉ'}`
+        );
+
+        if (isDuplicate) {
+          console.log(
+            `🔥 [INVITATION SERVICE] ⚠️ BLOCKED: invitation/relation existe déjà pour ${friendId}`
           );
+          debugLog(
+            `🔍 [DEBUG] ⚠️ BLOCKED: invitation/relation existe déjà pour ${friendId}`
+          );
+          blockedCount++;
           continue; // Passer à l'ami suivant
         }
+        console.log(
+          `🔥 [INVITATION SERVICE] ✅ AUTORISÉ: aucune invitation/relation active pour ${friendId}`
+        );
         debugLog(
-          `🔍 [DEBUG] ✅ AUTORISÉ: aucune invitation PENDING pour ${friendId}`
+          `🔍 [DEBUG] ✅ AUTORISÉ: aucune invitation/relation active pour ${friendId}`
         );
 
         // Créer une invitation
@@ -218,13 +379,17 @@ export class InvitationService {
           location,
           status: 'pending', // pending, accepted, declined, expired
           createdAt: serverTimestamp(),
-          expiresAt: new Date(invitationTime.getTime() + 15 * 60 * 1000), // 15 minutes
+          expiresAt: new Date(invitationTime.getTime() + 45 * 60 * 1000), // 45 minutes (cohérent avec availabilities)
         };
 
         // Ajouter l'invitation à la collection et récupérer l'ID
         const invitationRef = await addDoc(
           collection(db, 'invitations'),
           invitationData
+        );
+
+        console.log(
+          `🔥 [INVITATION CRÉÉE] ID: ${invitationRef.id}, de: ${fromUserId}, à: ${friendId}, activité: ${activity}, status: pending`
         );
 
         // Créer une notification pour l'ami avec l'ID de l'invitation
@@ -234,16 +399,22 @@ export class InvitationService {
           activity,
           invitationRef.id
         );
+
+        console.log(
+          `🔥 [INVITATION CRÉÉE] ✅ Notification envoyée pour invitation ${invitationRef.id}`
+        );
+
+        successCount++;
       }
 
       console.log(
-        `✅ ${friendIds.length} invitations envoyées pour ${activity}`
+        `✅ ${successCount} invitations envoyées pour ${activity} (${blockedCount} bloquées)`
       );
 
       return {
         success: true,
-        count: friendIds.length,
-        blocked: 0, // Plus de blocage
+        count: successCount,
+        blocked: blockedCount,
         totalRequested: friendIds.length,
       };
     } catch (error) {
@@ -577,8 +748,8 @@ export class InvitationService {
 
       const activityLabel = activities[activity] || activity;
       const message = accepted
-        ? `${fromUserName} a accepté votre invitation pour ${activityLabel} !`
-        : `${fromUserName} a décliné votre invitation pour ${activityLabel}`;
+        ? `✅ ${fromUserName} a accepté votre invitation pour ${activityLabel} !`
+        : `❌ ${fromUserName} a décliné votre invitation pour ${activityLabel}`;
 
       const notification = {
         to: toUserId,
