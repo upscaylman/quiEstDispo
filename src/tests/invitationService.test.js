@@ -47,6 +47,150 @@ describe('InvitationService - Test simple - Logique invitations', () => {
       ).toBe(false);
     });
 
+    test('doit détecter un utilisateur avec invitations en attente', () => {
+      const checkUserBusyStatus = (
+        userId,
+        existingInvitations = [],
+        userData = {}
+      ) => {
+        // Vérifier les invitations pending reçues
+        const pendingInvitations = existingInvitations.filter(
+          invite => invite.toUserId === userId && invite.status === 'pending'
+        );
+
+        if (pendingInvitations.length > 0) {
+          return {
+            isBusy: true,
+            reason: `a déjà ${pendingInvitations.length} invitation${pendingInvitations.length > 1 ? 's' : ''} en attente`,
+            type: 'pending_invitations',
+            count: pendingInvitations.length,
+          };
+        }
+
+        // Vérifier si l'utilisateur partage sa disponibilité
+        if (userData.isAvailable && userData.locationShared) {
+          return {
+            isBusy: true,
+            reason: `partage déjà sa disponibilité pour ${userData.currentActivity}`,
+            type: 'active_sharing',
+            activity: userData.currentActivity,
+          };
+        }
+
+        // Vérifier si l'utilisateur a une availability active
+        if (userData.isAvailable && userData.availabilityId) {
+          return {
+            isBusy: true,
+            reason: `est déjà en activité (${userData.currentActivity})`,
+            type: 'active_availability',
+            activity: userData.currentActivity,
+          };
+        }
+
+        return { isBusy: false, reason: null };
+      };
+
+      // Test 1: Utilisateur avec invitations en attente
+      const invitationsEnAttente = [
+        { toUserId: 'bob', status: 'pending' },
+        { toUserId: 'bob', status: 'pending' },
+      ];
+      const statusOccupe = checkUserBusyStatus('bob', invitationsEnAttente);
+      expect(statusOccupe.isBusy).toBe(true);
+      expect(statusOccupe.type).toBe('pending_invitations');
+      expect(statusOccupe.count).toBe(2);
+
+      // Test 2: Utilisateur partageant sa disponibilité
+      const userDataPartage = {
+        isAvailable: true,
+        locationShared: true,
+        currentActivity: 'coffee',
+      };
+      const statusPartage = checkUserBusyStatus('alice', [], userDataPartage);
+      expect(statusPartage.isBusy).toBe(true);
+      expect(statusPartage.type).toBe('active_sharing');
+      expect(statusPartage.activity).toBe('coffee');
+
+      // Test 3: Utilisateur avec activité active
+      const userDataActivite = {
+        isAvailable: true,
+        availabilityId: 'avail-123',
+        currentActivity: 'lunch',
+      };
+      const statusActivite = checkUserBusyStatus(
+        'charlie',
+        [],
+        userDataActivite
+      );
+      expect(statusActivite.isBusy).toBe(true);
+      expect(statusActivite.type).toBe('active_availability');
+      expect(statusActivite.activity).toBe('lunch');
+
+      // Test 4: Utilisateur libre
+      const statusLibre = checkUserBusyStatus('david', [], {});
+      expect(statusLibre.isBusy).toBe(false);
+      expect(statusLibre.reason).toBe(null);
+    });
+
+    test('doit gérer les résultats détaillés des invitations', () => {
+      const simulateInvitationResults = (friends, busyStatuses = {}) => {
+        let successCount = 0;
+        let blockedCount = 0;
+        let busyCount = 0;
+        const blockedReasons = [];
+
+        friends.forEach(friendId => {
+          const busyStatus = busyStatuses[friendId] || { isBusy: false };
+
+          if (busyStatus.isBusy) {
+            blockedCount++;
+            busyCount++;
+            blockedReasons.push({
+              friendId,
+              reason: busyStatus.reason,
+              type: busyStatus.type,
+            });
+          } else {
+            successCount++;
+          }
+        });
+
+        return {
+          success: true,
+          count: successCount,
+          blocked: blockedCount,
+          busyCount: busyCount,
+          duplicateCount: blockedCount - busyCount,
+          totalRequested: friends.length,
+          blockedReasons: blockedReasons,
+        };
+      };
+
+      const friends = ['alice', 'bob', 'charlie'];
+      const busyStatuses = {
+        bob: {
+          isBusy: true,
+          reason: 'a déjà 1 invitation en attente',
+          type: 'pending_invitations',
+        },
+        charlie: {
+          isBusy: true,
+          reason: 'partage déjà sa disponibilité pour coffee',
+          type: 'active_sharing',
+        },
+      };
+
+      const result = simulateInvitationResults(friends, busyStatuses);
+
+      expect(result.count).toBe(1); // Alice seulement
+      expect(result.blocked).toBe(2); // Bob et Charlie
+      expect(result.busyCount).toBe(2);
+      expect(result.duplicateCount).toBe(0);
+      expect(result.blockedReasons).toHaveLength(2);
+      expect(result.blockedReasons[0].type).toBe('pending_invitations');
+      expect(result.blockedReasons[1].type).toBe('active_sharing');
+    });
+
     test('doit créer des invitations pour plusieurs amis', () => {
       const sendInvitations = (fromUserId, activity, friendIds) => {
         const results = {

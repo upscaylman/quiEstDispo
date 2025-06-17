@@ -204,7 +204,41 @@ const InviteFriendsModal = ({
 
     setIsLoading(true);
     try {
-      await onSendInvitations(selectedActivity, Array.from(selectedFriends));
+      const result = await onSendInvitations(
+        selectedActivity,
+        Array.from(selectedFriends)
+      );
+
+      // 🆕 NOUVEAU: Afficher seulement les messages d'avertissement (pas de succès)
+      if (result && result.blockedReasons && result.blockedReasons.length > 0) {
+        const busyFriends = result.blockedReasons.filter(
+          r => r.type !== 'duplicate'
+        );
+        const duplicateFriends = result.blockedReasons.filter(
+          r => r.type === 'duplicate'
+        );
+
+        let message = '';
+
+        if (busyFriends.length > 0) {
+          message += `⚠️ ${busyFriends.length} ami(s) occupé(s) :\n`;
+          busyFriends.forEach(({ reason }) => {
+            message += `• ${reason}\n`;
+          });
+          message += '\n';
+        }
+
+        if (duplicateFriends.length > 0) {
+          message += `ℹ️ ${duplicateFriends.length} invitation(s) déjà en cours\n`;
+        }
+
+        // N'afficher l'alerte que s'il y a des blocages à signaler
+        if (message.trim()) {
+          alert(message.trim());
+        }
+      }
+      // Plus d'alerte pour les succès - supprimée
+
       setSelectedFriends(new Set());
       onClose();
     } catch (error) {

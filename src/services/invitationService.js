@@ -18,6 +18,83 @@ import { db, isOnline, retryWithBackoff } from './firebaseUtils';
 import { NotificationService } from './notificationService';
 
 export class InvitationService {
+  // Vérifier si un utilisateur est déjà occupé (invitation pending ou partage sa disponibilité)
+  static async checkUserBusyStatus(userId) {
+    if (!isOnline()) {
+      console.warn('⚠️ Offline mode, cannot check user busy status');
+      return { isBusy: false, reason: null };
+    }
+
+    try {
+      console.log(`🔍 [BUSY CHECK] Vérification statut occupé pour ${userId}`);
+
+      // 1. Vérifier si l'utilisateur a déjà des invitations en attente (reçues)
+      const pendingInvitationsQuery = query(
+        collection(db, 'invitations'),
+        where('toUserId', '==', userId),
+        where('status', '==', 'pending')
+      );
+
+      const pendingInvitations = await getDocs(pendingInvitationsQuery);
+
+      if (!pendingInvitations.empty) {
+        const invitationCount = pendingInvitations.size;
+        console.log(
+          `🔍 [BUSY CHECK] ⚠️ ${userId} a ${invitationCount} invitation(s) en attente`
+        );
+        return {
+          isBusy: true,
+          reason: `a déjà ${invitationCount} invitation${invitationCount > 1 ? 's' : ''} en attente`,
+          type: 'pending_invitations',
+          count: invitationCount,
+        };
+      }
+
+      // 2. Vérifier si l'utilisateur partage déjà sa disponibilité
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+
+        // Vérifier si l'utilisateur est disponible ET partage sa localisation
+        if (userData.isAvailable && userData.locationShared) {
+          console.log(
+            `🔍 [BUSY CHECK] ⚠️ ${userId} partage déjà sa disponibilité pour ${userData.currentActivity}`
+          );
+          return {
+            isBusy: true,
+            reason: `partage déjà sa disponibilité pour ${userData.currentActivity}`,
+            type: 'active_sharing',
+            activity: userData.currentActivity,
+          };
+        }
+
+        // Vérifier si l'utilisateur a une availability active
+        if (userData.isAvailable && userData.availabilityId) {
+          console.log(
+            `🔍 [BUSY CHECK] ⚠️ ${userId} a une activité en cours: ${userData.currentActivity}`
+          );
+          return {
+            isBusy: true,
+            reason: `est déjà en activité (${userData.currentActivity})`,
+            type: 'active_availability',
+            activity: userData.currentActivity,
+          };
+        }
+      }
+
+      console.log(
+        `🔍 [BUSY CHECK] ✅ ${userId} est disponible pour recevoir des invitations`
+      );
+      return { isBusy: false, reason: null };
+    } catch (error) {
+      console.error('❌ Erreur vérification statut occupé:', error);
+      // En cas d'erreur, considérer l'utilisateur comme disponible
+      return { isBusy: false, reason: null };
+    }
+  }
+
   // Vérifier s'il existe une invitation en cours
   static async checkExistingInvitation(userId1, userId2, activity) {
     if (!isOnline()) {
@@ -338,8 +415,36 @@ export class InvitationService {
       let successCount = 0;
       let blockedCount = 0;
 
+      // 🆕 NOUVEAU: Compteurs détaillés pour les raisons de blocage
+      let busyCount = 0;
+      const blockedReasons = [];
+
       for (const friendId of friendIds) {
         console.log(`🔥 [INVITATION SERVICE] Traitement ami ${friendId}...`);
+
+        // 🆕 NOUVELLE VÉRIFICATION: Statut occupé de l'utilisateur
+        console.log(
+          `🔥 [INVITATION SERVICE] Vérification statut occupé pour ${friendId}...`
+        );
+        const busyStatus = await this.checkUserBusyStatus(friendId);
+        console.log(
+          `🔥 [INVITATION SERVICE] Statut occupé: ${busyStatus.isBusy ? 'OCCUPÉ' : 'LIBRE'}`
+        );
+
+        if (busyStatus.isBusy) {
+          console.log(
+            `🔥 [INVITATION SERVICE] ⚠️ BLOCKED: ${friendId} ${busyStatus.reason}`
+          );
+          debugLog(`🔍 [DEBUG] ⚠️ BLOCKED: ${friendId} ${busyStatus.reason}`);
+          blockedCount++;
+          busyCount++;
+          blockedReasons.push({
+            friendId,
+            reason: busyStatus.reason,
+            type: busyStatus.type,
+          });
+          continue; // Passer à l'ami suivant
+        }
 
         // 🔥 VÉRIFICATION STRICTE: Blocage total si invitation/relation active
         console.log(
@@ -362,13 +467,18 @@ export class InvitationService {
             `🔍 [DEBUG] ⚠️ BLOCKED: invitation/relation existe déjà pour ${friendId}`
           );
           blockedCount++;
+          blockedReasons.push({
+            friendId,
+            reason: 'invitation/relation existe déjà',
+            type: 'duplicate',
+          });
           continue; // Passer à l'ami suivant
         }
         console.log(
-          `🔥 [INVITATION SERVICE] ✅ AUTORISÉ: aucune invitation/relation active pour ${friendId}`
+          `🔥 [INVITATION SERVICE] ✅ AUTORISÉ: ami libre et aucune invitation/relation active pour ${friendId}`
         );
         debugLog(
-          `🔍 [DEBUG] ✅ AUTORISÉ: aucune invitation/relation active pour ${friendId}`
+          `🔍 [DEBUG] ✅ AUTORISÉ: ami libre et aucune invitation/relation active pour ${friendId}`
         );
 
         // Créer une invitation
@@ -408,14 +518,17 @@ export class InvitationService {
       }
 
       console.log(
-        `✅ ${successCount} invitations envoyées pour ${activity} (${blockedCount} bloquées)`
+        `✅ ${successCount} invitations envoyées pour ${activity} (${blockedCount} bloquées: ${busyCount} occupé(s), ${blockedCount - busyCount} doublon(s))`
       );
 
       return {
         success: true,
         count: successCount,
         blocked: blockedCount,
+        busyCount: busyCount,
+        duplicateCount: blockedCount - busyCount,
         totalRequested: friendIds.length,
+        blockedReasons: blockedReasons,
       };
     } catch (error) {
       prodError('❌ Erreur envoi invitations:', error);

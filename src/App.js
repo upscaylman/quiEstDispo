@@ -312,10 +312,14 @@ function App() {
       } else {
         console.log('Aucune invitation envoyée.');
       }
+
+      // 🆕 NOUVEAU: Retourner le résultat pour que le modal puisse l'utiliser
+      return result;
     } catch (error) {
       console.error('❌ Erreur envoi invitations:', error);
       // Garder l'alert seulement pour les erreurs critiques
       alert(`Erreur lors de l'envoi des invitations: ${error.message}`);
+      throw error; // Re-lancer l'erreur pour que le modal puisse la gérer
     }
   };
 
