@@ -1,7 +1,7 @@
 // Écran de gestion des notifications avec nouvelle logique
 import { motion } from 'framer-motion';
 import { Bell, Coffee, MapPin, Trash2, Users } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NotificationService } from '../../services/firebaseService';
 
 const NotificationsScreen = ({
@@ -66,9 +66,12 @@ const NotificationsScreen = ({
           if (notifications.length > 0) {
             const userId = notifications[0].to;
 
-            // Marquer TOUTES les notifications comme lues à la sortie (sauf celles déjà traitées)
+            // Marquer comme lues SEULEMENT les notifications qui n'ont PAS besoin d'action
             const notificationsToMarkAsRead = notifications.filter(
-              notif => !notif.read
+              notif =>
+                !notif.read &&
+                // Ne PAS marquer comme lues les invitations qui ont besoin d'une réponse
+                !['friend_invitation', 'invitation'].includes(notif.type)
             );
 
             if (notificationsToMarkAsRead.length > 0) {
@@ -77,7 +80,7 @@ const NotificationsScreen = ({
                 await NotificationService.markAsRead(notif.id);
               }
               console.log(
-                `✅ ${notificationsToMarkAsRead.length} notifications marquées comme lues à la sortie du centre`
+                `✅ ${notificationsToMarkAsRead.length} notifications marquées comme lues à la sortie du centre (invitations exclues)`
               );
             }
           }

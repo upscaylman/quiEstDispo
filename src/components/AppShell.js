@@ -360,6 +360,7 @@ const AppShell = ({
             onAddFriend={onAddFriend}
             onRemoveFriend={onRemoveFriend}
             onMarkAllFriendsNotificationsAsRead={onMarkAllNotificationsAsRead}
+            onFriendInvitationResponse={onFriendInvitationResponse}
             onDebugFriends={onDebugFriends}
             onCreateTestFriendships={onCreateTestFriendships}
             onLoadMockData={onLoadMockData}
@@ -462,6 +463,8 @@ const AppShell = ({
             onAddFriend={onAddFriend}
             onCreateTestFriendships={onCreateTestFriendships}
             onLoadMockData={onLoadMockData}
+            onFriendInvitationResponse={onFriendInvitationResponse}
+            onActivityInvitationResponse={onActivityInvitationResponse}
           />
         );
     }

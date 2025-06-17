@@ -41,6 +41,8 @@ const HomeScreen = ({
   onAddFriend,
   onCreateTestFriendships,
   onLoadMockData,
+  onFriendInvitationResponse,
+  onActivityInvitationResponse,
 }) => {
   // State pour forcer le re-render et mettre à jour les temps
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -118,6 +120,26 @@ const HomeScreen = ({
   // Composant de carte selon les préférences
   const MapComponent = useMapbox ? MapboxMapView : MapView;
 
+  // Filtrer les notifications à afficher sur l'écran d'accueil
+  const getHomeNotifications = () => {
+    if (!notifications) return [];
+
+    return notifications.filter(notification => {
+      // Afficher les invitations d'amis et d'événements non lues
+      return (
+        !notification.read &&
+        [
+          'friend_invitation',
+          'invitation',
+          'invitation_sent',
+          'activity_accepted_start_timer',
+        ].includes(notification.type)
+      );
+    });
+  };
+
+  const homeNotifications = getHomeNotifications();
+
   return (
     <div className="min-h-screen flex flex-col">
       <div className="flex-1">
@@ -137,6 +159,109 @@ const HomeScreen = ({
             onInviteMoreFriends={onInviteFriends}
             pendingInvitation={pendingInvitation}
           />
+
+          {/* Section Notifications */}
+          {homeNotifications.length > 0 && (
+            <motion.div
+              className="mt-4"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <div className="space-y-3">
+                {homeNotifications.map(notification => (
+                  <motion.div
+                    key={notification.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-lg p-4 shadow-sm`}
+                  >
+                    <p
+                      className={`font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                    >
+                      {notification.message}
+                    </p>
+                    <p
+                      className={`text-sm mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                    >
+                      {notification.createdAt
+                        ?.toDate?.()
+                        ?.toLocaleTimeString() || 'Maintenant'}
+                    </p>
+
+                    {/* Boutons d'action pour les invitations d'amitié */}
+                    {notification.type === 'friend_invitation' &&
+                      notification.data?.actions && (
+                        <div className="flex space-x-2">
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() =>
+                              onFriendInvitationResponse?.(
+                                notification.data.invitationId,
+                                'accepted',
+                                notification.id
+                              )
+                            }
+                            className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                          >
+                            ✅ Accepter
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() =>
+                              onFriendInvitationResponse?.(
+                                notification.data.invitationId,
+                                'declined',
+                                notification.id
+                              )
+                            }
+                            className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                          >
+                            ❌ Refuser
+                          </motion.button>
+                        </div>
+                      )}
+
+                    {/* Boutons d'action pour les invitations d'événements */}
+                    {(notification.type === 'invitation' ||
+                      notification.type === 'invitation_sent') &&
+                      notification.data?.actions && (
+                        <div className="flex space-x-2">
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() =>
+                              onActivityInvitationResponse?.(
+                                notification,
+                                'accepted'
+                              )
+                            }
+                            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                          >
+                            🎉 Rejoindre
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() =>
+                              onActivityInvitationResponse?.(
+                                notification,
+                                'declined'
+                              )
+                            }
+                            className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                          >
+                            ⏭️ Ignorer
+                          </motion.button>
+                        </div>
+                      )}
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
 
           {/* Section Inviter des amis */}
           <motion.div

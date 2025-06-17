@@ -1,7 +1,6 @@
 // Écran de gestion des amis
 import { motion } from 'framer-motion';
 import { Check, UserMinus, UserPlus } from 'lucide-react';
-import React from 'react';
 
 const FriendsScreen = ({
   // Props de state
@@ -16,10 +15,22 @@ const FriendsScreen = ({
   onAddFriend,
   onRemoveFriend,
   onMarkAllFriendsNotificationsAsRead,
+  onFriendInvitationResponse,
   onDebugFriends,
   onCreateTestFriendships,
   onLoadMockData,
 }) => {
+  // Filtrer les notifications d'amis non lues
+  const getFriendInvitations = () => {
+    if (!notifications) return [];
+
+    return notifications.filter(notification => {
+      return !notification.read && notification.type === 'friend_invitation';
+    });
+  };
+
+  const friendInvitations = getFriendInvitations();
+
   return (
     <div className="px-responsive py-4 relative min-h-full">
       {/* Header avec bouton de notifications uniquement */}
@@ -44,6 +55,77 @@ const FriendsScreen = ({
         {/* Spacer */}
         <div></div>
       </div>
+
+      {/* Section Invitations d'amis */}
+      {friendInvitations.length > 0 && (
+        <motion.div
+          className="mb-6"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <h3
+            className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}
+          >
+            🤝 Invitations d'amitié
+          </h3>
+          <div className="space-y-3">
+            {friendInvitations.map(notification => (
+              <motion.div
+                key={notification.id}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-lg p-4 shadow-sm`}
+              >
+                <p
+                  className={`font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                >
+                  {notification.message}
+                </p>
+                <p
+                  className={`text-sm mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                >
+                  {notification.createdAt?.toDate?.()?.toLocaleTimeString() ||
+                    'Maintenant'}
+                </p>
+
+                {/* Boutons d'action pour les invitations d'amitié */}
+                {notification.data?.actions && (
+                  <div className="flex space-x-2">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() =>
+                        onFriendInvitationResponse?.(
+                          notification.data.invitationId,
+                          'accepted',
+                          notification.id
+                        )
+                      }
+                      className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                    >
+                      ✅ Accepter
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() =>
+                        onFriendInvitationResponse?.(
+                          notification.data.invitationId,
+                          'declined',
+                          notification.id
+                        )
+                      }
+                      className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                    >
+                      ❌ Refuser
+                    </motion.button>
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Liste des amis */}
       <div className="space-y-3">
