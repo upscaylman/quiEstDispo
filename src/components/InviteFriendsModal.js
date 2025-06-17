@@ -1,4 +1,3 @@
-import { collection, getDocs, query, where } from 'firebase/firestore';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Check,
@@ -11,7 +10,6 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { db } from '../services/firebaseUtils';
 
 const InviteFriendsModal = ({
   isOpen,
@@ -27,7 +25,6 @@ const InviteFriendsModal = ({
   const [selectedFriends, setSelectedFriends] = useState(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(activity);
-  const [firestoreInvitations, setFirestoreInvitations] = useState([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -35,57 +32,34 @@ const InviteFriendsModal = ({
     }
   }, [isOpen, activity]);
 
+  // ✅ SIMPLIFICATION: Plus besoin de requêtes Firestore complexes
+  // Les relations bilatérales sont détectées via les notifications seulement
   useEffect(() => {
-    const fetchFirestoreInvitations = async () => {
-      if (!currentUserId || !selectedActivity) return;
-
-      try {
-        const sentQuery = query(
-          collection(db, 'invitations'),
-          where('fromUserId', '==', currentUserId),
-          where('activity', '==', selectedActivity),
-          where('status', '==', 'pending')
-        );
-
-        const receivedQuery = query(
-          collection(db, 'invitations'),
-          where('toUserId', '==', currentUserId),
-          where('activity', '==', selectedActivity),
-          where('status', '==', 'pending')
-        );
-
-        const [sentSnapshot, receivedSnapshot] = await Promise.all([
-          getDocs(sentQuery),
-          getDocs(receivedQuery),
-        ]);
-
-        const allInvitations = [
-          ...sentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-          ...receivedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-        ];
-
-        setFirestoreInvitations(allInvitations);
-
-        if (process.env.NODE_ENV === 'development') {
-          console.log(
-            `🔍 [DEBUG] Invitations Firestore pour ${selectedActivity}:`,
-            allInvitations
-          );
-        }
-      } catch (error) {
-        console.error('❌ Erreur récupération invitations Firestore:', error);
-        setFirestoreInvitations([]);
-      }
-    };
-
-    if (isOpen && currentUserId && selectedActivity) {
-      fetchFirestoreInvitations();
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        `🔥 [DEBUG MODAL V2] Modal ouvert avec activité: ${selectedActivity}`
+      );
     }
-  }, [isOpen, currentUserId, selectedActivity]);
+  }, [isOpen, selectedActivity]);
 
   const friendsWithBilateralRelations = useMemo(() => {
     const bilateralRelations = new Set();
 
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        '🔥 [DEBUG RELATIONS V2] Calcul des relations bilatérales SIMPLIFIÉES...',
+        {
+          currentUserId,
+          selectedActivity,
+          notificationsTotal: notifications.length,
+        }
+      );
+    }
+
+    // ✅ NOUVELLE APPROCHE ROBUSTE: Utiliser les notifications seulement
+    // (plus fiable que Firestore qui peut être nettoyé)
+
+    // Cas 1: Notifications d'invitations reçues non lues (attente de réponse)
     notifications.forEach(notif => {
       if (
         notif.type === 'invitation' &&
@@ -93,20 +67,16 @@ const InviteFriendsModal = ({
         !notif.read
       ) {
         bilateralRelations.add(notif.from);
-        // Exclusion: nous a invités
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            '🔥 [DEBUG RELATIONS V2] ➕ Ajout via invitation reçue en attente:',
+            notif.from
+          );
+        }
       }
     });
 
-    firestoreInvitations.forEach(invitation => {
-      if (invitation.fromUserId === currentUserId) {
-        bilateralRelations.add(invitation.toUserId);
-        // Exclusion: on lui a envoyé
-      } else if (invitation.toUserId === currentUserId) {
-        bilateralRelations.add(invitation.fromUserId);
-        // Exclusion: nous a envoyé
-      }
-    });
-
+    // Cas 2: Notifications d'invitations envoyées non lues (en attente)
     notifications.forEach(notif => {
       if (
         notif.type === 'invitation_sent' &&
@@ -114,14 +84,59 @@ const InviteFriendsModal = ({
         !notif.read
       ) {
         bilateralRelations.add(notif.to);
-        // Exclusion: invitation en attente
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            '🔥 [DEBUG RELATIONS V2] ➕ Ajout via invitation envoyée en attente:',
+            notif.to
+          );
+        }
       }
     });
 
-    // Relations bilatérales calculées
+    // Cas 3: Notifications d'acceptation (relation active confirmée)
+    notifications.forEach(notif => {
+      if (
+        (notif.type === 'activity_accepted_start_timer' ||
+          notif.type === 'activity_joined') &&
+        notif.data?.activity === selectedActivity
+      ) {
+        bilateralRelations.add(notif.from);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            '🔥 [DEBUG RELATIONS V2] ➕ Ajout via activité acceptée/rejointe:',
+            notif.from
+          );
+        }
+      }
+    });
+
+    // Cas 4: Notifications que j'ai envoyées confirmant l'acceptation
+    notifications.forEach(notif => {
+      if (
+        (notif.type === 'activity_accepted_start_timer' ||
+          notif.type === 'activity_joined') &&
+        notif.data?.activity === selectedActivity &&
+        notif.to // Je suis l'expéditeur de cette notification
+      ) {
+        bilateralRelations.add(notif.to);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            "🔥 [DEBUG RELATIONS V2] ➕ Ajout via confirmation d'acceptation que j'ai envoyée:",
+            notif.to
+          );
+        }
+      }
+    });
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        '🔥 [DEBUG RELATIONS V2] ✅ Relations finales simplifiées:',
+        Array.from(bilateralRelations)
+      );
+    }
 
     return bilateralRelations;
-  }, [firestoreInvitations, notifications, selectedActivity, currentUserId]);
+  }, [notifications, selectedActivity, currentUserId]);
 
   const activities = {
     coffee: { label: 'Coffee', icon: Coffee, color: 'bg-amber-500' },
@@ -171,6 +186,12 @@ const InviteFriendsModal = ({
   };
 
   const handleSendInvitations = async () => {
+    console.log(`🔥 [MODAL] handleSendInvitations appelé !`, {
+      selectedActivity,
+      selectedFriendsSize: selectedFriends.size,
+      selectedFriendsArray: Array.from(selectedFriends),
+    });
+
     if (!selectedActivity) {
       alert('Sélectionnez une activité !');
       return;
@@ -205,6 +226,14 @@ const InviteFriendsModal = ({
     console.log('🔥 [DEBUG MODAL] État du modal:', {
       isActiveEventInvitation,
       selectedActivity,
+      currentUserId,
+      // Firestore supprimé - utilisation notifications uniquement
+      notificationsCount: notifications.length,
+      notificationsRelevantes: notifications.filter(
+        notif =>
+          (notif.type === 'invitation' || notif.type === 'invitation_sent') &&
+          notif.data?.activity === selectedActivity
+      ),
       relationsCount: friendsWithBilateralRelations.size,
       relationsArray: Array.from(friendsWithBilateralRelations),
       amisFiltres: friends
@@ -487,7 +516,18 @@ const InviteFriendsModal = ({
                 Annuler
               </button>
               <button
-                onClick={handleSendInvitations}
+                onClick={() => {
+                  console.log(`🔥 [MODAL] Bouton Inviter cliqué !`, {
+                    selectedActivity,
+                    selectedFriendsSize: selectedFriends.size,
+                    isLoading,
+                    disabled:
+                      !selectedActivity ||
+                      selectedFriends.size === 0 ||
+                      isLoading,
+                  });
+                  handleSendInvitations();
+                }}
                 disabled={
                   !selectedActivity || selectedFriends.size === 0 || isLoading
                 }

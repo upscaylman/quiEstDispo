@@ -79,6 +79,7 @@ export const useGeolocation = () => {
   const requestCount = useRef(0);
   const lastRequestTime = useRef(0); // 🔥 NOUVEAU: Timestamp de la dernière requête
   const isStabilizing = useRef(true); // Nouveau: éviter le clignotement initial
+  const lastTimeoutLog = useRef(0); // 🔥 NOUVEAU: Timestamp du dernier log de timeout
 
   // 🔥 CORRECTION: Ref stable pour requestGeolocation
   const requestGeolocationRef = useRef(() => {});
@@ -442,6 +443,24 @@ export const useGeolocation = () => {
       };
 
       const handleWatchError = error => {
+        // 🔥 FIX: Gestion plus silencieuse des timeouts pour éviter le spam de logs
+        if (error.code === 3) {
+          // TIMEOUT
+          // Log timeout seulement toutes les 5 minutes pour éviter le spam
+          const now = Date.now();
+          if (
+            !lastTimeoutLog.current ||
+            now - lastTimeoutLog.current > 300000
+          ) {
+            console.warn(
+              '⚠️ Timeout GPS watchPosition (normal sur certains appareils)'
+            );
+            lastTimeoutLog.current = now;
+          }
+          // Ne pas définir d'erreur pour les timeouts, ce n'est pas critique
+          return;
+        }
+
         console.warn('⚠️ Erreur watchPosition:', error.message);
 
         // Si c'est une erreur de permission, essayer de détecter un changement

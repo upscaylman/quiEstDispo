@@ -250,6 +250,12 @@ function App() {
   // Handler pour envoyer des invitations
   const handleSendInvitations = async (activity, friendIds) => {
     try {
+      console.log(`🔥 [APP] handleSendInvitations appelé !`, {
+        activity,
+        friendIds,
+        userUid: user?.uid,
+      });
+
       if (!user || !location) {
         throw new Error('Utilisateur ou localisation manquant');
       }
@@ -258,6 +264,8 @@ function App() {
         `📨 Envoi d'invitations ${activity} à ${friendIds.length} amis`
       );
 
+      console.log(`🔥 [APP] Appel InvitationService.sendInvitations...`);
+
       // Envoyer les invitations avec vérification anti-duplication
       const result = await InvitationService.sendInvitations(
         user.uid,
@@ -265,6 +273,8 @@ function App() {
         friendIds,
         location
       );
+
+      console.log(`🔥 [APP] Résultat de sendInvitations:`, result);
 
       // 🎯 NOUVEAU: Définir l'état d'invitation en attente
       if (result.count > 0) {
@@ -694,7 +704,13 @@ function App() {
         activity: notification.data.activity,
         response,
         from: notification.data.fromUserName,
+        invitationId: notification.data.invitationId,
       });
+
+      // 🔧 CRITIQUE: Mettre à jour l'invitation dans Firestore sera fait plus tard dans la fonction
+      console.log(
+        `🔥 [DEBUG] Traitement de la réponse ${response} pour invitation ${notification.data.invitationId}`
+      );
 
       // 🔧 FIX iPhone: Marquer la notification comme lue IMMÉDIATEMENT
       // pour éviter que l'overlay reste actif et bloque les interactions
