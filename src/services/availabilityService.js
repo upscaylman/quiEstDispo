@@ -463,6 +463,10 @@ export class AvailabilityService {
             //   `👥 [DEBUG] Après filtrage expirées: ${activeAvailabilities.length} cartes`
             // );
 
+            // 🔥 DÉDUPLICATION: Garder seulement la plus récente availability par ami
+            const deduplicatedAvailabilities = [];
+            const seenFriends = new Set();
+
             // Trier par ordre chronologique (plus récent en premier)
             activeAvailabilities.sort((a, b) => {
               const dateA = new Date(a['createdAt']);
@@ -470,7 +474,24 @@ export class AvailabilityService {
               return dateB.getTime() - dateA.getTime(); // Tri décroissant (plus récent d'abord)
             });
 
-            callback(activeAvailabilities);
+            // Déduplication: ne garder que la plus récente par ami
+            activeAvailabilities.forEach(availability => {
+              const friendId = availability['userId'];
+              if (!seenFriends.has(friendId)) {
+                seenFriends.add(friendId);
+                deduplicatedAvailabilities.push(availability);
+              } else {
+                console.log(
+                  `🔄 [DÉDUPLICATION] Ignoré doublon pour ami ${friendId}: ${availability.id} (${availability['activity']})`
+                );
+              }
+            });
+
+            console.log(
+              `🔥 [COMPTEUR] Avant déduplication: ${activeAvailabilities.length}, après: ${deduplicatedAvailabilities.length}`
+            );
+
+            callback(deduplicatedAvailabilities);
           });
         } else {
           callback([]);
@@ -481,6 +502,38 @@ export class AvailabilityService {
       callback([]);
       return () => {};
     }
+  }
+
+  // Obtenir les amis disponibles de façon synchrone (Promise)
+  static async getAvailableFriends(userId) {
+    return new Promise((resolve, reject) => {
+      if (!isOnline()) {
+        console.warn('⚠️ Offline mode, no friends available');
+        resolve([]);
+        return;
+      }
+
+      try {
+        // Utiliser onAvailableFriends avec un callback qui résout la Promise
+        const unsubscribe = this.onAvailableFriends(
+          userId,
+          availableFriends => {
+            // Désinscrire immédiatement après avoir reçu les données
+            unsubscribe();
+            resolve(availableFriends);
+          }
+        );
+
+        // Timeout de sécurité
+        setTimeout(() => {
+          unsubscribe();
+          resolve([]);
+        }, 5000);
+      } catch (error) {
+        console.error('❌ Erreur getAvailableFriends:', error);
+        reject(error);
+      }
+    });
   }
 
   // Enregistrer une réponse à une activité
