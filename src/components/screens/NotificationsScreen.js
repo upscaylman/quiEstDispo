@@ -1,7 +1,7 @@
 // Écran de gestion des notifications avec nouvelle logique
 import { motion } from 'framer-motion';
 import { Bell, Coffee, MapPin, Trash2, Users } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NotificationService } from '../../services/firebaseService';
 
 const NotificationsScreen = ({
@@ -66,9 +66,12 @@ const NotificationsScreen = ({
           if (notifications.length > 0) {
             const userId = notifications[0].to;
 
-            // Marquer TOUTES les notifications comme lues à la sortie (sauf celles déjà traitées)
+            // Marquer comme lues SEULEMENT les notifications qui n'ont PAS besoin d'action
             const notificationsToMarkAsRead = notifications.filter(
-              notif => !notif.read
+              notif =>
+                !notif.read &&
+                // Ne PAS marquer comme lues les invitations qui ont besoin d'une réponse
+                !['friend_invitation', 'invitation'].includes(notif.type)
             );
 
             if (notificationsToMarkAsRead.length > 0) {
@@ -77,7 +80,7 @@ const NotificationsScreen = ({
                 await NotificationService.markAsRead(notif.id);
               }
               console.log(
-                `✅ ${notificationsToMarkAsRead.length} notifications marquées comme lues à la sortie du centre`
+                `✅ ${notificationsToMarkAsRead.length} notifications marquées comme lues à la sortie du centre (invitations exclues)`
               );
             }
           }
@@ -98,6 +101,8 @@ const NotificationsScreen = ({
       return bTime - aTime; // Plus récentes en premier
     });
   };
+
+  // Plus besoin de filtre anti-doublon, le problème était dans le code source
 
   // Organiser les notifications par thème et les trier par date
   const friendInvitations = sortNotificationsByDate(
@@ -190,24 +195,58 @@ const NotificationsScreen = ({
     )
   );
 
-  // Supprimer une notification
+  // Supprimer une notification avec animation Instagram-style
   const handleDeleteNotification = async notificationId => {
     try {
       setDeletingNotification(notificationId);
-      await NotificationService.deleteNotification(notificationId);
-      setSwipedNotification(null);
+      // Animation rapide et directe
+      setTimeout(async () => {
+        await NotificationService.deleteNotification(notificationId);
+        setSwipedNotification(null);
+      }, 100);
     } catch (error) {
       console.error('Erreur suppression notification:', error);
+      setSwipedNotification(null);
     } finally {
       setDeletingNotification(null);
     }
   };
 
-  // Gérer le swipe
+  // Supprimer toutes les notifications SAUF les invitations
+  const handleDeleteAllNonInvitations = async () => {
+    try {
+      const notificationsToDelete = notifications.filter(
+        n => !['friend_invitation', 'invitation'].includes(n.type)
+      );
+
+      for (const notif of notificationsToDelete) {
+        await NotificationService.deleteNotification(notif.id);
+      }
+    } catch (error) {
+      console.error('Erreur suppression en masse:', error);
+    }
+  };
+
+  // Gérer le swipe Instagram-style : révéler les boutons d'action
   const handlePan = (event, info, notificationId) => {
-    if (info.offset.x < -100) {
+    const offsetX = Number(info?.offset?.x) || 0;
+
+    // Trouver la notification pour vérifier son type
+    const notification = notifications.find(n => n.id === notificationId);
+
+    // Ne pas permettre le swipe pour les invitations
+    if (
+      notification &&
+      ['friend_invitation', 'invitation'].includes(notification.type)
+    ) {
+      return;
+    }
+
+    // Swipe Instagram : révéler les boutons si swipe > 60px vers la gauche
+    if (offsetX < -60) {
       setSwipedNotification(notificationId);
-    } else if (info.offset.x > 50) {
+    } else if (offsetX > -20) {
+      // Reset si on revient vers la position initiale
       setSwipedNotification(null);
     }
   };
@@ -218,7 +257,7 @@ const NotificationsScreen = ({
 
     const date = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
     const now = new Date();
-    const diffMs = now - date;
+    const diffMs = now.getTime() - date.getTime();
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -247,6 +286,12 @@ const NotificationsScreen = ({
     const isRead = notification.read;
     const isSwiped = swipedNotification === notification.id;
     const isDeleting = deletingNotification === notification.id;
+    const isProcessing = processingNotifications.has(notification.id);
+
+    // Ne pas afficher les notifications en cours de traitement pour éviter les doublons
+    if (isProcessing) {
+      return null;
+    }
 
     return (
       <motion.div
@@ -257,33 +302,50 @@ const NotificationsScreen = ({
         exit={{ opacity: 0, x: -300 }}
         className="relative overflow-hidden"
       >
-        {/* Arrière-plan rouge pour la suppression */}
-        {isSwiped && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute inset-0 bg-red-500 flex items-center justify-end pr-4 rounded-lg"
+        {/* Bouton d'action révélé lors du swipe - Style Instagram */}
+        {/* Ne pas afficher le bouton supprimer pour les invitations */}
+        {!['friend_invitation', 'invitation'].includes(notification.type) && (
+          <div
+            className={`absolute right-0 top-0 h-full flex items-center justify-center transition-all duration-100 ${
+              isSwiped ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+            }`}
           >
+            {/* Bouton Supprimer */}
             <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => handleDeleteNotification(notification.id)}
               disabled={isDeleting}
-              className="text-white p-2"
+              className="bg-red-500 text-white p-2 rounded-full shadow-lg"
             >
-              <Trash2 size={20} />
+              <Trash2 size={14} />
             </motion.button>
-          </motion.div>
+          </div>
         )}
 
         {/* Contenu de la notification */}
         <motion.div
-          drag="x"
-          dragConstraints={{ left: -150, right: 0 }}
-          dragElastic={0.2}
+          drag={
+            ['friend_invitation', 'invitation'].includes(notification.type)
+              ? false
+              : 'x'
+          }
+          dragConstraints={{ left: -48, right: 0 }}
+          dragElastic={0}
           onPan={(event, info) => handlePan(event, info, notification.id)}
+          animate={{
+            x: isSwiped ? -48 : 0,
+          }}
+          transition={{
+            duration: 0.1,
+            ease: 'linear',
+          }}
           data-notification={notification.id}
-          className={`relative z-10 rounded-lg p-4 shadow transition-all cursor-grab active:cursor-grabbing ${
+          className={`relative z-10 rounded-lg p-4 shadow-sm transition-all ${
+            ['friend_invitation', 'invitation'].includes(notification.type)
+              ? 'cursor-default'
+              : 'cursor-grab active:cursor-grabbing'
+          } ${
             isRead
               ? darkMode
                 ? 'bg-gray-800/50 border border-gray-700/50'
@@ -291,7 +353,7 @@ const NotificationsScreen = ({
               : darkMode
                 ? 'bg-gray-800 border border-gray-700'
                 : 'bg-white border border-gray-200'
-          } ${isSwiped ? 'transform -translate-x-20' : ''}`}
+          }`}
           style={{
             opacity: isDeleting ? 0.5 : 1,
           }}
@@ -476,17 +538,6 @@ const NotificationsScreen = ({
               </motion.button>
             </div>
           )}
-
-          {/* Instructions de suppression pour les notifications lues */}
-          {isRead && (
-            <div className="mt-2">
-              <p
-                className={`text-xs ${darkMode ? 'text-gray-600' : 'text-gray-400'}`}
-              >
-                Glissez vers la gauche pour supprimer
-              </p>
-            </div>
-          )}
         </motion.div>
       </motion.div>
     );
@@ -571,13 +622,27 @@ const NotificationsScreen = ({
 
   return (
     <div className="px-responsive py-4">
-      {/* Bouton "Tout supprimer" en haut */}
+      {/* Instructions d'utilisation pour mobile */}
       {notifications.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className={`text-center text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-4`}
+        >
+          ← Glissez vers la gauche pour révéler les actions
+        </motion.div>
+      )}
+
+      {/* Bouton "Tout supprimer" en haut - seulement pour les notifications supprimables */}
+      {notifications.filter(
+        n => !['friend_invitation', 'invitation'].includes(n.type)
+      ).length > 0 && (
         <div className="flex justify-end mb-4">
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={onMarkAllNotificationsAsRead}
+            onClick={handleDeleteAllNonInvitations}
             className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
               darkMode
                 ? 'bg-red-700 hover:bg-red-600 text-red-300'

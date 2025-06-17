@@ -1,8 +1,7 @@
 import { motion } from 'framer-motion';
-import React from 'react';
 
 const NotificationBadge = ({ count = 0 }) => {
-  if (count === 0) return null;
+  if (!count || count <= 0) return null;
 
   return (
     <motion.div

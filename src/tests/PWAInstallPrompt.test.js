@@ -1,0 +1,110 @@
+// @ts-nocheck
+/* eslint-disable no-console */
+import { render } from '@testing-library/react';
+import PWAInstallPrompt from '../components/PWAInstallPrompt';
+
+// Mock framer-motion
+jest.mock('framer-motion', () => ({
+  AnimatePresence: ({ children }) => children,
+  motion: {
+    div: ({ children, className, ...props }) => (
+      <div className={className} {...props}>
+        {children}
+      </div>
+    ),
+  },
+}));
+
+describe('PWAInstallPrompt - Composant UI simple', () => {
+  beforeEach(() => {
+    console.log = jest.fn();
+    console.error = jest.fn();
+
+    // Mock localStorage
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: jest.fn(() => null),
+        setItem: jest.fn(),
+        removeItem: jest.fn(),
+      },
+    });
+
+    // Mock matchMedia
+    window.matchMedia = jest.fn().mockImplementation(() => ({
+      matches: false,
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+    }));
+
+    // Mock addEventListener
+    window.addEventListener = jest.fn();
+    window.removeEventListener = jest.fn();
+
+    jest.clearAllMocks();
+  });
+
+  describe('Rendu de base', () => {
+    test('doit se rendre sans erreur', () => {
+      const { container } = render(<PWAInstallPrompt darkMode={false} />);
+      expect(container).toBeInTheDocument();
+    });
+
+    test('doit supporter le mode sombre', () => {
+      const { container } = render(<PWAInstallPrompt darkMode={true} />);
+      expect(container).toBeInTheDocument();
+    });
+
+    test('doit configurer les event listeners', () => {
+      render(<PWAInstallPrompt darkMode={false} />);
+      expect(window.addEventListener).toHaveBeenCalled();
+    });
+  });
+
+  describe('Detection d appareil', () => {
+    test('doit detecter iOS Safari', () => {
+      Object.defineProperty(navigator, 'userAgent', {
+        value:
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 Safari/605.1.15',
+        configurable: true,
+      });
+
+      const { container } = render(<PWAInstallPrompt darkMode={false} />);
+      expect(container).toBeInTheDocument();
+    });
+
+    test('doit detecter Android Chrome', () => {
+      Object.defineProperty(navigator, 'userAgent', {
+        value:
+          'Mozilla/5.0 (Linux; Android 11; SM-G975F) AppleWebKit/537.36 Chrome/91.0.4472.114',
+        configurable: true,
+      });
+
+      render(<PWAInstallPrompt darkMode={false} />);
+      expect(window.addEventListener).toHaveBeenCalledWith(
+        'beforeinstallprompt',
+        expect.any(Function)
+      );
+    });
+  });
+
+  describe('Gestion localStorage', () => {
+    test('doit verifier si le prompt a ete rejete', () => {
+      render(<PWAInstallPrompt darkMode={false} />);
+      expect(localStorage.getItem).toHaveBeenCalledWith('pwa-prompt-dismissed');
+    });
+
+    test('doit gerer absence de donnees localStorage', () => {
+      localStorage.getItem.mockReturnValue(null);
+      const { container } = render(<PWAInstallPrompt darkMode={false} />);
+      expect(container).toBeInTheDocument();
+    });
+  });
+
+  describe('Nettoyage', () => {
+    test('doit nettoyer les event listeners au demontage', () => {
+      const { unmount } = render(<PWAInstallPrompt darkMode={false} />);
+      unmount();
+      expect(window.removeEventListener).toHaveBeenCalled();
+    });
+  });
+});

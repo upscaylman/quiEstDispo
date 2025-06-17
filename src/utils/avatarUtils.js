@@ -8,7 +8,9 @@
  */
 export const isValidAvatarUrl = avatarUrl => {
   return (
-    avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:'))
+    avatarUrl &&
+    typeof avatarUrl === 'string' &&
+    (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:'))
   );
 };
 
@@ -149,7 +151,7 @@ export const generateAvatarHTML = (user, containerStyle = '') => {
   `;
 };
 
-export default {
+const AvatarUtils = {
   isValidAvatarUrl,
   getAvatarUrl,
   getDisplayName,
@@ -157,3 +159,5 @@ export default {
   AvatarDisplay,
   generateAvatarHTML,
 };
+
+export default AvatarUtils;

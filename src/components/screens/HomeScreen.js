@@ -10,7 +10,7 @@ import {
   UserPlus,
   X,
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import AvailabilityButtons from '../AvailabilityButtons';
 import { MapView } from '../map';
 import MapboxMapView from '../map/MapboxMapView';
@@ -41,6 +41,8 @@ const HomeScreen = ({
   onAddFriend,
   onCreateTestFriendships,
   onLoadMockData,
+  onFriendInvitationResponse,
+  onActivityInvitationResponse,
 }) => {
   // State pour forcer le re-render et mettre à jour les temps
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -118,6 +120,9 @@ const HomeScreen = ({
   // Composant de carte selon les préférences
   const MapComponent = useMapbox ? MapboxMapView : MapView;
 
+  // Les notifications sont gérées uniquement dans NotificationsScreen
+  // L'écran d'accueil ne doit pas afficher de notifications
+
   return (
     <div className="min-h-screen flex flex-col">
       <div className="flex-1">
@@ -137,6 +142,8 @@ const HomeScreen = ({
             onInviteMoreFriends={onInviteFriends}
             pendingInvitation={pendingInvitation}
           />
+
+          {/* Section Notifications supprimée - les notifications sont gérées dans NotificationsScreen */}
 
           {/* Section Inviter des amis */}
           <motion.div
@@ -186,10 +193,8 @@ const HomeScreen = ({
         <div className="flex-1 relative">
           {location ? (
             <MapComponent
-              friends={friends}
               availableFriends={availableFriends}
               userLocation={location}
-              onInviteFriends={onInviteFriends}
               darkMode={darkMode}
               isAvailable={isAvailable}
               selectedActivity={currentActivity}

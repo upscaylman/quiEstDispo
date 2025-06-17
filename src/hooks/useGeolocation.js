@@ -77,7 +77,12 @@ export const useGeolocation = () => {
   const lastErrorType = useRef(null);
   const stableLocationRef = useRef(null);
   const requestCount = useRef(0);
+  const lastRequestTime = useRef(0); // 🔥 NOUVEAU: Timestamp de la dernière requête
   const isStabilizing = useRef(true); // Nouveau: éviter le clignotement initial
+  const lastTimeoutLog = useRef(0); // 🔥 NOUVEAU: Timestamp du dernier log de timeout
+
+  // 🔥 CORRECTION: Ref stable pour requestGeolocation
+  const requestGeolocationRef = useRef(() => {});
 
   // Position par défaut à Paris
   const defaultLocation = {
@@ -91,22 +96,37 @@ export const useGeolocation = () => {
   // Fonction principale de géolocalisation
   const requestGeolocation = useCallback(() => {
     if (isRequesting.current) {
-      // eslint-disable-next-line no-console
       console.log('⏳ Geolocation already in progress...');
       return;
     }
 
-    // Limiter le nombre de requêtes par minute pour éviter les boucles
-    requestCount.current += 1;
-    if (requestCount.current > 5) {
-      console.warn('⚠️ Trop de requêtes GPS, limitation temporaire');
-      setTimeout(() => {
-        requestCount.current = 0;
-      }, 60000); // Reset après 1 minute
+    // Limitation basée sur le temps
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastRequestTime.current;
+    const MIN_INTERVAL = 10000; // 10 secondes minimum entre les requêtes
+
+    if (timeSinceLastRequest < MIN_INTERVAL) {
+      console.warn(
+        `⚠️ Requête GPS trop récente, attendre ${Math.ceil((MIN_INTERVAL - timeSinceLastRequest) / 1000)}s`
+      );
       return;
     }
 
-    // eslint-disable-next-line no-console
+    // Reset automatique du compteur après 2 minutes
+    if (timeSinceLastRequest > 120000) {
+      requestCount.current = 0;
+    }
+
+    // Limiter le nombre total de requêtes
+    requestCount.current += 1;
+    if (requestCount.current > 3) {
+      console.warn(
+        '⚠️ Trop de requêtes GPS, limitation temporaire (max 3 par 2min)'
+      );
+      return;
+    }
+
+    lastRequestTime.current = now;
     console.log('🌍 Requesting geolocation... (#' + requestCount.current + ')');
 
     isRequesting.current = true;
@@ -114,7 +134,6 @@ export const useGeolocation = () => {
 
     // Si géolocalisation non supportée
     if (!navigator.geolocation) {
-      // eslint-disable-next-line no-console
       console.log('📍 Geolocation not supported, using Paris');
       setLocation(defaultLocation);
       stableLocationRef.current = defaultLocation;
@@ -135,13 +154,12 @@ export const useGeolocation = () => {
           isDefault: false,
         };
 
-        // eslint-disable-next-line no-console
         console.log('✅ Location obtained:', newLocation);
 
-        // Notifier si c'est la première position ou si on récupère une position après une erreur
         const isFirstLocation =
           !stableLocationRef.current || stableLocationRef.current.isDefault;
-        const wasError = error !== null;
+        // 🔥 CORRECTION: Accéder à error via ref pour éviter dépendance
+        const wasError = stableLocationRef.current?.error !== null;
 
         if ((isFirstLocation || wasError) && !isStabilizing.current) {
           notifyGPSEnabled();
@@ -153,7 +171,6 @@ export const useGeolocation = () => {
         lastLocationTime.current = Date.now();
         lastErrorType.current = null;
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error('Error processing location:', err);
         setLocation(defaultLocation);
         stableLocationRef.current = defaultLocation;
@@ -169,19 +186,18 @@ export const useGeolocation = () => {
       let errorMessage = "Impossible d'obtenir la position";
 
       switch (error.code) {
-        case 1: // PERMISSION_DENIED
+        case 1:
           errorMessage = 'Accès à la localisation refusé';
-          // Notifier seulement si c'est un changement d'état et qu'on n'est plus en stabilisation
           if (lastErrorType.current !== 'denied' && !isStabilizing.current) {
             notifyGPSDisabled();
           }
           lastErrorType.current = 'denied';
           break;
-        case 2: // POSITION_UNAVAILABLE
+        case 2:
           errorMessage = 'Position indisponible';
           lastErrorType.current = 'unavailable';
           break;
-        case 3: // TIMEOUT
+        case 3:
           errorMessage = "Délai d'attente dépassé";
           lastErrorType.current = 'timeout';
           break;
@@ -191,7 +207,6 @@ export const useGeolocation = () => {
           break;
       }
 
-      // eslint-disable-next-line no-console
       console.warn('⚠️ Geolocation error, using Paris:', errorMessage);
 
       setError(errorMessage);
@@ -202,11 +217,10 @@ export const useGeolocation = () => {
       isStabilizing.current = false;
     };
 
-    // Options de géolocalisation optimisées pour la précision maximale
     const options = {
-      enableHighAccuracy: true, // Activer GPS + réseau + WiFi
-      timeout: 15000, // 15 secondes pour GPS plus lent
-      maximumAge: 30000, // Cache de 30 secondes seulement pour position récente
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 30000,
     };
 
     try {
@@ -216,21 +230,166 @@ export const useGeolocation = () => {
         options
       );
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('Error requesting geolocation:', err);
       handleError({ code: 999, message: "Erreur d'initialisation" });
     }
-  }, [error, notifyGPSEnabled, notifyGPSDisabled]);
+  }, [notifyGPSEnabled, notifyGPSDisabled]); // 🔥 GARDER seulement les fonctions stables
+
+  // 🔥 CORRECTION: Mettre à jour la ref à chaque fois
+  requestGeolocationRef.current = requestGeolocation;
 
   // Première demande au montage du composant + watch position continue
   useEffect(() => {
+    // 🔥 CORRECTION: Version locale de requestGeolocation pour éviter dépendances
+    const localRequestGeolocation = () => {
+      if (isRequesting.current) {
+        console.log('⏳ Geolocation already in progress...');
+        return;
+      }
+
+      // Limitation basée sur le temps
+      const now = Date.now();
+      const timeSinceLastRequest = now - lastRequestTime.current;
+      const MIN_INTERVAL = 10000; // 10 secondes minimum entre les requêtes
+
+      if (timeSinceLastRequest < MIN_INTERVAL) {
+        console.warn(
+          `⚠️ Requête GPS trop récente, attendre ${Math.ceil((MIN_INTERVAL - timeSinceLastRequest) / 1000)}s`
+        );
+        return;
+      }
+
+      // Reset automatique du compteur après 2 minutes
+      if (timeSinceLastRequest > 120000) {
+        requestCount.current = 0;
+      }
+
+      // Limiter le nombre total de requêtes
+      requestCount.current += 1;
+      if (requestCount.current > 3) {
+        console.warn(
+          '⚠️ Trop de requêtes GPS, limitation temporaire (max 3 par 2min)'
+        );
+        return;
+      }
+
+      lastRequestTime.current = now;
+      console.log(
+        '🌍 Requesting geolocation... (#' + requestCount.current + ')'
+      );
+
+      isRequesting.current = true;
+      setLoading(true);
+
+      // Si géolocalisation non supportée
+      if (!navigator.geolocation) {
+        console.log('📍 Geolocation not supported, using Paris');
+        setLocation(defaultLocation);
+        stableLocationRef.current = defaultLocation;
+        setError('Géolocalisation non supportée');
+        setLoading(false);
+        isRequesting.current = false;
+        isStabilizing.current = false;
+        return;
+      }
+
+      const handleSuccess = position => {
+        try {
+          const newLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: Date.now(),
+            isDefault: false,
+          };
+
+          console.log('✅ Location obtained:', newLocation);
+
+          const isFirstLocation =
+            !stableLocationRef.current || stableLocationRef.current.isDefault;
+          const wasError = error !== null;
+
+          if ((isFirstLocation || wasError) && !isStabilizing.current) {
+            notifyGPSEnabled();
+          }
+
+          setLocation(newLocation);
+          stableLocationRef.current = newLocation;
+          setError(null);
+          lastLocationTime.current = Date.now();
+          lastErrorType.current = null;
+        } catch (err) {
+          console.error('Error processing location:', err);
+          setLocation(defaultLocation);
+          stableLocationRef.current = defaultLocation;
+          setError('Erreur de traitement de la position');
+        } finally {
+          setLoading(false);
+          isRequesting.current = false;
+          isStabilizing.current = false;
+        }
+      };
+
+      const handleError = error => {
+        let errorMessage = "Impossible d'obtenir la position";
+
+        switch (error.code) {
+          case 1:
+            errorMessage = 'Accès à la localisation refusé';
+            if (lastErrorType.current !== 'denied' && !isStabilizing.current) {
+              notifyGPSDisabled();
+            }
+            lastErrorType.current = 'denied';
+            break;
+          case 2:
+            errorMessage = 'Position indisponible';
+            lastErrorType.current = 'unavailable';
+            break;
+          case 3:
+            errorMessage = "Délai d'attente dépassé";
+            lastErrorType.current = 'timeout';
+            break;
+          default:
+            errorMessage = 'Erreur de géolocalisation';
+            lastErrorType.current = 'unknown';
+            break;
+        }
+
+        console.warn('⚠️ Geolocation error, using Paris:', errorMessage);
+
+        setError(errorMessage);
+        setLocation(defaultLocation);
+        stableLocationRef.current = defaultLocation;
+        setLoading(false);
+        isRequesting.current = false;
+        isStabilizing.current = false;
+      };
+
+      const options = {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 30000,
+      };
+
+      try {
+        navigator.geolocation.getCurrentPosition(
+          handleSuccess,
+          handleError,
+          options
+        );
+      } catch (err) {
+        console.error('Error requesting geolocation:', err);
+        handleError({ code: 999, message: "Erreur d'initialisation" });
+      }
+    };
+
     // Période de stabilisation initiale de 3 secondes
     setTimeout(() => {
       isStabilizing.current = false;
       console.log('🎯 Période de stabilisation terminée');
     }, 3000);
 
-    requestGeolocation();
+    requestGeolocationRef.current();
 
     // Suivi de position en temps réel (watchPosition)
     let watchId = null;
@@ -241,7 +400,7 @@ export const useGeolocation = () => {
       const watchOptions = {
         enableHighAccuracy: true,
         timeout: 30000, // Plus de temps pour watchPosition
-        maximumAge: 15000, // Position récente de 15 secondes max
+        maximumAge: 60000, // 🔥 NOUVEAU: Position récente de 60 secondes (au lieu de 15s)
       };
 
       const handleWatchSuccess = position => {
@@ -253,11 +412,26 @@ export const useGeolocation = () => {
           isDefault: false,
         };
 
-        console.log('📍 Position mise à jour (watchPosition):', newLocation);
+        // 🔥 NOUVELLE LOGIQUE: Log seulement si mouvement significatif (>10m) ou temps écoulé (>120s)
+        const timeSinceLastLog = Date.now() - lastLocationTime.current;
+        const hasSignificantMovement =
+          lastLocationTime.current > 0 &&
+          stableLocationRef.current &&
+          calculateDistance(
+            stableLocationRef.current.lat,
+            stableLocationRef.current.lng,
+            newLocation.lat,
+            newLocation.lng
+          ) > 0.01; // 10 mètres minimum
+
+        if (timeSinceLastLog > 120000 || hasSignificantMovement) {
+          console.log('📍 Position mise à jour (watchPosition):', newLocation);
+        }
 
         // Notifier la mise à jour seulement si c'est significatif et qu'on n'est plus en stabilisation
         const timeSinceLastUpdate = Date.now() - lastLocationTime.current;
-        if (timeSinceLastUpdate > 60000 && !isStabilizing.current) {
+        if (timeSinceLastUpdate > 300000 && !isStabilizing.current) {
+          // 🔥 NOUVEAU: 5 minutes au lieu de 1 minute
           notifyGPSUpdating();
         }
 
@@ -269,6 +443,24 @@ export const useGeolocation = () => {
       };
 
       const handleWatchError = error => {
+        // 🔥 FIX: Gestion plus silencieuse des timeouts pour éviter le spam de logs
+        if (error.code === 3) {
+          // TIMEOUT
+          // Log timeout seulement toutes les 5 minutes pour éviter le spam
+          const now = Date.now();
+          if (
+            !lastTimeoutLog.current ||
+            now - lastTimeoutLog.current > 300000
+          ) {
+            console.warn(
+              '⚠️ Timeout GPS watchPosition (normal sur certains appareils)'
+            );
+            lastTimeoutLog.current = now;
+          }
+          // Ne pas définir d'erreur pour les timeouts, ce n'est pas critique
+          return;
+        }
+
         console.warn('⚠️ Erreur watchPosition:', error.message);
 
         // Si c'est une erreur de permission, essayer de détecter un changement
@@ -311,7 +503,7 @@ export const useGeolocation = () => {
                 console.log('✅ GPS autorisé - Relance géolocalisation');
                 // Petit délai pour laisser le GPS s'activer
                 setTimeout(() => {
-                  requestGeolocation();
+                  requestGeolocationRef.current();
                 }, 800);
               } else if (permission.state === 'denied') {
                 console.log('❌ GPS refusé');
@@ -332,32 +524,28 @@ export const useGeolocation = () => {
       // Surveillance périodique de l'état GPS (fallback) - après stabilisation
       setTimeout(() => {
         permissionCheckInterval = setInterval(() => {
-          // Test silencieux pour détecter les changements de GPS
+          // 🔥 NOUVELLE LOGIQUE: Test silencieux SEULEMENT si problème ET si dernière vérification > 5 minutes
           if (!isStabilizing.current) {
-            navigator.geolocation.getCurrentPosition(
-              position => {
-                // Si on récupère une position et qu'on avait une erreur, ou qu'on a une position par défaut
-                const currentHasError =
-                  lastErrorType.current === 'denied' ||
-                  lastErrorType.current === 'unavailable';
-                const currentIsDefault =
-                  stableLocationRef.current?.isDefault === true;
+            const currentHasError =
+              lastErrorType.current === 'denied' ||
+              lastErrorType.current === 'unavailable';
+            const currentIsDefault =
+              stableLocationRef.current?.isDefault === true;
+            const timeSinceLastCheck = Date.now() - lastRequestTime.current;
 
-                if (currentHasError || currentIsDefault) {
-                  console.log(
-                    '🔄 GPS détecté comme réactivé - Relance géolocalisation'
-                  );
-                  requestGeolocation();
-                }
-              },
-              err => {
-                // Erreur silencieuse lors du test
-              },
-              { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
-            );
+            // Vérifier seulement si problème ET pas de check récent (5 min minimum)
+            if (
+              (currentHasError || currentIsDefault) &&
+              timeSinceLastCheck > 300000
+            ) {
+              console.log(
+                '🔄 Vérification GPS périodique (5min+) - Test silencieux'
+              );
+              requestGeolocationRef.current();
+            }
           }
-        }, 12000); // Vérifier toutes les 12 secondes
-      }, 5000); // Commencer après 5 secondes
+        }, 120000); // 🔥 NOUVEAU: Vérifier toutes les 2 MINUTES au lieu de 12 secondes
+      }, 10000); // 🔥 NOUVEAU: Commencer après 10 secondes au lieu de 5
     }
 
     // Surveillance de la visibilité de l'application
@@ -368,13 +556,15 @@ export const useGeolocation = () => {
           lastErrorType.current === 'unavailable';
         const hasDefaultLocation =
           stableLocationRef.current?.isDefault === true;
+        const timeSinceLastCheck = Date.now() - lastRequestTime.current;
 
-        if (hasError || hasDefaultLocation) {
-          console.log('🔄 App visible - Vérification GPS');
+        // 🔥 NOUVELLE LOGIQUE: Vérifier GPS SEULEMENT si problème ET pas de check récent (2 min minimum)
+        if ((hasError || hasDefaultLocation) && timeSinceLastCheck > 120000) {
+          console.log('🔄 App visible - Vérification GPS (2min+)');
           // Délai pour laisser le temps à l'utilisateur d'activer le GPS
           visibilityCheckTimeout = setTimeout(() => {
-            requestGeolocation();
-          }, 1500);
+            requestGeolocationRef.current();
+          }, 2000); // 🔥 NOUVEAU: 2 secondes au lieu de 1.5s
         }
       }
     };
@@ -398,7 +588,7 @@ export const useGeolocation = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
     };
-  }, [requestGeolocation]);
+  }, []); // 🔥 CORRECTION: Vide pour éviter boucle infinie - ne s'exécute qu'au montage
 
   // Fonction pour retry (utilise la même fonction que l'initialisation)
   const retryGeolocation = useCallback(() => {

@@ -9,7 +9,7 @@ import {
   Wine,
   X,
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const InviteFriendsModal = ({
   isOpen,
@@ -19,6 +19,8 @@ const InviteFriendsModal = ({
   friends = [],
   notifications = [],
   darkMode = false,
+  currentUserId = null,
+  isActiveEventInvitation = false,
 }) => {
   const [selectedFriends, setSelectedFriends] = useState(new Set());
   const [isLoading, setIsLoading] = useState(false);
@@ -29,6 +31,112 @@ const InviteFriendsModal = ({
       setSelectedActivity(activity);
     }
   }, [isOpen, activity]);
+
+  // ✅ SIMPLIFICATION: Plus besoin de requêtes Firestore complexes
+  // Les relations bilatérales sont détectées via les notifications seulement
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        `🔥 [DEBUG MODAL V2] Modal ouvert avec activité: ${selectedActivity}`
+      );
+    }
+  }, [isOpen, selectedActivity]);
+
+  const friendsWithBilateralRelations = useMemo(() => {
+    const bilateralRelations = new Set();
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        '🔥 [DEBUG RELATIONS V2] Calcul des relations bilatérales SIMPLIFIÉES...',
+        {
+          currentUserId,
+          selectedActivity,
+          notificationsTotal: notifications.length,
+        }
+      );
+    }
+
+    // ✅ NOUVELLE APPROCHE ROBUSTE: Utiliser les notifications seulement
+    // (plus fiable que Firestore qui peut être nettoyé)
+
+    // Cas 1: Notifications d'invitations reçues non lues (attente de réponse)
+    notifications.forEach(notif => {
+      if (
+        notif.type === 'invitation' &&
+        notif.data?.activity === selectedActivity &&
+        !notif.read
+      ) {
+        bilateralRelations.add(notif.from);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            '🔥 [DEBUG RELATIONS V2] ➕ Ajout via invitation reçue en attente:',
+            notif.from
+          );
+        }
+      }
+    });
+
+    // Cas 2: Notifications d'invitations envoyées non lues (en attente)
+    notifications.forEach(notif => {
+      if (
+        notif.type === 'invitation_sent' &&
+        notif.data?.activity === selectedActivity &&
+        !notif.read
+      ) {
+        bilateralRelations.add(notif.to);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            '🔥 [DEBUG RELATIONS V2] ➕ Ajout via invitation envoyée en attente:',
+            notif.to
+          );
+        }
+      }
+    });
+
+    // Cas 3: Notifications d'acceptation (relation active confirmée)
+    notifications.forEach(notif => {
+      if (
+        (notif.type === 'activity_accepted_start_timer' ||
+          notif.type === 'activity_joined') &&
+        notif.data?.activity === selectedActivity
+      ) {
+        bilateralRelations.add(notif.from);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            '🔥 [DEBUG RELATIONS V2] ➕ Ajout via activité acceptée/rejointe:',
+            notif.from
+          );
+        }
+      }
+    });
+
+    // Cas 4: Notifications que j'ai envoyées confirmant l'acceptation
+    notifications.forEach(notif => {
+      if (
+        (notif.type === 'activity_accepted_start_timer' ||
+          notif.type === 'activity_joined') &&
+        notif.data?.activity === selectedActivity &&
+        notif.to // Je suis l'expéditeur de cette notification
+      ) {
+        bilateralRelations.add(notif.to);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            "🔥 [DEBUG RELATIONS V2] ➕ Ajout via confirmation d'acceptation que j'ai envoyée:",
+            notif.to
+          );
+        }
+      }
+    });
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        '🔥 [DEBUG RELATIONS V2] ✅ Relations finales simplifiées:',
+        Array.from(bilateralRelations)
+      );
+    }
+
+    return bilateralRelations;
+  }, [notifications, selectedActivity, currentUserId]);
 
   const activities = {
     coffee: { label: 'Coffee', icon: Coffee, color: 'bg-amber-500' },
@@ -51,20 +159,14 @@ const InviteFriendsModal = ({
         const sameActivity = notif.data?.activity === selectedActivity;
         const unread = !notif.read;
 
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`🔍 [DEBUG] Notification check:`, {
-            id: notif.id,
-            type: notif.type,
-            isInvitation,
-            notifActivity: notif.data?.activity,
-            currentActivity: selectedActivity,
-            sameActivity,
-            unread,
-            shouldGray: isInvitation && sameActivity && unread,
-          });
-        }
+        // Debug supprimé pour éviter logs infinis
 
-        return isInvitation && sameActivity && unread;
+        return (
+          isInvitation &&
+          sameActivity &&
+          unread &&
+          !friendsWithBilateralRelations.has(notif.from)
+        );
       })
       .map(notif => notif.from)
   );
@@ -84,6 +186,12 @@ const InviteFriendsModal = ({
   };
 
   const handleSendInvitations = async () => {
+    console.log(`🔥 [MODAL] handleSendInvitations appelé !`, {
+      selectedActivity,
+      selectedFriendsSize: selectedFriends.size,
+      selectedFriendsArray: Array.from(selectedFriends),
+    });
+
     if (!selectedActivity) {
       alert('Sélectionnez une activité !');
       return;
@@ -96,7 +204,41 @@ const InviteFriendsModal = ({
 
     setIsLoading(true);
     try {
-      await onSendInvitations(selectedActivity, Array.from(selectedFriends));
+      const result = await onSendInvitations(
+        selectedActivity,
+        Array.from(selectedFriends)
+      );
+
+      // 🆕 NOUVEAU: Afficher seulement les messages d'avertissement (pas de succès)
+      if (result && result.blockedReasons && result.blockedReasons.length > 0) {
+        const busyFriends = result.blockedReasons.filter(
+          r => r.type !== 'duplicate'
+        );
+        const duplicateFriends = result.blockedReasons.filter(
+          r => r.type === 'duplicate'
+        );
+
+        let message = '';
+
+        if (busyFriends.length > 0) {
+          message += `⚠️ ${busyFriends.length} ami(s) occupé(s) :\n`;
+          busyFriends.forEach(({ reason }) => {
+            message += `• ${reason}\n`;
+          });
+          message += '\n';
+        }
+
+        if (duplicateFriends.length > 0) {
+          message += `ℹ️ ${duplicateFriends.length} invitation(s) déjà en cours\n`;
+        }
+
+        // N'afficher l'alerte que s'il y a des blocages à signaler
+        if (message.trim()) {
+          alert(message.trim());
+        }
+      }
+      // Plus d'alerte pour les succès - supprimée
+
       setSelectedFriends(new Set());
       onClose();
     } catch (error) {
@@ -112,6 +254,32 @@ const InviteFriendsModal = ({
     setSelectedActivity(activity); // Reset l'activité
     onClose();
   };
+
+  // 🔥 DEBUG: Vérifier les paramètres (seulement si modal ouvert pour éviter spam)
+  if (isOpen && process.env.NODE_ENV === 'development') {
+    console.log('🔥 [DEBUG MODAL] État du modal:', {
+      isActiveEventInvitation,
+      selectedActivity,
+      currentUserId,
+      // Firestore supprimé - utilisation notifications uniquement
+      notificationsCount: notifications.length,
+      notificationsRelevantes: notifications.filter(
+        notif =>
+          (notif.type === 'invitation' || notif.type === 'invitation_sent') &&
+          notif.data?.activity === selectedActivity
+      ),
+      relationsCount: friendsWithBilateralRelations.size,
+      relationsArray: Array.from(friendsWithBilateralRelations),
+      amisFiltres: friends
+        .filter(
+          friend =>
+            !friendsWhoInvitedUs.has(friend.id) &&
+            (!isActiveEventInvitation ||
+              !friendsWithBilateralRelations.has(friend.id))
+        )
+        .map(f => f.name),
+    });
+  }
 
   if (!isOpen) return null;
 
@@ -131,7 +299,7 @@ const InviteFriendsModal = ({
           onClick={e => e.stopPropagation()}
           className={`${
             darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-          } rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-hidden`}
+          } rounded-lg shadow-xl max-w-md w-full max-h-[85vh] overflow-hidden flex flex-col`}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-responsive-lg py-6 border-b border-opacity-20">
@@ -206,7 +374,7 @@ const InviteFriendsModal = ({
           )}
 
           {/* Content */}
-          <div className="px-responsive-lg py-6">
+          <div className="px-responsive-lg py-6 flex-1 overflow-y-auto">
             {friends.length === 0 ? (
               <div className="text-center py-8">
                 <Users
@@ -274,9 +442,15 @@ const InviteFriendsModal = ({
                   )}
                 </div>
 
-                <div className="space-y-3 max-h-64 overflow-y-auto">
+                <div className="space-y-3 max-h-96 sm:max-h-80 md:max-h-64 overflow-y-auto">
                   {friends
-                    .filter(friend => !friendsWhoInvitedUs.has(friend.id))
+                    .filter(
+                      friend =>
+                        !friendsWhoInvitedUs.has(friend.id) &&
+                        // 🎯 Restrictions bilatérales SEULEMENT pendant l'événement actif
+                        (!isActiveEventInvitation ||
+                          !friendsWithBilateralRelations.has(friend.id))
+                    )
                     .map(friend => {
                       const isDisabled = false;
 
@@ -363,7 +537,7 @@ const InviteFriendsModal = ({
           {/* Footer */}
           {friends.length > 0 && (
             <div
-              className={`p-6 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} flex gap-3`}
+              className={`p-6 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} flex gap-3 flex-shrink-0`}
             >
               <button
                 onClick={handleClose}
@@ -376,7 +550,18 @@ const InviteFriendsModal = ({
                 Annuler
               </button>
               <button
-                onClick={handleSendInvitations}
+                onClick={() => {
+                  console.log(`🔥 [MODAL] Bouton Inviter cliqué !`, {
+                    selectedActivity,
+                    selectedFriendsSize: selectedFriends.size,
+                    isLoading,
+                    disabled:
+                      !selectedActivity ||
+                      selectedFriends.size === 0 ||
+                      isLoading,
+                  });
+                  handleSendInvitations();
+                }}
                 disabled={
                   !selectedActivity || selectedFriends.size === 0 || isLoading
                 }

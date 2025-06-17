@@ -1,0 +1,14 @@
+# Code owners pour qui-est-dispo
+# Ces utilisateurs seront automatiquement demandés pour review
+
+# Propriétaire principal du projet
+* @upscaylman
+
+# Fichiers critiques nécessitent une review spéciale
+firebase.js @upscaylman
+package.json @upscaylman
+.github/ @upscaylman
+
+# Tests critiques
+src/tests/ @upscaylman
+src/services/ @upscaylman 

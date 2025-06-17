@@ -1,7 +1,6 @@
 // Composant AppShell - Structure principale et navigation
 import { motion } from 'framer-motion';
 import { ArrowLeft, Bell, Coffee, MapPin, Users } from 'lucide-react';
-import React from 'react';
 import InviteFriendsModal from './InviteFriendsModal';
 import NotificationBadge from './NotificationBadge';
 import WarningBanner from './WarningBanner';
@@ -361,6 +360,7 @@ const AppShell = ({
             onAddFriend={onAddFriend}
             onRemoveFriend={onRemoveFriend}
             onMarkAllFriendsNotificationsAsRead={onMarkAllNotificationsAsRead}
+            onFriendInvitationResponse={onFriendInvitationResponse}
             onDebugFriends={onDebugFriends}
             onCreateTestFriendships={onCreateTestFriendships}
             onLoadMockData={onLoadMockData}
@@ -463,6 +463,8 @@ const AppShell = ({
             onAddFriend={onAddFriend}
             onCreateTestFriendships={onCreateTestFriendships}
             onLoadMockData={onLoadMockData}
+            onFriendInvitationResponse={onFriendInvitationResponse}
+            onActivityInvitationResponse={onActivityInvitationResponse}
           />
         );
     }
@@ -518,6 +520,10 @@ const AppShell = ({
         friends={friends}
         notifications={notifications}
         darkMode={darkMode}
+        currentUserId={user?.uid} // 🔥 NOUVEAU: ID utilisateur pour logique bilatérale
+        isActiveEventInvitation={
+          isAvailable && currentActivity === selectedInviteActivity
+        } // 🎯 NOUVEAU: True si événement actif
       />
 
       {/* Éléments enfants (modales, etc.) */}
