@@ -22,6 +22,7 @@ const InviteFriendsModal = ({
   notifications = [],
   darkMode = false,
   currentUserId = null,
+  isActiveEventInvitation = false,
 }) => {
   const [selectedFriends, setSelectedFriends] = useState(new Set());
   const [isLoading, setIsLoading] = useState(false);
@@ -92,29 +93,17 @@ const InviteFriendsModal = ({
         !notif.read
       ) {
         bilateralRelations.add(notif.from);
-        if (process.env.NODE_ENV === 'development') {
-          console.log(
-            `🚫 [DEBUG] Exclusion bilatérale: ${notif.from} (nous a invités pour ${selectedActivity})`
-          );
-        }
+        // Exclusion: nous a invités
       }
     });
 
     firestoreInvitations.forEach(invitation => {
       if (invitation.fromUserId === currentUserId) {
         bilateralRelations.add(invitation.toUserId);
-        if (process.env.NODE_ENV === 'development') {
-          console.log(
-            `🚫 [DEBUG] Exclusion bilatérale Firestore: ${invitation.toUserId} (on lui a envoyé une invitation)`
-          );
-        }
+        // Exclusion: on lui a envoyé
       } else if (invitation.toUserId === currentUserId) {
         bilateralRelations.add(invitation.fromUserId);
-        if (process.env.NODE_ENV === 'development') {
-          console.log(
-            `🚫 [DEBUG] Exclusion bilatérale Firestore: ${invitation.fromUserId} (nous a envoyé une invitation)`
-          );
-        }
+        // Exclusion: nous a envoyé
       }
     });
 
@@ -125,20 +114,11 @@ const InviteFriendsModal = ({
         !notif.read
       ) {
         bilateralRelations.add(notif.to);
-        if (process.env.NODE_ENV === 'development') {
-          console.log(
-            `🚫 [DEBUG] Exclusion invitation en attente: ${notif.to} (on lui a déjà envoyé pour ${selectedActivity})`
-          );
-        }
+        // Exclusion: invitation en attente
       }
     });
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log(
-        `🚫 [DEBUG] Relations bilatérales finales pour ${selectedActivity}:`,
-        Array.from(bilateralRelations)
-      );
-    }
+    // Relations bilatérales calculées
 
     return bilateralRelations;
   }, [firestoreInvitations, notifications, selectedActivity, currentUserId]);
@@ -164,18 +144,7 @@ const InviteFriendsModal = ({
         const sameActivity = notif.data?.activity === selectedActivity;
         const unread = !notif.read;
 
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`🔍 [DEBUG] Notification check:`, {
-            id: notif.id,
-            type: notif.type,
-            isInvitation,
-            notifActivity: notif.data?.activity,
-            currentActivity: selectedActivity,
-            sameActivity,
-            unread,
-            shouldGray: isInvitation && sameActivity && unread,
-          });
-        }
+        // Debug supprimé pour éviter logs infinis
 
         return (
           isInvitation &&
@@ -230,6 +199,24 @@ const InviteFriendsModal = ({
     setSelectedActivity(activity); // Reset l'activité
     onClose();
   };
+
+  // 🔥 DEBUG: Vérifier les paramètres (seulement si modal ouvert pour éviter spam)
+  if (isOpen && process.env.NODE_ENV === 'development') {
+    console.log('🔥 [DEBUG MODAL] État du modal:', {
+      isActiveEventInvitation,
+      selectedActivity,
+      relationsCount: friendsWithBilateralRelations.size,
+      relationsArray: Array.from(friendsWithBilateralRelations),
+      amisFiltres: friends
+        .filter(
+          friend =>
+            !friendsWhoInvitedUs.has(friend.id) &&
+            (!isActiveEventInvitation ||
+              !friendsWithBilateralRelations.has(friend.id))
+        )
+        .map(f => f.name),
+    });
+  }
 
   if (!isOpen) return null;
 
@@ -397,7 +384,9 @@ const InviteFriendsModal = ({
                     .filter(
                       friend =>
                         !friendsWhoInvitedUs.has(friend.id) &&
-                        !friendsWithBilateralRelations.has(friend.id)
+                        // 🎯 Restrictions bilatérales SEULEMENT pendant l'événement actif
+                        (!isActiveEventInvitation ||
+                          !friendsWithBilateralRelations.has(friend.id))
                     )
                     .map(friend => {
                       const isDisabled = false;

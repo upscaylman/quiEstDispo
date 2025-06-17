@@ -1,6 +1,6 @@
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MapboxControls } from './MapControls';
 import { createFriendMarkerElement, createUserMarkerElement } from './mapUtils';
 import useMapLogic from './useMapLogic';
@@ -64,6 +64,10 @@ const MapboxMapView = ({
   const friendMarkers = useRef([]);
   const userMarker = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+
+  // 🔥 CORRECTION: Ref stable pour handleFriendSelect
+  const handleFriendSelectRef = useRef(handleFriendSelect);
+  handleFriendSelectRef.current = handleFriendSelect;
 
   // Initialiser la carte Mapbox
   useEffect(() => {
@@ -167,7 +171,8 @@ const MapboxMapView = ({
     // Créer le marqueur utilisateur avec le même style que MapView
     const userElement = createUserMarkerElement(
       {
-        ...currentUser,
+        name: currentUser?.name || 'Vous',
+        avatar: currentUser?.avatar || '👤',
         selectedActivity,
         isAvailable,
       },
@@ -177,7 +182,14 @@ const MapboxMapView = ({
     userMarker.current = new mapboxgl.Marker(userElement)
       .setLngLat([userLocation.lng, userLocation.lat])
       .addTo(map.current);
-  }, [userLocation, isAvailable, selectedActivity, currentUser, mapLoaded]);
+  }, [
+    userLocation,
+    isAvailable,
+    selectedActivity,
+    currentUser?.name,
+    currentUser?.avatar,
+    mapLoaded,
+  ]);
 
   // Mettre à jour les marqueurs d'amis
   useEffect(() => {
@@ -200,7 +212,8 @@ const MapboxMapView = ({
 
       // Créer le marqueur ami avec le même style que MapView
       const friendElement = createFriendMarkerElement(friend, () => {
-        handleFriendSelect(friend);
+        // 🔥 CORRECTION: Passer directement l'ami sans recherche
+        handleFriendSelectRef.current(friend);
       });
 
       const marker = new mapboxgl.Marker(friendElement)
@@ -209,7 +222,7 @@ const MapboxMapView = ({
 
       friendMarkers.current.push(marker);
     });
-  }, [filteredFriends, mapLoaded, handleFriendSelect]);
+  }, [filteredFriends, mapLoaded]);
 
   return (
     <div className="h-full relative overflow-hidden">

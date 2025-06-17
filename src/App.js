@@ -61,27 +61,14 @@ function App() {
   const [showInviteFriendsModal, setShowInviteFriendsModal] = useState(false);
   const [selectedInviteActivity, setSelectedInviteActivity] = useState(null);
   const [showPhoneRequiredModal, setShowPhoneRequiredModal] = useState(false);
+  const [isActiveEventInvitation, setIsActiveEventInvitation] = useState(false); // 🎯 NOUVEAU: Flag pour distinguer les types d'invitation
 
   // État pour les notifications push
-  const [pushNotificationStatus] = useState({
+  const [pushNotificationStatus, setPushNotificationStatus] = useState({
     supported: false,
     permission: 'default',
     subscribed: false,
   });
-
-  // Fonction pour gérer le changement d'écran avec logique notifications
-  const handleScreenChange = screen => {
-    if (screen === 'notifications') {
-      // Marquer la visite au centre de notifications
-      setLastNotificationCenterVisit(Date.now());
-      // Note: Le marquage automatique comme "lu" est maintenant géré dans NotificationsScreen
-    }
-    if (screen === 'friends') {
-      // Marquer la visite à l'onglet amis
-      setLastFriendsTabVisit(Date.now());
-    }
-    setCurrentScreen(screen);
-  };
 
   // Calculer le nombre de nouvelles notifications depuis la dernière visite
   const getNewNotificationsCount = () => {
@@ -112,9 +99,11 @@ function App() {
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
 
   // Log de la version au démarrage
-  console.log(
-    '🚀 Qui est dispo v' + APP_VERSION + " - Démarrage de l'application"
-  );
+  useEffect(() => {
+    console.log(
+      '🚀 Qui est dispo v' + APP_VERSION + " - Démarrage de l'application"
+    );
+  }, []);
 
   // Gestion du thème avec support du mode système et cookies
   const [themeMode, setThemeMode] = useState(() => {
@@ -563,6 +552,13 @@ function App() {
   // Handler pour ouvrir le modal d'invitation d'amis sans activité pré-sélectionnée
   const handleOpenInviteFriendsModal = () => {
     setSelectedInviteActivity(null); // Aucune activité pré-sélectionnée
+    setShowInviteFriendsModal(true);
+  };
+
+  // 🎯 NOUVEAU: Handler pour inviter d'autres amis pendant l'événement actif
+  const handleInviteMoreFriends = activity => {
+    setSelectedInviteActivity(activity);
+    setIsActiveEventInvitation(true); // 🚨 Marquer comme invitation d'événement actif
     setShowInviteFriendsModal(true);
   };
 
@@ -1314,6 +1310,20 @@ function App() {
       );
       // En cas d'erreur, on continue sans interrompre l'expérience utilisateur
     }
+  };
+
+  // Fonction pour gérer le changement d'écran avec logique notifications
+  const handleScreenChange = screen => {
+    if (screen === 'notifications') {
+      // Marquer la visite au centre de notifications
+      setLastNotificationCenterVisit(Date.now());
+      // Note: Le marquage automatique comme "lu" est maintenant géré dans NotificationsScreen
+    }
+    if (screen === 'friends') {
+      // Marquer la visite à l'onglet amis
+      setLastFriendsTabVisit(Date.now());
+    }
+    setCurrentScreen(screen);
   };
 
   if (loading) {

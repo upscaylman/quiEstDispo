@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   activities,
   calculateDistance,
@@ -29,24 +29,16 @@ export const useMapLogic = ({
   const [mapStyle, setMapStyle] = useState('default');
   const mapRef = useRef(null);
 
-  // Debug en développement
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🌐 MapView rendered with:', {
-      userLocation,
-      availableFriends: availableFriends.length,
-      darkMode,
-      isAvailable,
-      selectedActivity,
-    });
-  }
+  // 🔥 CORRECTION: Mémoriser les données pour éviter recalculs constants
+  const sanitizedFriends = useMemo(
+    () => sanitizeFriendsData(availableFriends),
+    [availableFriends]
+  );
 
-  // Validation et nettoyage des données des amis
-  const sanitizedFriends = sanitizeFriendsData(availableFriends);
-
-  // Filtrer les amis par activité
-  const filteredFriends = filterFriendsByActivity(
-    sanitizedFriends,
-    activityFilter
+  // 🔥 CORRECTION: Mémoriser le filtrage pour éviter recalculs constants
+  const filteredFriends = useMemo(
+    () => filterFriendsByActivity(sanitizedFriends, activityFilter),
+    [sanitizedFriends, activityFilter]
   );
 
   // Convertir les coordonnées géographiques en coordonnées pixel sur notre carte

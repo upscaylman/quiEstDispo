@@ -10,7 +10,7 @@ import {
   UserPlus,
   X,
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import AvailabilityButtons from '../AvailabilityButtons';
 import { MapView } from '../map';
 import MapboxMapView from '../map/MapboxMapView';
@@ -186,10 +186,8 @@ const HomeScreen = ({
         <div className="flex-1 relative">
           {location ? (
             <MapComponent
-              friends={friends}
               availableFriends={availableFriends}
               userLocation={location}
-              onInviteFriends={onInviteFriends}
               darkMode={darkMode}
               isAvailable={isAvailable}
               selectedActivity={currentActivity}

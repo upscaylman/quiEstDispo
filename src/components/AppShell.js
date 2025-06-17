@@ -518,6 +518,9 @@ const AppShell = ({
         notifications={notifications}
         darkMode={darkMode}
         currentUserId={user?.uid} // 🔥 NOUVEAU: ID utilisateur pour logique bilatérale
+        isActiveEventInvitation={
+          isAvailable && currentActivity === selectedInviteActivity
+        } // 🎯 NOUVEAU: True si événement actif
       />
 
       {/* Éléments enfants (modales, etc.) */}
