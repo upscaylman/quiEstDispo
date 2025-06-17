@@ -477,11 +477,11 @@ function App() {
 
       let message, type, emoji;
       if (responseType === 'joined') {
-        message = `${userName} a rejoint votre activité ${activityName} !`;
+        message = `✅ ${userName} a rejoint votre activité ${activityName} !`;
         type = 'activity_joined';
         emoji = '✅';
       } else {
-        message = `${userName} a décliné votre invitation pour ${activityName}`;
+        message = `❌ ${userName} a décliné votre invitation pour ${activityName}`;
         type = 'activity_declined';
         emoji = '❌';
       }
@@ -498,7 +498,7 @@ function App() {
         friendId,
         user.uid,
         type,
-        `${emoji} ${message}`,
+        message,
         {
           activityId: friendAvailability.id,
           activity: activityName,
@@ -772,7 +772,6 @@ function App() {
           `✅ Vous avez accepté l'invitation pour ${notification.data.activity} de ${notification.data.fromUserName} - Décompte démarré !`
         );
       }
-      // Note: La notification de déclin est créée automatiquement par respondToInvitation()
 
       // Répondre à l'invitation dans Firebase (pour les deux cas accepted/declined)
       if (notification.data.invitationId) {
@@ -794,6 +793,74 @@ function App() {
           console.log(
             `🔄 [RÉCIPROCITÉ] Partage mutuel activé entre ${user.uid} ↔ ${notification.data.fromUserId}`
           );
+        } else if (response === 'declined') {
+          // 🔧 BUG FIX: Quand on décline, annuler l'invitation de l'expéditeur
+          console.log(
+            `🔥 [DÉCLIN] Annulation de l'invitation de l'expéditeur...`
+          );
+
+          try {
+            // 1. Nettoyer toutes les invitations entre ces deux utilisateurs pour cette activité
+            await InvitationService.cleanupInvitationsBetweenUsers(
+              user.uid,
+              notification.data.fromUserId,
+              notification.data.activity
+            );
+
+            // 2. Supprimer la notification d'invitation correspondante pour l'expéditeur
+            await NotificationService.removeInvitationNotification(
+              notification.data.fromUserId, // L'expéditeur (qui doit voir disparaître la notif)
+              user.uid, // Celui qui décline
+              notification.data.activity
+            );
+
+            // 3. Forcer l'arrêt de la disponibilité de l'expéditeur (annuler son compte à rebours)
+            try {
+              // Chercher l'availability de l'expéditeur pour cette activité et l'arrêter
+              const senderAvailabilities =
+                await AvailabilityService.getAvailableFriends(
+                  notification.data.fromUserId
+                );
+              const senderActivityForThisActivity = senderAvailabilities.find(
+                avail =>
+                  avail.userId === notification.data.fromUserId &&
+                  avail.activity === notification.data.activity
+              );
+
+              if (senderActivityForThisActivity) {
+                console.log(
+                  `🔥 [DÉCLIN] Arrêt de la disponibilité de l'expéditeur: ${senderActivityForThisActivity.id}`
+                );
+                await AvailabilityService.stopAvailability(
+                  notification.data.fromUserId,
+                  senderActivityForThisActivity.id
+                );
+              }
+            } catch (stopError) {
+              console.warn(
+                "⚠️ Erreur lors de l'arrêt de la disponibilité de l'expéditeur (non critique):",
+                stopError
+              );
+            }
+
+            // 4. Retirer l'expéditeur de notre liste des disponibles
+            setAvailableFriends(prev =>
+              prev.filter(
+                friend =>
+                  friend.userId !== notification.data.fromUserId ||
+                  friend.activity !== notification.data.activity
+              )
+            );
+
+            console.log(
+              `🔥 [DÉCLIN] ✅ Invitation de ${notification.data.fromUserName} annulée et disponibilité arrêtée`
+            );
+          } catch (cleanupError) {
+            console.error(
+              "❌ Erreur lors de l'annulation de l'invitation:",
+              cleanupError
+            );
+          }
         }
       } else {
         console.warn("⚠️ ID d'invitation manquant dans la notification");
@@ -1037,7 +1104,7 @@ function App() {
   const handleCreateTestFriendships = async () => {
     try {
       console.log("🧪 Création de relations d'amitié de test...");
-      await FriendsService.createTestFriendships(user.uid);
+      await FriendsService.addTestFriendships(user.uid);
 
       // Rafraîchir la liste des amis
       const updatedFriends = await FriendsService.getFriends(user.uid);
@@ -1307,6 +1374,48 @@ function App() {
         );
       }
     });
+
+    // 🔧 BUG FIX: Gérer les notifications de déclin pour annuler pendingInvitation
+    notifications
+      .filter(
+        notification =>
+          notification.type === 'invitation_response' &&
+          notification.data?.accepted === false &&
+          !notification.read
+      )
+      .forEach(async notification => {
+        try {
+          console.log(
+            '🚫 [AUTO] Traitement notification de déclin:',
+            notification
+          );
+
+          // 🎯 NOUVEAU: Supprimer l'état d'invitation en attente car quelqu'un a décliné
+          if (
+            pendingInvitation &&
+            pendingInvitation.activity === notification.data.activity
+          ) {
+            console.log(
+              '🚫 [AUTO] Suppression invitation en attente car déclinée par',
+              notification.data.fromUserName
+            );
+            setPendingInvitation(null);
+            localStorage.removeItem('pendingInvitation');
+
+            // Arrêter la disponibilité si on était en attente
+            if (isAvailable && currentActivity === notification.data.activity) {
+              console.log(
+                '🚫 [AUTO] Arrêt de la disponibilité car invitation déclinée'
+              );
+              await handleStopAvailability();
+            }
+          }
+
+          // Ne PAS marquer automatiquement comme lue pour que l'utilisateur voie le badge de notification
+        } catch (error) {
+          console.error('❌ Erreur traitement notification de déclin:', error);
+        }
+      });
   }, [notifications, user, isAvailable, currentActivity, pendingInvitation]);
 
   const handleProfileUpdate = async updatedUser => {
@@ -1381,6 +1490,8 @@ function App() {
             isAvailable={isAvailable}
             currentUser={user}
             showControls={true}
+            onRetryGeolocation={retryGeolocation}
+            onRequestLocationPermission={requestLocationPermission}
           />
         </div>
 
@@ -1393,7 +1504,6 @@ function App() {
           pushNotificationStatus={pushNotificationStatus}
           pendingInvitation={pendingInvitation}
           onScreenChange={handleScreenChange}
-          onThemeToggle={() => setDarkMode(!darkMode)}
           onThemeChange={setThemeMode}
           onSignOut={handleSignOut}
           friends={friends}
@@ -1411,7 +1521,7 @@ function App() {
           onRemoveFriend={handleRemoveFriend}
           onCreateTestFriendships={handleCreateTestFriendships}
           onLoadMockData={handleLoadMockData}
-          onDeleteAccount={handleDeleteAccount}
+          onShowDeleteAccount={() => setShowDeleteAccountModal(true)}
           onMapProviderChange={handleMapProviderChange}
           useMapbox={useMapbox}
           onMarkNotificationAsRead={markNotificationAsRead}
@@ -1426,8 +1536,7 @@ function App() {
           onTestPushNotification={handleTestPushNotification}
           onCheckPushStatus={handleCheckPushStatus}
           onOpenDebugNotifications={handleOpenDebugNotifications}
-          onShowDeleteAccount={() => setShowDeleteAccountModal(true)}
-          retryGeolocation={retryGeolocation}
+          onRetryGeolocation={retryGeolocation}
           onRequestLocationPermission={requestLocationPermission}
           availabilityStartTime={availabilityStartTime}
           showAddFriendModal={showAddFriendModal}
@@ -1490,7 +1599,6 @@ function App() {
         pushNotificationStatus={pushNotificationStatus}
         pendingInvitation={pendingInvitation}
         onScreenChange={handleScreenChange}
-        onThemeToggle={() => setDarkMode(!darkMode)}
         onThemeChange={setThemeMode}
         onSignOut={handleSignOut}
         friends={friends}
@@ -1508,7 +1616,7 @@ function App() {
         onRemoveFriend={handleRemoveFriend}
         onCreateTestFriendships={handleCreateTestFriendships}
         onLoadMockData={handleLoadMockData}
-        onDeleteAccount={handleDeleteAccount}
+        onShowDeleteAccount={() => setShowDeleteAccountModal(true)}
         onMapProviderChange={handleMapProviderChange}
         useMapbox={useMapbox}
         onMarkNotificationAsRead={markNotificationAsRead}

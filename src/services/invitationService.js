@@ -748,8 +748,8 @@ export class InvitationService {
 
       const activityLabel = activities[activity] || activity;
       const message = accepted
-        ? `${fromUserName} a accepté votre invitation pour ${activityLabel} !`
-        : `${fromUserName} a décliné votre invitation pour ${activityLabel}`;
+        ? `✅ ${fromUserName} a accepté votre invitation pour ${activityLabel} !`
+        : `❌ ${fromUserName} a décliné votre invitation pour ${activityLabel}`;
 
       const notification = {
         to: toUserId,

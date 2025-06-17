@@ -265,7 +265,7 @@ const InviteFriendsModal = ({
           onClick={e => e.stopPropagation()}
           className={`${
             darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-          } rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-hidden`}
+          } rounded-lg shadow-xl max-w-md w-full max-h-[85vh] overflow-hidden flex flex-col`}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-responsive-lg py-6 border-b border-opacity-20">
@@ -340,7 +340,7 @@ const InviteFriendsModal = ({
           )}
 
           {/* Content */}
-          <div className="px-responsive-lg py-6">
+          <div className="px-responsive-lg py-6 flex-1 overflow-y-auto">
             {friends.length === 0 ? (
               <div className="text-center py-8">
                 <Users
@@ -408,7 +408,7 @@ const InviteFriendsModal = ({
                   )}
                 </div>
 
-                <div className="space-y-3 max-h-64 overflow-y-auto">
+                <div className="space-y-3 max-h-96 sm:max-h-80 md:max-h-64 overflow-y-auto">
                   {friends
                     .filter(
                       friend =>
@@ -503,7 +503,7 @@ const InviteFriendsModal = ({
           {/* Footer */}
           {friends.length > 0 && (
             <div
-              className={`p-6 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} flex gap-3`}
+              className={`p-6 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} flex gap-3 flex-shrink-0`}
             >
               <button
                 onClick={handleClose}
