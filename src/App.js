@@ -25,7 +25,7 @@ import './styles/responsive.css';
 import { getMockDataForOfflineMode } from './utils/mockData';
 
 // Version de l'application
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 
 function App() {
   const { user, loading, refreshUserData, signOut } = useAuth();
