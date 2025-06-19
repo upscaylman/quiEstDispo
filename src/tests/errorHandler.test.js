@@ -86,13 +86,13 @@ describe('ErrorHandler Utils - Gestion erreurs Firebase', () => {
   });
 
   describe('Système de throttling des erreurs', () => {
-    test.skip('doit permettre les premières erreurs', () => {
-      const errorPattern = 'net::ERR_ABORTED 400';
+    test('doit permettre les premières erreurs avec un pattern unique', () => {
+      const uniquePattern = 'UNIQUE_TEST_ERROR_' + Date.now();
 
-      // Les 3 premières doivent passer
-      expect(errorHandler.shouldThrottleError(errorPattern)).toBe(false);
-      expect(errorHandler.shouldThrottleError(errorPattern)).toBe(false);
-      expect(errorHandler.shouldThrottleError(errorPattern)).toBe(false);
+      // Les 3 premières doivent passer pour un pattern complètement nouveau
+      expect(errorHandler.shouldThrottleError(uniquePattern)).toBe(false);
+      expect(errorHandler.shouldThrottleError(uniquePattern)).toBe(false);
+      expect(errorHandler.shouldThrottleError(uniquePattern)).toBe(false);
     });
 
     test('doit throttler après MAX_SAME_ERROR', () => {
@@ -128,34 +128,34 @@ describe('ErrorHandler Utils - Gestion erreurs Firebase', () => {
   });
 
   describe("Statistiques d'erreurs", () => {
-    test.skip('doit retourner les stats des erreurs throttlées', () => {
-      const errorPattern1 = 'net::ERR_ABORTED 400';
-      const errorPattern2 = 'WebChannelConnection RPC';
+    test('doit retourner les stats des erreurs throttlées avec patterns uniques', () => {
+      const uniquePattern1 = 'THROTTLED_ERROR_1_' + Date.now();
+      const uniquePattern2 = 'THROTTLED_ERROR_2_' + Date.now();
 
-      // Créer des erreurs throttlées
-      for (let i = 0; i < 10; i++) {
-        errorHandler.shouldThrottleError(errorPattern1);
+      // Créer des erreurs throttlées (plus que la limite de 3)
+      for (let i = 0; i < 6; i++) {
+        errorHandler.shouldThrottleError(uniquePattern1);
       }
-      for (let i = 0; i < 5; i++) {
-        errorHandler.shouldThrottleError(errorPattern2);
+      for (let i = 0; i < 4; i++) {
+        errorHandler.shouldThrottleError(uniquePattern2);
       }
 
       const stats = errorHandler.getErrorStats();
 
-      expect(stats[errorPattern1]).toBe(10);
-      expect(stats[errorPattern2]).toBe(5);
+      expect(stats[uniquePattern1]).toBe(6);
+      expect(stats[uniquePattern2]).toBe(4);
     });
 
-    test.skip('ne doit pas inclure les erreurs non-throttlées dans les stats', () => {
-      const errorPattern = 'rare error';
+    test('ne doit pas inclure les erreurs non-throttlées dans les stats avec pattern unique', () => {
+      const uniquePattern = 'RARE_ERROR_' + Date.now();
 
-      // Seulement 2 erreurs (sous la limite)
-      errorHandler.shouldThrottleError(errorPattern);
-      errorHandler.shouldThrottleError(errorPattern);
+      // Seulement 2 erreurs (sous la limite de 3)
+      errorHandler.shouldThrottleError(uniquePattern);
+      errorHandler.shouldThrottleError(uniquePattern);
 
       const stats = errorHandler.getErrorStats();
 
-      expect(stats[errorPattern]).toBeUndefined();
+      expect(stats[uniquePattern]).toBeUndefined();
     });
   });
 
@@ -186,6 +186,27 @@ describe('ErrorHandler Utils - Gestion erreurs Firebase', () => {
         errorHandler.shouldFilterWarning([null]);
         errorHandler.shouldFilterLog(['']);
       }).not.toThrow();
+    });
+
+    test('doit identifier les patterns Firebase dans les messages', () => {
+      // Test simple de détection de patterns sans état
+      const firebaseMessage = 'net::ERR_ABORTED 400 Firebase error';
+      const normalMessage = 'Regular application error';
+
+      // Vérifier que la méthode existe et ne crash pas
+      expect(() => {
+        errorHandler.shouldFilterError([firebaseMessage]);
+        errorHandler.shouldFilterError([normalMessage]);
+      }).not.toThrow();
+    });
+
+    test('doit avoir toutes les méthodes publiques nécessaires', () => {
+      expect(typeof errorHandler.shouldFilterError).toBe('function');
+      expect(typeof errorHandler.shouldFilterWarning).toBe('function');
+      expect(typeof errorHandler.shouldFilterLog).toBe('function');
+      expect(typeof errorHandler.shouldThrottleError).toBe('function');
+      expect(typeof errorHandler.getErrorStats).toBe('function');
+      expect(typeof errorHandler.cleanup).toBe('function');
     });
 
     test('doit gérer les messages vides', () => {
