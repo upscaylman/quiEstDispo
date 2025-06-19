@@ -24,22 +24,27 @@ jest.mock('firebase/firestore', () => ({
   where: jest.fn(),
 }));
 
-// Mock firebaseUtils
-const mockFirebaseUtils = {
+// Mock firebaseUtils AVANT la définition
+jest.mock('../services/firebaseUtils', () => ({
   db: { __mockDB: true },
   isOnline: jest.fn(() => true),
   retryWithBackoff: jest.fn(fn => fn()),
-};
-
-jest.mock('../services/firebaseUtils', () => mockFirebaseUtils);
+}));
 
 describe('FriendsService - PHASE 2 - Logique Métier Core', () => {
+  let mockFirebaseUtils;
+  let mockFirestore;
+
   beforeEach(() => {
     jest.clearAllMocks();
 
+    // Récupérer les mocks après leur définition
+    mockFirebaseUtils = require('../services/firebaseUtils');
+    mockFirestore = require('firebase/firestore');
+
     // Reset des mocks par défaut
     mockFirebaseUtils.isOnline.mockReturnValue(true);
-    firestore.serverTimestamp.mockReturnValue({ __serverTimestamp: true });
+    mockFirestore.serverTimestamp.mockReturnValue({ __serverTimestamp: true });
 
     // Mock console pour éviter les logs de test
     console.log = jest.fn();
