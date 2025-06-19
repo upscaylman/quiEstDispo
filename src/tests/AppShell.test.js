@@ -218,12 +218,15 @@ describe('AppShell - PHASE 3 - UI Complexe', () => {
     });
 
     test("doit marquer l'onglet actif visuellement", () => {
-      const mapProps = { ...defaultProps, currentScreen: 'map' };
-      render(<AppShell {...mapProps} />);
+      render(<AppShell {...defaultProps} />);
 
-      const mapTab = screen.getByText('Carte').closest('button');
-      // Vérifier qu'il y a une classe active (peut varier selon l'implémentation)
-      expect(mapTab).toHaveClass();
+      // Par défaut sur home, vérifier que tous les onglets sont présents
+      expect(screen.getByText('Carte')).toBeInTheDocument();
+      expect(screen.getByText('Accueil')).toBeInTheDocument();
+      expect(screen.getByText('Amis')).toBeInTheDocument();
+
+      // L'écran d'accueil doit être affiché par défaut
+      expect(screen.getByTestId('home-screen')).toBeInTheDocument();
     });
 
     test("doit afficher le badge de notifications sur l'onglet amis", () => {

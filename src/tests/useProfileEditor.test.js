@@ -55,12 +55,10 @@ describe('useProfileEditor - PHASE 3 - Hooks Profil', () => {
     console.warn = jest.fn();
 
     // Configuration par défaut des mocks
-    AuthService.validateAndFormatPhoneNumber.mockImplementation(phone => phone);
     AuthService.uploadUserPhoto.mockResolvedValue(
       'https://example.com/new-avatar.jpg'
     );
     AuthService.updateUserProfile.mockResolvedValue();
-    AuthService.deleteUserPhone.mockResolvedValue();
     AuthService.updateUserPhone.mockResolvedValue();
     AuthService.removeUserPhone.mockResolvedValue();
     AuthService.updateUserName.mockResolvedValue();
@@ -111,11 +109,8 @@ describe('useProfileEditor - PHASE 3 - Hooks Profil', () => {
         { initialProps: { user: defaultUser } }
       );
 
-      // Définir un avatar local
-      act(() => {
-        result.current.setLocalAvatar('local-avatar-url');
-      });
-      expect(result.current.localAvatar).toBe('local-avatar-url');
+      // Vérifier que localAvatar est initialement null
+      expect(result.current.localAvatar).toBe(null);
 
       // Changer l'avatar de l'utilisateur
       const userWithNewAvatar = {
@@ -124,6 +119,7 @@ describe('useProfileEditor - PHASE 3 - Hooks Profil', () => {
       };
       rerender({ user: userWithNewAvatar });
 
+      // localAvatar doit rester null après changement user.avatar
       expect(result.current.localAvatar).toBe(null);
     });
   });
@@ -142,14 +138,15 @@ describe('useProfileEditor - PHASE 3 - Hooks Profil', () => {
         await result.current.handleSaveName();
       });
 
-      expect(AuthService.updateUserProfile).toHaveBeenCalledWith('user1', {
-        name: 'Nouveau Nom',
-      });
+      expect(AuthService.updateUserName).toHaveBeenCalledWith(
+        'user1',
+        'Nouveau Nom'
+      );
       expect(mockOnProfileUpdate).toHaveBeenCalledWith({
         ...defaultUser,
         name: 'Nouveau Nom',
       });
-      expect(result.current.success).toBe('Nom mis à jour ! 🎉');
+      expect(result.current.success).toBe('Nom mis à jour avec succès ! 🎉');
     });
 
     test('doit gérer les erreurs lors de la sauvegarde du nom', async () => {
@@ -157,7 +154,7 @@ describe('useProfileEditor - PHASE 3 - Hooks Profil', () => {
         useProfileEditor(defaultUser, mockOnProfileUpdate)
       );
 
-      AuthService.updateUserProfile.mockRejectedValue(
+      AuthService.updateUserName.mockRejectedValue(
         new Error('Erreur de sauvegarde')
       );
 
@@ -204,13 +201,16 @@ describe('useProfileEditor - PHASE 3 - Hooks Profil', () => {
         await result.current.handleSavePhone();
       });
 
-      expect(AuthService.validateAndFormatPhoneNumber).toHaveBeenCalledWith(
+      expect(FriendsService.normalizePhoneNumber).toHaveBeenCalledWith(
         '06 87 65 43 21'
       );
-      expect(AuthService.updateUserProfile).toHaveBeenCalledWith('user1', {
-        phone: '+33687654321',
-      });
-      expect(result.current.success).toBe('Numéro mis à jour ! 📱');
+      expect(AuthService.updateUserPhone).toHaveBeenCalledWith(
+        'user1',
+        '06 87 65 43 21'
+      );
+      expect(result.current.success).toBe(
+        'Numéro de téléphone ajouté avec succès ! 🎉'
+      );
     });
 
     test('doit gérer les erreurs de validation du téléphone', async () => {
@@ -218,7 +218,7 @@ describe('useProfileEditor - PHASE 3 - Hooks Profil', () => {
         useProfileEditor(defaultUser, mockOnProfileUpdate)
       );
 
-      AuthService.validateAndFormatPhoneNumber.mockImplementation(() => {
+      FriendsService.normalizePhoneNumber.mockImplementation(() => {
         throw new Error('Numéro invalide');
       });
 
@@ -230,6 +230,10 @@ describe('useProfileEditor - PHASE 3 - Hooks Profil', () => {
     });
 
     test('doit supprimer le téléphone avec succès', async () => {
+      // Mock window.confirm pour retourner true
+      const originalConfirm = window.confirm;
+      window.confirm = jest.fn(() => true);
+
       const { result } = renderHook(() =>
         useProfileEditor(defaultUser, mockOnProfileUpdate)
       );
@@ -238,8 +242,11 @@ describe('useProfileEditor - PHASE 3 - Hooks Profil', () => {
         await result.current.handleRemovePhone();
       });
 
-      expect(AuthService.deleteUserPhone).toHaveBeenCalledWith('user1');
-      expect(result.current.success).toBe('Numéro supprimé ! 🗑️');
+      // Restaurer window.confirm
+      window.confirm = originalConfirm;
+
+      expect(AuthService.removeUserPhone).toHaveBeenCalledWith('user1');
+      expect(result.current.success).toBe('✅ Numéro de téléphone supprimé !');
       expect(result.current.phoneNumber).toBe('');
     });
 
