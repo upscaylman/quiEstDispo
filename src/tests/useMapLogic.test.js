@@ -92,11 +92,15 @@ describe('useMapLogic - PHASE 2 - Logique de Carte', () => {
       expect(result.current.zoom).toBe(18);
 
       // Test limite inferieure (depuis 18, -8 pour atteindre 10)
-      act(() => {
-        for (let i = 0; i < 8; i++) {
-          result.current.handleZoomOut();
-        }
-      });
+      // Chaque handleZoomOut doit être dans son propre act()
+      act(() => result.current.handleZoomOut()); // 17
+      act(() => result.current.handleZoomOut()); // 16
+      act(() => result.current.handleZoomOut()); // 15
+      act(() => result.current.handleZoomOut()); // 14
+      act(() => result.current.handleZoomOut()); // 13
+      act(() => result.current.handleZoomOut()); // 12
+      act(() => result.current.handleZoomOut()); // 11
+      act(() => result.current.handleZoomOut()); // 10
       expect(result.current.zoom).toBe(10);
     });
   });

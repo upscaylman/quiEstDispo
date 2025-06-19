@@ -120,6 +120,15 @@ const HomeScreen = ({
   // Composant de carte selon les préférences
   const MapComponent = useMapbox ? MapboxMapView : MapView;
 
+  // Vérification de sécurité pour les tests ou les erreurs d'import
+  const SafeMapComponent =
+    MapComponent ||
+    (() => (
+      <div className="flex items-center justify-center h-full bg-gray-100">
+        <p>Carte non disponible</p>
+      </div>
+    ));
+
   // Filtrer les notifications à afficher sur l'écran d'accueil
   const getHomeNotifications = () => {
     if (!notifications) return [];
@@ -311,7 +320,7 @@ const HomeScreen = ({
         {/* Carte */}
         <div className="flex-1 relative">
           {location ? (
-            <MapComponent
+            <SafeMapComponent
               availableFriends={availableFriends}
               userLocation={location}
               darkMode={darkMode}

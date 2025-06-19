@@ -1629,8 +1629,7 @@ function App() {
         onTestPushNotification={handleTestPushNotification}
         onCheckPushStatus={handleCheckPushStatus}
         onOpenDebugNotifications={handleOpenDebugNotifications}
-        onShowDeleteAccount={() => setShowDeleteAccountModal(true)}
-        retryGeolocation={retryGeolocation}
+        onRetryGeolocation={retryGeolocation}
         onRequestLocationPermission={requestLocationPermission}
         availabilityStartTime={availabilityStartTime}
         showAddFriendModal={showAddFriendModal}

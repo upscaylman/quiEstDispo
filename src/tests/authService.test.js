@@ -117,6 +117,16 @@ describe('AuthService - PHASE 2 - Logique Métier Core', () => {
     console.error = jest.fn();
     console.warn = jest.fn();
 
+    // Réinitialiser les mocks pour qu'ils retournent les bonnes valeurs
+    const {
+      GoogleAuthProvider,
+      FacebookAuthProvider,
+    } = require('firebase/auth');
+    GoogleAuthProvider.credentialFromResult.mockReturnValue(mockCredential);
+    FacebookAuthProvider.credentialFromResult.mockReturnValue(
+      mockFacebookCredential
+    );
+
     // Mock environnement navigateur pour les tests
     global.navigator = {
       onLine: true,
@@ -196,6 +206,7 @@ describe('AuthService - PHASE 2 - Logique Métier Core', () => {
         expect.objectContaining({
           user: mockUser,
           credential: mockCredential,
+          token: 'mock-access-token',
         })
       );
     });
@@ -245,6 +256,7 @@ describe('AuthService - PHASE 2 - Logique Métier Core', () => {
         expect.objectContaining({
           user: mockUser,
           credential: mockFacebookCredential,
+          token: 'mock-fb-token',
         })
       );
     });

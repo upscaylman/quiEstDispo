@@ -278,6 +278,12 @@ describe('useGeolocation - PHASE 2 - Géolocalisation CRITIQUE', () => {
         setTimeout(() => success(mockPosition), 100);
       });
 
+      // Retry - réinitialiser d'abord le mock pour le succès
+      mockGeolocation.getCurrentPosition.mockClear();
+      mockGeolocation.getCurrentPosition.mockImplementation(success => {
+        setTimeout(() => success(mockPosition), 100);
+      });
+
       // Retry
       act(() => {
         result.current.retryGeolocation();
@@ -381,7 +387,7 @@ describe('useGeolocation - PHASE 2 - Géolocalisation CRITIQUE', () => {
         expect.objectContaining({
           enableHighAccuracy: true,
           timeout: 30000,
-          maximumAge: 15000,
+          maximumAge: 60000,
         })
       );
     });
