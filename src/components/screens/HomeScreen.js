@@ -156,19 +156,15 @@ const HomeScreen = ({
         {/* Boutons de disponibilité */}
         <div className="px-responsive py-4">
           <AvailabilityButtons
-            isAvailable={isAvailable}
-            currentActivity={currentActivity}
-            onStartAvailability={onSetAvailability}
-            onStopAvailability={onStopAvailability}
             location={location}
             locationError={locationError}
-            availabilityStartTime={availabilityStartTime}
             retryGeolocation={onRetryGeolocation}
             requestLocationPermission={onRequestLocationPermission}
             darkMode={darkMode}
-            onInviteMoreFriends={onInviteFriends}
-            pendingInvitation={pendingInvitation}
             user={user}
+            onStartAvailability={onSetAvailability}
+            onStopAvailability={onStopAvailability}
+            onInviteMoreFriends={onInviteFriends}
           />
 
           {/* Section Notifications */}
