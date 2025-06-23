@@ -229,6 +229,17 @@ function App() {
 
       console.log('🛑 [DEBUG] AvailabilityId set to:', result);
       console.log('✅ Disponibilité activée');
+
+      // 🚀 DÉCLENCHEMENT IMMÉDIAT: Informer l'interface du changement
+      window.dispatchEvent(
+        new CustomEvent('availability-state-changed', {
+          detail: {
+            userId: user.uid,
+            newState: 'EN_PARTAGE',
+            activity: activity,
+          },
+        })
+      );
     } catch (error) {
       // Mode offline - juste mettre à jour l'état local
       const offlineId = 'offline-' + Date.now();
@@ -767,6 +778,17 @@ function App() {
           notification.data.fromUserId // respondingToUserId
         );
 
+        // 🚀 DÉCLENCHEMENT IMMÉDIAT: Informer l'interface du changement
+        window.dispatchEvent(
+          new CustomEvent('availability-state-changed', {
+            detail: {
+              userId: user.uid,
+              newState: 'EN_PARTAGE',
+              activity: notification.data.activity,
+            },
+          })
+        );
+
         // 🎯 NOUVEAU: Créer une notification spéciale pour l'expéditeur pour qu'il démarre son décompte aussi
         const userName = user.displayName || user.name || 'Un ami';
         const activityName = notification.data.activity;
@@ -996,6 +1018,15 @@ function App() {
         );
         console.log('🛑 [DEBUG] ✅ Notification annulation envoyée');
       }
+
+      console.log('🛑 [DEBUG] ✅ Disponibilité arrêtée');
+
+      // 🚀 DÉCLENCHEMENT IMMÉDIAT: Informer l'interface du changement
+      window.dispatchEvent(
+        new CustomEvent('availability-state-changed', {
+          detail: { userId: user.uid, newState: 'LIBRE', activity: null },
+        })
+      );
     } catch (error) {
       console.error("❌ Erreur lors de l'arrêt de disponibilité:", error);
       // Continuer même en cas d'erreur pour permettre l'arrêt local
