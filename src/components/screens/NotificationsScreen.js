@@ -1,8 +1,9 @@
-// Écran de gestion des notifications avec nouvelle logique
+// Écran de gestion des notifications avec logique de regroupement intelligent
 import { motion } from 'framer-motion';
 import { Bell, Coffee, MapPin, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NotificationService } from '../../services/firebaseService';
+import { NotificationGroupingService } from '../../services/notificationGroupingService';
 
 const NotificationsScreen = ({
   // Props de state
@@ -40,58 +41,20 @@ const NotificationsScreen = ({
     }
   }, [notifications]);
 
-  // Marquer les notifications comme lues à la SORTIE du centre (comportement standard)
-  useEffect(() => {
-    let hasBeenMounted = false;
+  // Grouper les notifications avec protection d'erreur
+  const groupedNotifications =
+    notifications && notifications.length > 0
+      ? NotificationGroupingService.groupNotificationsByEvent(notifications)
+      : [];
 
-    // Marquer que le composant a été monté
-    const timer = setTimeout(() => {
-      hasBeenMounted = true;
-    }, 100); // Petit délai pour s'assurer que le composant est bien monté
+  // 🎯 PHASE 4 - TASK 4.3: Fonctions de regroupement déplacées dans le service
+  const generateGroupedMessage = group => {
+    return NotificationGroupingService.generateGroupedMessage(group);
+  };
 
-    // Fonction de nettoyage appelée quand le composant se démonte (sortie du centre)
-    return () => {
-      clearTimeout(timer);
-
-      // Ne marquer comme lu que si le composant a été réellement monté et utilisé
-      if (!hasBeenMounted) {
-        console.log(
-          '🐛 [DEBUG] Composant démonté trop rapidement, pas de marquage comme lu'
-        );
-        return;
-      }
-
-      const markAsReadOnExit = async () => {
-        try {
-          if (notifications.length > 0) {
-            const userId = notifications[0].to;
-
-            // Marquer comme lues SEULEMENT les notifications qui n'ont PAS besoin d'action
-            const notificationsToMarkAsRead = notifications.filter(
-              notif =>
-                !notif.read &&
-                // Ne PAS marquer comme lues les invitations qui ont besoin d'une réponse
-                !['friend_invitation', 'invitation'].includes(notif.type)
-            );
-
-            if (notificationsToMarkAsRead.length > 0) {
-              // Marquer individuellement chaque notification
-              for (const notif of notificationsToMarkAsRead) {
-                await NotificationService.markAsRead(notif.id);
-              }
-              console.log(
-                `✅ ${notificationsToMarkAsRead.length} notifications marquées comme lues à la sortie du centre (invitations exclues)`
-              );
-            }
-          }
-        } catch (error) {
-          console.error('Erreur marquage à la sortie:', error);
-        }
-      };
-
-      markAsReadOnExit();
-    };
-  }, []); // Pas de dépendances pour éviter les re-renders
+  const getGroupDetails = group => {
+    return NotificationGroupingService.getGroupDetails(group);
+  };
 
   // Fonction pour trier les notifications par date (plus récentes en premier)
   const sortNotificationsByDate = notifications => {
@@ -102,15 +65,13 @@ const NotificationsScreen = ({
     });
   };
 
-  // Plus besoin de filtre anti-doublon, le problème était dans le code source
-
   // Organiser les notifications par thème et les trier par date
   const friendInvitations = sortNotificationsByDate(
-    notifications.filter(notif => notif.type === 'friend_invitation')
+    (notifications || []).filter(notif => notif.type === 'friend_invitation')
   );
 
   const friendNotifications = sortNotificationsByDate(
-    notifications.filter(notif =>
+    (notifications || []).filter(notif =>
       [
         'friend_invitation_accepted',
         'friend_added_confirmation',
@@ -120,13 +81,13 @@ const NotificationsScreen = ({
   );
 
   const activityInvitations = sortNotificationsByDate(
-    notifications.filter(notif => notif.type === 'invitation')
+    (notifications || []).filter(notif => notif.type === 'invitation')
   );
 
   // 🐛 DEBUG: Logs pour débugger les invitations
   useEffect(() => {
     console.log('🐛 [DEBUG] NotificationsScreen - Analyse des invitations:');
-    console.log('🐛 [DEBUG] Total notifications:', notifications.length);
+    console.log('🐛 [DEBUG] Total notifications:', notifications?.length || 0);
     console.log(
       "🐛 [DEBUG] Invitations d'activité trouvées:",
       activityInvitations.length
@@ -149,22 +110,25 @@ const NotificationsScreen = ({
       console.log("🐛 [DEBUG] ❌ Aucune invitation d'activité trouvée !");
 
       // Analyser tous les types de notifications présents
-      const notificationTypes = notifications.map(n => n.type);
+      const notificationTypes = (notifications || []).map(n => n.type);
       const uniqueTypes = [...new Set(notificationTypes)];
       console.log('🐛 [DEBUG] Types de notifications présents:', uniqueTypes);
 
       // Afficher quelques notifications pour analyse
-      if (notifications.length > 0) {
+      if (notifications && notifications.length > 0) {
         console.log(
           '🐛 [DEBUG] Première notification pour analyse:',
           notifications[0]
         );
       }
     }
-  }, [notifications, activityInvitations]);
+
+    // 🎯 DEBUG: Notifications groupées
+    console.log('🎯 [DEBUG] Notifications groupées:', groupedNotifications);
+  }, [notifications, activityInvitations, groupedNotifications]);
 
   const activityResponses = sortNotificationsByDate(
-    notifications.filter(notif =>
+    (notifications || []).filter(notif =>
       [
         'invitation_response',
         'activity_accepted',
@@ -177,7 +141,7 @@ const NotificationsScreen = ({
   );
 
   const otherNotifications = sortNotificationsByDate(
-    notifications.filter(
+    (notifications || []).filter(
       notif =>
         ![
           'friend_invitation',
@@ -212,10 +176,43 @@ const NotificationsScreen = ({
     }
   };
 
+  // 🎯 PHASE 4: Répondre à un groupe d'invitations
+  const handleGroupInvitationResponse = async (group, response) => {
+    // Protection contre les données invalides
+    if (!group || !group.notifications || !Array.isArray(group.notifications)) {
+      console.error(
+        '🚨 [NotificationsScreen] Groupe invalide pour réponse:',
+        group
+      );
+      return;
+    }
+
+    setProcessingNotifications(prev => {
+      const newSet = new Set(prev);
+      group.notifications.forEach(notif => newSet.add(notif.id));
+      return newSet;
+    });
+
+    try {
+      // Répondre à toutes les invitations du groupe
+      for (const notification of group.notifications) {
+        if (!notification.read) {
+          await onActivityInvitationResponse(notification, response);
+        }
+      }
+    } finally {
+      setProcessingNotifications(prev => {
+        const newSet = new Set(prev);
+        group.notifications.forEach(notif => newSet.delete(notif.id));
+        return newSet;
+      });
+    }
+  };
+
   // Supprimer toutes les notifications SAUF les invitations
   const handleDeleteAllNonInvitations = async () => {
     try {
-      const notificationsToDelete = notifications.filter(
+      const notificationsToDelete = (notifications || []).filter(
         n => !['friend_invitation', 'invitation'].includes(n.type)
       );
 
@@ -232,7 +229,9 @@ const NotificationsScreen = ({
     const offsetX = Number(info?.offset?.x) || 0;
 
     // Trouver la notification pour vérifier son type
-    const notification = notifications.find(n => n.id === notificationId);
+    const notification = (notifications || []).find(
+      n => n.id === notificationId
+    );
 
     // Ne pas permettre le swipe pour les invitations
     if (
@@ -281,7 +280,7 @@ const NotificationsScreen = ({
     }
   };
 
-  // Fonction pour rendre une notification avec gestes
+  // 🎯 PHASE 4: Rendu d'une notification individuelle (ancien système)
   const renderNotification = notification => {
     const isRead = notification.read;
     const isSwiped = swipedNotification === notification.id;
@@ -404,7 +403,6 @@ const NotificationsScreen = ({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={async () => {
-                    // 🔧 FIX iPhone: Marquer immédiatement comme en traitement
                     setProcessingNotifications(
                       prev => new Set([...prev, notification.id])
                     );
@@ -437,7 +435,6 @@ const NotificationsScreen = ({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={async () => {
-                    // 🔧 FIX iPhone: Marquer immédiatement comme en traitement
                     setProcessingNotifications(
                       prev => new Set([...prev, notification.id])
                     );
@@ -476,7 +473,6 @@ const NotificationsScreen = ({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={async () => {
-                  // 🔧 FIX iPhone: Marquer immédiatement comme en traitement
                   setProcessingNotifications(
                     prev => new Set([...prev, notification.id])
                   );
@@ -508,7 +504,6 @@ const NotificationsScreen = ({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={async () => {
-                  // 🔧 FIX iPhone: Marquer immédiatement comme en traitement
                   setProcessingNotifications(
                     prev => new Set([...prev, notification.id])
                   );
@@ -543,8 +538,146 @@ const NotificationsScreen = ({
     );
   };
 
+  // 🎯 PHASE 4: Rendu d'un groupe de notifications
+  const renderGroupedNotification = group => {
+    // Protection contre les données invalides
+    if (!group || !group.notifications || !Array.isArray(group.notifications)) {
+      console.warn('🚨 [NotificationsScreen] Groupe invalide:', group);
+      return null;
+    }
+
+    const isProcessing = group.notifications.some(notif =>
+      processingNotifications.has(notif.id)
+    );
+
+    return (
+      <motion.div
+        key={`group_${group.activity}_${group.notifications[0]?.id}`}
+        layout
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, x: -300 }}
+        className="relative overflow-hidden"
+      >
+        <motion.div
+          className={`p-4 rounded-lg transition-all ${
+            group.hasUnread
+              ? darkMode
+                ? 'bg-gray-700 border-l-4 border-blue-500'
+                : 'bg-blue-50 border-l-4 border-blue-400'
+              : darkMode
+                ? 'bg-gray-800'
+                : 'bg-gray-100'
+          }`}
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <p
+                className={`font-medium ${
+                  group.hasUnread
+                    ? darkMode
+                      ? 'text-white'
+                      : 'text-gray-900'
+                    : darkMode
+                      ? 'text-gray-400'
+                      : 'text-gray-600'
+                }`}
+              >
+                {generateGroupedMessage(group)}
+              </p>
+
+              {/* Détails des expéditeurs */}
+              <div className="mt-2 space-y-1">
+                {getGroupDetails(group).map((sender, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between text-xs"
+                  >
+                    <span
+                      className={`${
+                        darkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`}
+                    >
+                      {sender.name}
+                    </span>
+                    <span
+                      className={`${
+                        darkMode ? 'text-gray-500' : 'text-gray-400'
+                      }`}
+                    >
+                      {sender.time}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <p
+                className={`text-sm mt-2 ${
+                  group.hasUnread
+                    ? darkMode
+                      ? 'text-gray-400'
+                      : 'text-gray-500'
+                    : darkMode
+                      ? 'text-gray-600'
+                      : 'text-gray-400'
+                }`}
+              >
+                {group.count} invitation{group.count > 1 ? 's' : ''} •{' '}
+                {formatNotificationDate(group.mostRecent?.createdAt)}
+              </p>
+            </div>
+
+            {/* Indicateur de statut */}
+            {group.hasUnread && (
+              <div className="w-2 h-2 bg-blue-500 rounded-full ml-3 mt-2 flex-shrink-0"></div>
+            )}
+          </div>
+
+          {/* Boutons d'action pour invitations groupées */}
+          {group.hasUnread && (
+            <div className="flex space-x-2 mt-3">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handleGroupInvitationResponse(group, 'accepted')}
+                disabled={isProcessing}
+                className={`flex-1 ${
+                  isProcessing
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-green-500 hover:bg-green-600'
+                } text-white py-2 px-4 rounded-lg font-medium transition-colors`}
+              >
+                {isProcessing ? '⏳ ...' : `✅ Accepter tout (${group.count})`}
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handleGroupInvitationResponse(group, 'declined')}
+                disabled={isProcessing}
+                className={`flex-1 ${
+                  isProcessing
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-red-500 hover:bg-red-600'
+                } text-white py-2 px-4 rounded-lg font-medium transition-colors`}
+              >
+                {isProcessing ? '⏳ ...' : `❌ Tout décliner`}
+              </motion.button>
+            </div>
+          )}
+        </motion.div>
+      </motion.div>
+    );
+  };
+
   // Fonction pour rendre une section de notifications
-  const renderSection = (title, icon, notifications, color = 'blue') => {
+  const renderSection = (
+    title,
+    icon,
+    notifications,
+    color = 'blue',
+    useGrouping = false
+  ) => {
     if (notifications.length === 0) return null;
 
     const Icon = icon;
@@ -557,6 +690,15 @@ const NotificationsScreen = ({
       purple: 'text-purple-500 bg-purple-50 dark:bg-purple-900/20',
       orange: 'text-orange-500 bg-orange-50 dark:bg-orange-900/20',
     };
+
+    // Si le regroupement est activé, utiliser les groupes
+    const itemsToRender = useGrouping
+      ? NotificationGroupingService.groupNotificationsByEvent(notifications)
+      : notifications;
+
+    const renderFunction = useGrouping
+      ? renderGroupedNotification
+      : renderNotification;
 
     return (
       <motion.div
@@ -615,7 +757,7 @@ const NotificationsScreen = ({
         </div>
 
         {/* Liste des notifications de cette section */}
-        <div className="space-y-3">{notifications.map(renderNotification)}</div>
+        <div className="space-y-3">{itemsToRender.map(renderFunction)}</div>
       </motion.div>
     );
   };
@@ -623,7 +765,7 @@ const NotificationsScreen = ({
   return (
     <div className="px-responsive py-4">
       {/* Instructions d'utilisation pour mobile */}
-      {notifications.length > 0 && (
+      {notifications && notifications.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -635,7 +777,7 @@ const NotificationsScreen = ({
       )}
 
       {/* Bouton "Tout supprimer" en haut - seulement pour les notifications supprimables */}
-      {notifications.filter(
+      {(notifications || []).filter(
         n => !['friend_invitation', 'invitation'].includes(n.type)
       ).length > 0 && (
         <div className="flex justify-end mb-4">
@@ -656,7 +798,7 @@ const NotificationsScreen = ({
       )}
 
       {/* Sections thématiques */}
-      {notifications.length > 0 ? (
+      {notifications && notifications.length > 0 ? (
         <div className="space-y-6">
           {/* Section Demandes d'amitié */}
           {renderSection("Demandes d'amitié", Users, friendInvitations, 'blue')}
@@ -664,12 +806,13 @@ const NotificationsScreen = ({
           {/* Section Notifications d'amis */}
           {renderSection('Amis', Users, friendNotifications, 'cyan')}
 
-          {/* Section Invitations d'activités */}
+          {/* Section Invitations d'activités - AVEC REGROUPEMENT */}
           {renderSection(
             "Invitations d'activités",
             Coffee,
             activityInvitations,
-            'green'
+            'green',
+            true // ✅ Activer le regroupement pour les invitations d'activités
           )}
 
           {/* Section Réponses d'activités */}

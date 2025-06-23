@@ -18,5 +18,14 @@ export {
 // Export de l'ancien service pour compatibilité (à supprimer après migration)
 export * from './firebaseService';
 
-// 🎨 Phase 4 - Interface Temps Réel
+// 🎯 PHASE 4 - INTERFACE TEMPS RÉEL FINALISÉE
 export { FriendsStatusService } from './friendsStatusService';
+export { NotificationGroupingService } from './notificationGroupingService';
+
+// 🎯 PHASE 5 - SERVICES MÉTIER AVANCÉS
+export { InvitationConflictService } from './invitationConflictService';
+export { RelationshipService } from './relationshipService';
+export { ValidationService } from './validationService';
+
+// 🎯 PHASE 6 - OPTIMISATIONS TEMPS RÉEL
+export { RealTimeOptimizationService } from './realTimeOptimizationService';

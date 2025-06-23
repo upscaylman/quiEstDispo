@@ -10,6 +10,8 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+// 🎯 PHASE 5 - Validation UI selon état utilisateur
+import { ValidationService } from '../services/validationService';
 
 const InviteFriendsModal = ({
   isOpen,
@@ -25,12 +27,53 @@ const InviteFriendsModal = ({
   const [selectedFriends, setSelectedFriends] = useState(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(activity);
+  // 🎯 NOUVEAU: État pour validation utilisateur
+  const [userActionValid, setUserActionValid] = useState({
+    valid: true,
+    reason: '',
+  });
+  const [validatingUser, setValidatingUser] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setSelectedActivity(activity);
+      // 🎯 PHASE 5: Valider si l'utilisateur peut envoyer des invitations
+      validateUserCanSendInvitations();
     }
-  }, [isOpen, activity]);
+  }, [isOpen, activity, currentUserId]);
+
+  // 🎯 PHASE 5: Validation état utilisateur
+  const validateUserCanSendInvitations = async () => {
+    if (!currentUserId) return;
+
+    setValidatingUser(true);
+    try {
+      const validation = await ValidationService.validateActionByUserState(
+        currentUserId,
+        'send_invitation'
+      );
+
+      setUserActionValid({
+        valid: validation.allowed,
+        reason: validation.reason,
+        details: validation.details,
+        userMessage: validation.userMessage,
+      });
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [MODAL VALIDATION] État utilisateur:', validation);
+      }
+    } catch (error) {
+      console.error('❌ [MODAL] Erreur validation utilisateur:', error);
+      setUserActionValid({
+        valid: false,
+        reason: 'validation_error',
+        userMessage: 'Impossible de vérifier votre état. Réessayez.',
+      });
+    } finally {
+      setValidatingUser(false);
+    }
+  };
 
   // ✅ SIMPLIFICATION: Plus besoin de requêtes Firestore complexes
   // Les relations bilatérales sont détectées via les notifications seulement
@@ -172,6 +215,11 @@ const InviteFriendsModal = ({
   );
 
   const toggleFriend = friendId => {
+    // 🎯 PHASE 5: Bloquer si utilisateur ne peut pas inviter
+    if (!userActionValid.valid) {
+      return;
+    }
+
     if (friendsWhoInvitedUs.has(friendId)) {
       return;
     }
@@ -190,7 +238,16 @@ const InviteFriendsModal = ({
       selectedActivity,
       selectedFriendsSize: selectedFriends.size,
       selectedFriendsArray: Array.from(selectedFriends),
+      userActionValid,
     });
+
+    // 🎯 PHASE 5: Vérifications renforcées
+    if (!userActionValid.valid) {
+      alert(
+        `❌ ${userActionValid.userMessage || 'Action non autorisée dans votre état actuel'}`
+      );
+      return;
+    }
 
     if (!selectedActivity) {
       alert('Sélectionnez une activité !');
@@ -204,6 +261,25 @@ const InviteFriendsModal = ({
 
     setIsLoading(true);
     try {
+      // 🎯 PHASE 5: Validation finale avant envoi
+      const finalValidation =
+        await ValidationService.validateInvitationRecipients(
+          Array.from(selectedFriends),
+          currentUserId
+        );
+
+      if (finalValidation.invalid.length > 0) {
+        alert(
+          `⚠️ ${finalValidation.invalid.length} ami(s) ne peuvent plus être invité(s). Leurs statuts ont changé.`
+        );
+        // Retirer les amis invalides de la sélection
+        const validFriendIds = new Set(finalValidation.valid);
+        setSelectedFriends(
+          prev => new Set([...prev].filter(id => validFriendIds.has(id)))
+        );
+        return;
+      }
+
       await onSendInvitations(selectedActivity, Array.from(selectedFriends));
       setSelectedFriends(new Set());
       onClose();
@@ -227,6 +303,7 @@ const InviteFriendsModal = ({
       isActiveEventInvitation,
       selectedActivity,
       currentUserId,
+      userActionValid,
       // Firestore supprimé - utilisation notifications uniquement
       notificationsCount: notifications.length,
       notificationsRelevantes: notifications.filter(
@@ -307,6 +384,53 @@ const InviteFriendsModal = ({
             </button>
           </div>
 
+          {/* 🎯 PHASE 5: Message d'erreur si utilisateur ne peut pas inviter */}
+          {(!userActionValid.valid || validatingUser) && (
+            <div
+              className={`px-responsive-lg py-4 border-b ${
+                darkMode
+                  ? 'border-gray-700 bg-red-900/20'
+                  : 'border-gray-200 bg-red-50'
+              }`}
+            >
+              {validatingUser ? (
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500"></div>
+                  <span
+                    className={`text-sm ${darkMode ? 'text-orange-300' : 'text-orange-600'}`}
+                  >
+                    Vérification de votre statut...
+                  </span>
+                </div>
+              ) : (
+                <div
+                  className={`flex items-start space-x-2 ${
+                    darkMode ? 'text-red-300' : 'text-red-600'
+                  }`}
+                >
+                  <span className="text-lg">⚠️</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Action non autorisée</p>
+                    <p className="text-xs mt-1 opacity-90">
+                      {userActionValid.userMessage ||
+                        "Votre état actuel ne permet pas d'envoyer des invitations."}
+                    </p>
+                    <button
+                      onClick={validateUserCanSendInvitations}
+                      className={`text-xs mt-2 underline ${
+                        darkMode
+                          ? 'text-red-400 hover:text-red-300'
+                          : 'text-red-700 hover:text-red-800'
+                      }`}
+                    >
+                      Vérifier à nouveau
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Sélecteur d'activité si aucune activité pré-sélectionnée */}
           {!currentActivity && (
             <div className="px-responsive-lg py-4 border-b border-opacity-20">
@@ -322,10 +446,20 @@ const InviteFriendsModal = ({
                     return (
                       <motion.button
                         key={activityKey}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setSelectedActivity(activityKey)}
-                        className={`${activityData.color} hover:opacity-90 text-white p-4 rounded-xl font-medium transition-all duration-200 shadow-lg cursor-pointer aspect-square flex items-center justify-center`}
+                        whileHover={
+                          userActionValid.valid ? { scale: 1.02 } : {}
+                        }
+                        whileTap={userActionValid.valid ? { scale: 0.98 } : {}}
+                        onClick={() =>
+                          userActionValid.valid &&
+                          setSelectedActivity(activityKey)
+                        }
+                        disabled={!userActionValid.valid}
+                        className={`${
+                          userActionValid.valid
+                            ? `${activityData.color} hover:opacity-90 cursor-pointer`
+                            : 'bg-gray-400 cursor-not-allowed opacity-60'
+                        } text-white p-4 rounded-xl font-medium transition-all duration-200 shadow-lg aspect-square flex items-center justify-center`}
                       >
                         <div className="flex flex-col items-center space-y-1">
                           <ActivityIcon size={20} />

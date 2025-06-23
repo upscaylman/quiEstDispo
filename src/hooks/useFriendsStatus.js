@@ -53,6 +53,16 @@ export const useFriendsStatus = (friends, currentUserId) => {
         setLastUpdate(now);
 
         debugLog('🔄 [useFriendsStatus] ✅ Statuts mis à jour:', statusResults);
+        debugLog(
+          `🔄 [useFriendsStatus] ✅ ${Object.keys(statusResults).length} statuts calculés`
+        );
+
+        // Déclencher un événement custom pour forcer le re-render
+        window.dispatchEvent(
+          new CustomEvent('friendsStatusUpdated', {
+            detail: { statusResults, timestamp: now },
+          })
+        );
       } catch (err) {
         prodError('❌ [useFriendsStatus] Erreur refresh statuts:', err);
         setError(err.message);

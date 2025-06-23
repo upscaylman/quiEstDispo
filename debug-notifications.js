@@ -309,4 +309,62 @@ window.testInvitationCompatibility = async function () {
 // Ajouter un raccourci dans la console
 console.log('🔧 Fonction disponible: testInvitationCompatibility()');
 
+// 🎨 TEST PHASE 4: Vérifier que les statuts s'affichent
+window.testPhase4StatusDisplay = function () {
+  console.log('🎨 === TEST PHASE 4 - AFFICHAGE STATUTS ===');
+
+  try {
+    // 1. Vérifier que le hook est chargé
+    const friendsScreen = document.querySelector(
+      '[data-testid="friends-screen"], .px-responsive'
+    );
+    if (!friendsScreen) {
+      console.log('❌ Écran amis non trouvé - vous êtes sur FriendsScreen ?');
+      return;
+    }
+
+    // 2. Chercher les badges de statut
+    const statusBadges = document.querySelectorAll(
+      '.bg-green-500, .bg-orange-500, .bg-blue-500, .bg-red-500'
+    );
+    console.log(`🔍 Badges trouvés: ${statusBadges.length}`);
+
+    statusBadges.forEach((badge, index) => {
+      console.log(
+        `Badge ${index + 1}:`,
+        badge.textContent?.trim(),
+        badge.className
+      );
+    });
+
+    // 3. Chercher les indicateurs Invitable/Occupé
+    const availability = document.querySelectorAll(
+      ':contains("Invitable"), :contains("Occupé")'
+    );
+    console.log(`🔍 Indicateurs disponibilité: ${availability.length}`);
+
+    // 4. Chercher les amis
+    const friendElements = document.querySelectorAll('.w-12.h-12'); // Avatars
+    console.log(`👥 Amis affichés: ${friendElements.length}`);
+
+    // 5. Forcer un refresh du hook
+    console.log('🔄 Déclenchement événement refresh...');
+    window.dispatchEvent(new CustomEvent('friendsStatusUpdate'));
+
+    if (statusBadges.length === 0 && friendElements.length > 0) {
+      console.log(
+        '⚠️ Il y a des amis mais pas de badges - problème avec le hook useFriendsStatus'
+      );
+    }
+
+    if (friendElements.length === 0) {
+      console.log(
+        '⚠️ Aucun ami trouvé - ajoutez des amis pour tester les statuts'
+      );
+    }
+  } catch (error) {
+    console.error('❌ Erreur test Phase 4:', error);
+  }
+};
+
 console.log('🧪 === FIN DÉBOGAGE ===');
