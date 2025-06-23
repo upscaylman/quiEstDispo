@@ -64,9 +64,10 @@ function App() {
   // 🎯 NOUVEAU: État pour les invitations en attente
   const [pendingInvitation, setPendingInvitation] = useState(null); // { activity: 'coffee', sentAt: timestamp, friendIds: [...] }
 
+  // 🔔 FIX BADGE: Initialiser avec 0 pour voir toutes les notifications non lues
   const [lastNotificationCenterVisit, setLastNotificationCenterVisit] =
-    useState(Date.now());
-  const [lastFriendsTabVisit, setLastFriendsTabVisit] = useState(Date.now());
+    useState(0);
+  const [lastFriendsTabVisit, setLastFriendsTabVisit] = useState(0);
 
   // Modales
   const [showAddFriendModal, setShowAddFriendModal] = useState(false);
@@ -81,6 +82,10 @@ function App() {
     permission: 'default',
     subscribed: false,
   });
+
+  // 🔧 FIX DOUBLON: Tracker les notifications de déclin déjà traitées
+  const [processedDeclineNotifications, setProcessedDeclineNotifications] =
+    useState(new Set());
 
   // Calculer le nombre de nouvelles notifications depuis la dernière visite
   const getNewNotificationsCount = () => {
@@ -1387,48 +1392,61 @@ function App() {
       }
     });
 
-    // 🔧 BUG FIX: Gérer les notifications de déclin pour annuler pendingInvitation
-    notifications
-      .filter(
-        notification =>
-          notification.type === 'invitation_response' &&
-          notification.data?.accepted === false &&
-          !notification.read
-      )
-      .forEach(async notification => {
-        try {
+    // 🔧 BUG FIX: Gérer les notifications de déclin pour annuler pendingInvitation (avec déduplication)
+    const unprocessedDeclineNotifications = notifications.filter(
+      notification =>
+        notification.type === 'invitation_response' &&
+        notification.data?.accepted === false &&
+        !notification.read &&
+        !processedDeclineNotifications.has(notification.id)
+    );
+
+    unprocessedDeclineNotifications.forEach(async notification => {
+      try {
+        console.log(
+          '🚫 [AUTO] Traitement notification de déclin (première fois):',
+          notification
+        );
+
+        // Marquer comme traitée immédiatement pour éviter les doublons
+        setProcessedDeclineNotifications(
+          prev => new Set([...prev, notification.id])
+        );
+
+        // 🎯 NOUVEAU: Supprimer l'état d'invitation en attente car quelqu'un a décliné
+        if (
+          pendingInvitation &&
+          pendingInvitation.activity === notification.data.activity
+        ) {
           console.log(
-            '🚫 [AUTO] Traitement notification de déclin:',
-            notification
+            '🚫 [AUTO] Suppression invitation en attente car déclinée par',
+            notification.data.fromUserName
           );
+          setPendingInvitation(null);
+          localStorage.removeItem('pendingInvitation');
 
-          // 🎯 NOUVEAU: Supprimer l'état d'invitation en attente car quelqu'un a décliné
-          if (
-            pendingInvitation &&
-            pendingInvitation.activity === notification.data.activity
-          ) {
+          // Arrêter la disponibilité si on était en attente
+          if (isAvailable && currentActivity === notification.data.activity) {
             console.log(
-              '🚫 [AUTO] Suppression invitation en attente car déclinée par',
-              notification.data.fromUserName
+              '🚫 [AUTO] Arrêt de la disponibilité car invitation déclinée'
             );
-            setPendingInvitation(null);
-            localStorage.removeItem('pendingInvitation');
-
-            // Arrêter la disponibilité si on était en attente
-            if (isAvailable && currentActivity === notification.data.activity) {
-              console.log(
-                '🚫 [AUTO] Arrêt de la disponibilité car invitation déclinée'
-              );
-              await handleStopAvailability();
-            }
+            await handleStopAvailability();
           }
-
-          // Ne PAS marquer automatiquement comme lue pour que l'utilisateur voie le badge de notification
-        } catch (error) {
-          console.error('❌ Erreur traitement notification de déclin:', error);
         }
-      });
-  }, [notifications, user, isAvailable, currentActivity, pendingInvitation]);
+
+        // Ne PAS marquer automatiquement comme lue pour que l'utilisateur voie le badge de notification
+      } catch (error) {
+        console.error('❌ Erreur traitement notification de déclin:', error);
+      }
+    });
+  }, [
+    notifications,
+    user,
+    isAvailable,
+    currentActivity,
+    pendingInvitation,
+    processedDeclineNotifications,
+  ]);
 
   const handleProfileUpdate = async updatedUser => {
     try {
