@@ -1,6 +1,8 @@
 // Écran de gestion des amis
 import { motion } from 'framer-motion';
 import { Check, UserMinus, UserPlus } from 'lucide-react';
+import { useFriendsStatus } from '../../hooks/useFriendsStatus';
+import StatusBadge from '../StatusBadge';
 
 const FriendsScreen = ({
   // Props de state
@@ -20,6 +22,13 @@ const FriendsScreen = ({
   onCreateTestFriendships,
   onLoadMockData,
 }) => {
+  // 🎨 [PHASE 4] Hook pour les statuts temps réel
+  const {
+    friendsStatus,
+    loading: statusLoading,
+    error: statusError,
+  } = useFriendsStatus(friends, user?.uid);
+
   // Filtrer les notifications d'amis non lues
   const getFriendInvitations = () => {
     if (!notifications) return [];
@@ -52,9 +61,27 @@ const FriendsScreen = ({
           </motion.button>
         )}
 
+        {/* 🎨 [PHASE 4] Indicateur de statut des amis */}
+        {statusLoading && (
+          <div
+            className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+          >
+            🔄 Actualisation statuts...
+          </div>
+        )}
+
         {/* Spacer */}
         <div></div>
       </div>
+
+      {/* 🎨 [PHASE 4] Erreur statuts */}
+      {statusError && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg">
+          <p className="text-red-700 text-sm">
+            ⚠️ Erreur statuts: {statusError}
+          </p>
+        </div>
+      )}
 
       {/* Section Invitations d'amis */}
       {friendInvitations.length > 0 && (
@@ -151,16 +178,44 @@ const FriendsScreen = ({
 
             {/* Informations de l'ami */}
             <div className="flex-1">
-              <h3
-                className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}
-              >
-                {friend.name}
-              </h3>
-              <p
-                className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-              >
-                {friend.isOnline ? '🟢 En ligne' : '⚫ Hors ligne'}
-              </p>
+              <div className="flex items-center gap-2 mb-1">
+                <h3
+                  className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}
+                >
+                  {friend.name}
+                </h3>
+                {/* 🎨 [PHASE 4] Badge de statut temps réel */}
+                {friendsStatus[friend.id] && (
+                  <StatusBadge
+                    status={friendsStatus[friend.id].status}
+                    message={friendsStatus[friend.id].message}
+                    color={friendsStatus[friend.id].color}
+                    size="xs"
+                    showIcon={false}
+                  />
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <p
+                  className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                >
+                  {friend.isOnline ? '🟢 En ligne' : '⚫ Hors ligne'}
+                </p>
+                {/* 🎨 [PHASE 4] Indicateur de disponibilité pour invitation */}
+                {friendsStatus[friend.id] && (
+                  <span
+                    className={`text-xs px-1.5 py-0.5 rounded ${
+                      friendsStatus[friend.id].available
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {friendsStatus[friend.id].available
+                      ? '✓ Invitable'
+                      : '✗ Occupé'}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Bouton de suppression */}

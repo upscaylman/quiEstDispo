@@ -168,6 +168,7 @@ const HomeScreen = ({
             darkMode={darkMode}
             onInviteMoreFriends={onInviteFriends}
             pendingInvitation={pendingInvitation}
+            user={user}
           />
 
           {/* Section Notifications */}

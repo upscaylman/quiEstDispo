@@ -1,13 +1,7 @@
 // Écran des paramètres
 import { motion } from 'framer-motion';
 import { Bell, Moon, Palette, Smartphone, Sun } from 'lucide-react';
-import React from 'react';
 import ProfileEditor from '../ProfileEditor';
-// Import conditionnel pour le développement
-const NotificationTest =
-  process.env.NODE_ENV === 'development'
-    ? require('../NotificationTest').default
-    : null;
 
 const SettingsScreen = ({
   // Props de state
@@ -29,14 +23,7 @@ const SettingsScreen = ({
   onShowDeleteAccount,
   onSignOut,
 }) => {
-  // Écran de debug des notifications (seulement en dev)
-  if (
-    currentScreen === 'debug-notifications' &&
-    process.env.NODE_ENV === 'development' &&
-    NotificationTest
-  ) {
-    return <NotificationTest user={user} darkMode={darkMode} />;
-  }
+  // Écran de debug des notifications supprimé
 
   return (
     <div className="px-responsive py-4">
@@ -247,20 +234,7 @@ const SettingsScreen = ({
         </div>
       )}
 
-      {/* Section Test des Notifications Firestore (dev seulement) */}
-      {process.env.NODE_ENV === 'development' && NotificationTest && (
-        <div
-          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
-        >
-          <h3
-            className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
-          >
-            🧪 Test des Notifications Firestore (dev)
-          </h3>
-
-          <NotificationTest darkMode={darkMode} />
-        </div>
-      )}
+      {/* Section Test des Notifications Firestore supprimée */}
 
       {/* Section Debug Notifications (dev) */}
       {process.env.NODE_ENV === 'development' && (

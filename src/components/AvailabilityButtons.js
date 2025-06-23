@@ -10,6 +10,17 @@ import {
   Wine,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { EventGroupService } from '../services/eventGroupService';
+import { EventStatusService } from '../services/eventStatusService';
+import {
+  UserEventStatus,
+  getGroupProgress,
+  getGroupSizeColor,
+  getGroupSizeMessage,
+  getStatusColor,
+  getStatusMessage,
+  isGroupSize,
+} from '../types/eventTypes';
 
 const AvailabilityButtons = ({
   isAvailable,
@@ -24,12 +35,94 @@ const AvailabilityButtons = ({
   darkMode,
   onInviteMoreFriends, // Nouvelle prop pour inviter plus d'amis
   pendingInvitation, // 🎯 NOUVEAU: État d'invitation en attente
+  user, // 🎯 NOUVEAU: Pour accéder aux états
 }) => {
   const [timeLeft, setTimeLeft] = useState(45 * 60);
+  const [userEventStatus, setUserEventStatus] = useState(UserEventStatus.LIBRE);
+  const [statusInfo, setStatusInfo] = useState(null);
+  // 🎯 PHASE 2 - États groupes
+  const [groupInfo, setGroupInfo] = useState(null);
+  const [groupMembers, setGroupMembers] = useState([]);
+  const [groupSubscription, setGroupSubscription] = useState(null);
 
   // 🔥 CORRECTION: Ref stable pour onStopAvailability
   const onStopAvailabilityRef = useRef(onStopAvailability);
   onStopAvailabilityRef.current = onStopAvailability;
+
+  // 🎯 NOUVEAU: Récupérer l'état utilisateur
+  useEffect(() => {
+    if (user?.uid) {
+      const fetchUserStatus = async () => {
+        try {
+          const status = await EventStatusService.getUserEventStatus(user.uid);
+          const info = await EventStatusService.getUserStatusInfo(user.uid);
+          setUserEventStatus(status);
+          setStatusInfo(info);
+        } catch (error) {
+          console.error('❌ Erreur récupération état utilisateur:', error);
+        }
+      };
+
+      fetchUserStatus();
+    }
+  }, [user?.uid, isAvailable, currentActivity]);
+
+  // 🎯 PHASE 2 - Récupérer les informations de groupe
+  useEffect(() => {
+    if (statusInfo?.currentGroupId) {
+      const fetchGroupInfo = async () => {
+        try {
+          const info = await EventGroupService.getGroupInfo(
+            statusInfo.currentGroupId
+          );
+          const members = await EventGroupService.getGroupMembers(
+            statusInfo.currentGroupId
+          );
+          setGroupInfo(info);
+          setGroupMembers(members);
+        } catch (error) {
+          console.error('❌ Erreur récupération info groupe:', error);
+        }
+      };
+
+      fetchGroupInfo();
+
+      // 🎯 PHASE 2 - Écouter les changements de groupe en temps réel
+      const unsubscribe = EventGroupService.subscribeToGroupChanges(
+        statusInfo.currentGroupId,
+        async groupData => {
+          if (groupData) {
+            const info = await EventGroupService.getGroupInfo(
+              statusInfo.currentGroupId
+            );
+            const members = await EventGroupService.getGroupMembers(
+              statusInfo.currentGroupId
+            );
+            setGroupInfo(info);
+            setGroupMembers(members);
+          } else {
+            // Groupe supprimé
+            setGroupInfo(null);
+            setGroupMembers([]);
+          }
+        }
+      );
+
+      setGroupSubscription(unsubscribe);
+
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
+    } else {
+      // Pas de groupe actuel
+      setGroupInfo(null);
+      setGroupMembers([]);
+      if (groupSubscription) {
+        groupSubscription();
+        setGroupSubscription(null);
+      }
+    }
+  }, [statusInfo?.currentGroupId]);
 
   useEffect(() => {
     if (!isAvailable || !availabilityStartTime) {
@@ -107,72 +200,179 @@ const AvailabilityButtons = ({
     },
   ];
 
-  // 🎯 NOUVEAU: Afficher le message d'invitation en attente
-  if (pendingInvitation) {
-    const activity = activities.find(a => a.id === pendingInvitation.activity);
-    const ActivityIcon = activity?.icon || Users;
+  // 🎯 NOUVEAU: Affichage différencié selon l'état utilisateur
+  const renderStatusBadge = () => {
+    if (!statusInfo) return null;
+
+    const statusColor = getStatusColor(userEventStatus);
+    const statusMessage = getStatusMessage(userEventStatus, currentActivity);
 
     return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border-2 border-orange-200`}
+      <div
+        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mb-4 ${
+          statusColor === 'green'
+            ? 'bg-green-100 text-green-800'
+            : statusColor === 'orange'
+              ? 'bg-orange-100 text-orange-800'
+              : statusColor === 'blue'
+                ? 'bg-blue-100 text-blue-800'
+                : statusColor === 'purple'
+                  ? 'bg-purple-100 text-purple-800'
+                  : 'bg-gray-100 text-gray-800'
+        }`}
       >
-        <div className="text-center">
-          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <ActivityIcon size={32} className="text-orange-600" />
-          </div>
-          <h3 className="text-xl font-bold text-orange-700 mb-2">
-            Invitation en attente
-          </h3>
-          <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-4`}>
-            Tu as invité{' '}
-            <span className="font-semibold">
-              {pendingInvitation.friendNames
-                ? pendingInvitation.friendNames.length === 1
-                  ? pendingInvitation.friendNames[0]
-                  : pendingInvitation.friendNames.length === 2
-                    ? `${pendingInvitation.friendNames[0]} et ${pendingInvitation.friendNames[1]}`
-                    : `${pendingInvitation.friendNames.slice(0, -1).join(', ')} et ${pendingInvitation.friendNames[pendingInvitation.friendNames.length - 1]}`
-                : `${pendingInvitation.count} ami${pendingInvitation.count > 1 ? 's' : ''}`}
-            </span>{' '}
-            pour{' '}
-            <span className="font-semibold">
-              {activity?.label || pendingInvitation.activity}
-            </span>
-          </p>
-
-          <div className="mb-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
-            <div className="flex items-center justify-center mb-2">
-              <Clock size={20} className="mr-2 text-orange-600" />
-              <span className="text-orange-700 font-medium">
-                En attente d'acceptation
-              </span>
-            </div>
-            <p className="text-sm text-orange-600">
-              Le partage de votre position commencera quand quelqu'un acceptera
-              l'invitation
-            </p>
-          </div>
-
-          <div className="text-xs text-gray-500 mb-4">
-            Envoyé il y a{' '}
-            {Math.floor((Date.now() - pendingInvitation.sentAt) / 60000)} min
-          </div>
-
-          {/* Bouton d'annulation */}
-          <button
-            onClick={onStopAvailability}
-            className="w-full bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-          >
-            Annuler l'invitation
-          </button>
-        </div>
-      </motion.div>
+        <div
+          className={`w-2 h-2 rounded-full mr-2 ${
+            statusColor === 'green'
+              ? 'bg-green-500'
+              : statusColor === 'orange'
+                ? 'bg-orange-500'
+                : statusColor === 'blue'
+                  ? 'bg-blue-500'
+                  : statusColor === 'purple'
+                    ? 'bg-purple-500'
+                    : 'bg-gray-500'
+          }`}
+        ></div>
+        {statusMessage}
+      </div>
     );
-  }
+  };
 
-  if (isAvailable) {
+  // 🎯 PHASE 2 - Affichage des membres du groupe
+  const renderGroupMembers = () => {
+    if (!groupInfo || !groupMembers.length) return null;
+
+    const groupSizeColor = getGroupSizeColor(groupMembers.length);
+    const groupSizeMessage = getGroupSizeMessage(groupMembers.length);
+    const groupProgress = getGroupProgress(groupMembers.length);
+    const isGroup = isGroupSize(groupMembers.length);
+
+    return (
+      <div className="mb-4">
+        {/* Indicateur de progression du groupe */}
+        <div className="mb-3">
+          <div className="flex items-center justify-between text-sm mb-1">
+            <span
+              className={`font-medium ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}
+            >
+              {groupSizeMessage}
+            </span>
+            <span
+              className={`text-xs ${
+                groupSizeColor === 'blue'
+                  ? 'text-blue-600'
+                  : groupSizeColor === 'green'
+                    ? 'text-green-600'
+                    : groupSizeColor === 'orange'
+                      ? 'text-orange-600'
+                      : 'text-red-600'
+              }`}
+            >
+              {groupMembers.length}/10
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className={`h-2 rounded-full transition-all duration-500 ${
+                groupSizeColor === 'blue'
+                  ? 'bg-blue-500'
+                  : groupSizeColor === 'green'
+                    ? 'bg-green-500'
+                    : groupSizeColor === 'orange'
+                      ? 'bg-orange-500'
+                      : 'bg-red-500'
+              }`}
+              style={{ width: `${groupProgress}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Liste des membres */}
+        <div className="space-y-2">
+          <h4
+            className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
+          >
+            {isGroup ? 'Membres du groupe' : 'Participant'}
+          </h4>
+          <div className="max-h-32 overflow-y-auto space-y-1">
+            {groupMembers.map(member => (
+              <div
+                key={member.userId}
+                className={`flex items-center justify-between px-2 py-1 rounded ${
+                  darkMode ? 'bg-gray-700' : 'bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center">
+                  <span className="text-lg mr-2">{member.avatar}</span>
+                  <div>
+                    <span
+                      className={`text-sm font-medium ${
+                        darkMode ? 'text-gray-200' : 'text-gray-800'
+                      }`}
+                    >
+                      {member.name}
+                      {member.isCreator && (
+                        <span className="ml-1 text-xs text-blue-500">👑</span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center">
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      member.isOnline ? 'bg-green-500' : 'bg-gray-400'
+                    }`}
+                  ></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Message d'encouragement pour inviter plus */}
+        {groupInfo?.canAcceptMembers && (
+          <div
+            className={`mt-3 p-2 rounded-lg text-xs text-center ${
+              darkMode
+                ? 'bg-blue-900/20 text-blue-300'
+                : 'bg-blue-50 text-blue-600'
+            }`}
+          >
+            {groupMembers.length === 1
+              ? '🚀 Invite des amis pour former un groupe !'
+              : `🎉 Groupe en formation ! ${10 - groupMembers.length} places restantes`}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // 🎯 NOUVEAU: Gestion d'affichage selon l'état - évite l'écrasement du décompte
+  const renderAvailableState = () => {
+    // Si l'utilisateur est EN_PARTAGE, afficher le décompte de partage
+    if (userEventStatus === UserEventStatus.EN_PARTAGE && isAvailable) {
+      return renderSharingCountdown();
+    }
+
+    // Si l'utilisateur a INVITATION_ENVOYEE, afficher l'attente sans écraser le décompte précédent
+    if (
+      userEventStatus === UserEventStatus.INVITATION_ENVOYEE &&
+      pendingInvitation
+    ) {
+      return renderPendingInvitation();
+    }
+
+    // Si l'utilisateur est LIBRE mais avec disponibilité active (état transitoire)
+    if (isAvailable && currentActivity) {
+      return renderAvailabilityCountdown();
+    }
+
+    return null;
+  };
+
+  // 🎯 NOUVEAU: Décompte de disponibilité (état LIBRE avec activité)
+  const renderAvailabilityCountdown = () => {
     const progressPercentage = (timeLeft / (45 * 60)) * 100;
     const isUrgent = timeLeft < 300;
 
@@ -183,6 +383,8 @@ const AvailabilityButtons = ({
         className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border-2 border-green-200`}
       >
         <div className="text-center">
+          {renderStatusBadge()}
+
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl">✅</span>
           </div>
@@ -276,8 +478,168 @@ const AvailabilityButtons = ({
         </div>
       </motion.div>
     );
+  };
+
+  // 🎯 PHASE 2 - Décompte de partage avec info groupe (état EN_PARTAGE)
+  const renderSharingCountdown = () => {
+    const progressPercentage = (timeLeft / (45 * 60)) * 100;
+    const isUrgent = timeLeft < 300;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border-2 border-purple-200`}
+      >
+        <div className="text-center">
+          {renderStatusBadge()}
+
+          <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">📍</span>
+          </div>
+          <h3 className="text-xl font-bold text-purple-700 mb-2">
+            {groupInfo && isGroupSize(groupMembers.length)
+              ? 'Partage de groupe !'
+              : 'Partage en cours !'}
+          </h3>
+          <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-4`}>
+            {groupInfo && isGroupSize(groupMembers.length)
+              ? `Vous partagez vos positions en groupe pour ${activities.find(a => a.id === currentActivity)?.label || currentActivity}`
+              : `Vous partagez votre position pour ${activities.find(a => a.id === currentActivity)?.label || currentActivity}`}
+          </p>
+
+          {/* 🎯 PHASE 2 - Affichage des membres du groupe */}
+          {renderGroupMembers()}
+
+          <div className="mb-4">
+            <div className="flex items-center justify-center text-lg font-mono mb-2">
+              <Clock
+                size={20}
+                className={`mr-2 ${isUrgent ? 'text-red-500' : 'text-purple-500'}`}
+              />
+              <span
+                className={`font-bold ${isUrgent ? 'text-red-500' : 'text-purple-600'}`}
+              >
+                {formatTime(timeLeft)}
+              </span>
+            </div>
+
+            <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+              <motion.div
+                className={`h-2 rounded-full transition-all duration-1000 ${
+                  isUrgent ? 'bg-red-500' : 'bg-purple-500'
+                }`}
+                initial={{ width: '100%' }}
+                animate={{ width: `${progressPercentage}%` }}
+              />
+            </div>
+
+            <p
+              className={`text-sm ${isUrgent ? 'text-red-600' : darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+            >
+              {isUrgent ? '⚠️ Bientôt expiré !' : 'Partage en cours'}
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {/* 🎯 PHASE 2 - Bouton inviter plus si groupe pas plein */}
+            {groupInfo?.canAcceptMembers && onInviteMoreFriends && (
+              <button
+                onClick={() => onInviteMoreFriends(currentActivity)}
+                className={`w-full ${activities.find(a => a.id === currentActivity)?.color || 'bg-purple-500'} ${activities.find(a => a.id === currentActivity)?.hoverColor || 'hover:bg-purple-600'} text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center`}
+              >
+                <Users size={20} className="mr-2" />
+                Inviter plus d'amis au groupe
+              </button>
+            )}
+
+            {/* Bouton Arrêter le partage */}
+            <button
+              onClick={onStopAvailability}
+              className="w-full bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              {groupInfo && isGroupSize(groupMembers.length)
+                ? 'Quitter le groupe'
+                : 'Arrêter de partager ma position'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
+  // 🎯 NOUVEAU: Affichage d'invitation en attente (état INVITATION_ENVOYEE)
+  const renderPendingInvitation = () => {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border-2 border-orange-200`}
+      >
+        <div className="text-center">
+          {renderStatusBadge()}
+
+          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">⏳</span>
+          </div>
+          <h3 className="text-xl font-bold text-orange-700 mb-2">
+            Invitation envoyée
+          </h3>
+          <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-4`}>
+            Vous avez invité des amis pour{' '}
+            <span className="font-semibold">
+              {activities.find(a => a.id === pendingInvitation?.activity)
+                ?.label || pendingInvitation?.activity}
+            </span>
+          </p>
+
+          <div className="mb-4">
+            <div className="animate-pulse flex items-center justify-center mb-2">
+              <span className="text-orange-500 text-sm">
+                En attente de réponse...
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {/* Message informatif */}
+            <p
+              className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} italic`}
+            >
+              Vous serez notifié(e) dès qu'un ami accepte votre invitation
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
+  // 🎯 LOGIQUE PRINCIPALE D'AFFICHAGE
+  // Prioriser l'état EventStatus sur les props legacy pour éviter les conflits
+
+  // Si pas d'état récupéré encore, afficher loading
+  if (user?.uid && !statusInfo) {
+    return (
+      <div
+        className={`${darkMode ? 'bg-gray-800' : 'bg-gray-50'} rounded-xl p-6`}
+      >
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            Chargement de votre état...
+          </p>
+        </div>
+      </div>
+    );
   }
 
+  // Affichage selon l'état centralisé
+  const stateDisplay = renderAvailableState();
+  if (stateDisplay) {
+    return stateDisplay;
+  }
+
+  // Gestion des erreurs de localisation (legacy)
   if (locationError) {
     return (
       <div
@@ -319,6 +681,7 @@ const AvailabilityButtons = ({
     );
   }
 
+  // Chargement de la localisation (legacy)
   if (!location) {
     return (
       <div
@@ -334,8 +697,11 @@ const AvailabilityButtons = ({
     );
   }
 
+  // Interface de sélection d'activités (état LIBRE par défaut)
   return (
     <div className="space-y-4">
+      {renderStatusBadge()}
+
       <div className="text-center mb-6">
         <h2
           className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mb-2`}
@@ -367,13 +733,6 @@ const AvailabilityButtons = ({
             </motion.button>
           );
         })}
-      </div>
-
-      <div
-        className={`flex items-center justify-center text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-4`}
-      >
-        <MapPin size={12} className="mr-1" />
-        <span>Ta position sera partagée avec tes amis</span>
       </div>
     </div>
   );

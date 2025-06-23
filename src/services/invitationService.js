@@ -425,7 +425,7 @@ export class InvitationService {
     }
   }
 
-  // Répondre à une invitation
+  // Répondre à une invitation - Compatible Legacy + Phase 3
   static async respondToInvitation(invitationId, userId, response) {
     if (!isOnline()) {
       throw new Error("Connexion requise pour répondre à l'invitation");
@@ -441,36 +441,74 @@ export class InvitationService {
         }
 
         const invitationData = invitationSnap.data();
+        debugLog(`🔧 [UNIFIED] Type d'invitation détecté:`, {
+          hasToUserId: !!invitationData.toUserId,
+          hasToUserIds: !!invitationData.toUserIds,
+          isMultiple: invitationData.isMultipleInvitation || false,
+        });
 
-        if (invitationData.toUserId !== userId) {
-          throw new Error(
-            "Vous n'êtes pas autorisé à répondre à cette invitation"
-          );
+        // 🔧 DÉTECTION AUTOMATIQUE: Legacy vs Phase 3
+        const isLegacyInvitation = !!invitationData.toUserId;
+        const isMultipleInvitation = !!invitationData.toUserIds;
+
+        // Vérifier l'autorisation selon le type
+        if (isLegacyInvitation) {
+          // Format legacy: toUserId (string)
+          if (invitationData.toUserId !== userId) {
+            throw new Error(
+              "Vous n'êtes pas autorisé à répondre à cette invitation legacy"
+            );
+          }
+        } else if (isMultipleInvitation) {
+          // Format Phase 3: toUserIds (array)
+          if (!invitationData.toUserIds.includes(userId)) {
+            throw new Error(
+              "Vous n'êtes pas autorisé à répondre à cette invitation multiple"
+            );
+          }
+        } else {
+          throw new Error("Format d'invitation non reconnu");
         }
 
         if (invitationData.status !== 'pending') {
           throw new Error('Cette invitation a déjà été traitée');
         }
 
-        // Mettre à jour le statut de l'invitation
-        await updateDoc(invitationRef, {
-          status: response,
-          respondedAt: serverTimestamp(),
-        });
+        // 🔧 TRAITEMENT UNIFIÉ: Legacy vs Phase 3
+        if (isLegacyInvitation) {
+          // === TRAITEMENT LEGACY (SIMPLE) ===
+          debugLog(`🔧 [LEGACY] Traitement invitation legacy pour ${userId}`);
 
-        // Créer une notification de réponse pour l'expéditeur
-        await InvitationService.createResponseNotification(
-          invitationData.fromUserId,
-          userId,
-          invitationData.activity,
-          response === 'accepted'
-        );
+          await updateDoc(invitationRef, {
+            status: response,
+            respondedAt: serverTimestamp(),
+          });
 
-        debugLog(`✅ Réponse à l'invitation enregistrée: ${response}`);
+          // Notification de réponse pour expéditeur (format legacy)
+          await InvitationService.createResponseNotification(
+            invitationData.fromUserId,
+            userId,
+            invitationData.activity,
+            response === 'accepted'
+          );
+
+          debugLog(`✅ [LEGACY] Réponse ${response} enregistrée`);
+        } else if (isMultipleInvitation) {
+          // === TRAITEMENT PHASE 3 (MULTIPLE) ===
+          debugLog(`🔧 [PHASE3] Traitement invitation multiple pour ${userId}`);
+
+          // Utiliser la méthode Phase 3 spécialisée
+          return await this.respondToMultipleInvitation(
+            invitationId,
+            userId,
+            response
+          );
+        }
+
         return response;
       });
     } catch (error) {
-      prodError('❌ Respond to invitation failed:', error);
+      prodError('❌ [UNIFIED] Respond to invitation failed:', error);
       throw new Error(
         `Impossible de répondre à l'invitation: ${error.message}`
       );
@@ -685,7 +723,7 @@ export class InvitationService {
     }
   }
 
-  // Récupérer les invitations pour un utilisateur (reçues)
+  // Récupérer les invitations pour un utilisateur (reçues) - Compatible Phase 1-3
   static async getInvitationsForUser(userId) {
     if (!isOnline()) {
       throw new Error('Connexion requise pour récupérer les invitations');
@@ -693,32 +731,82 @@ export class InvitationService {
 
     try {
       debugLog(
-        `🔍 Récupération des invitations pour l'utilisateur ${userId}...`
+        `🔍 [LEGACY+PHASE3] Récupération des invitations pour l'utilisateur ${userId}...`
       );
 
-      const q = query(
+      // 🔧 CORRECTION RÉGRESSION: Récupérer les deux formats d'invitations
+      // Format legacy: toUserId (string) - Phase 1/2
+      const legacyQuery = query(
         collection(db, 'invitations'),
         where('toUserId', '==', userId),
         where('status', '==', 'pending'),
         orderBy('createdAt', 'desc')
       );
 
-      const querySnapshot = await getDocs(q);
+      // Format Phase 3: toUserIds (array) - Invitations multiples
+      const multipleQuery = query(
+        collection(db, 'invitations'),
+        where('toUserIds', 'array-contains', userId),
+        where('status', '==', 'pending'),
+        orderBy('createdAt', 'desc')
+      );
+
+      // Exécuter les deux requêtes en parallèle
+      const [legacySnapshot, multipleSnapshot] = await Promise.all([
+        getDocs(legacyQuery),
+        getDocs(multipleQuery),
+      ]);
+
       const invitations = [];
 
-      querySnapshot.forEach(doc => {
+      // Traiter les invitations legacy (toUserId)
+      legacySnapshot.forEach(doc => {
         const data = doc.data();
         invitations.push({
           id: doc.id,
           ...data,
           createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
           expiresAt: data.expiresAt?.toDate?.() || new Date(data.expiresAt),
+          // Marquer comme invitation legacy
+          isLegacyInvitation: true,
+          invitationType: 'legacy',
         });
       });
 
+      // Traiter les invitations multiples (toUserIds)
+      multipleSnapshot.forEach(doc => {
+        const data = doc.data();
+
+        // Éviter les doublons si une invitation existe dans les deux formats
+        const alreadyExists = invitations.some(inv => inv.id === doc.id);
+        if (!alreadyExists) {
+          invitations.push({
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+            expiresAt: data.expiresAt?.toDate?.() || new Date(data.expiresAt),
+            // Marquer comme invitation multiple
+            isLegacyInvitation: false,
+            invitationType: 'multiple',
+            // Ajouter des informations calculées pour Phase 3
+            hasUserResponded:
+              (data.acceptedByUserIds || []).includes(userId) ||
+              (data.declinedByUserIds || []).includes(userId),
+            acceptanceRate: data.totalRecipients
+              ? (data.acceptedByUserIds || []).length / data.totalRecipients
+              : 0,
+            timeRemaining: this._getTimeRemaining(data.expiresAt),
+          });
+        }
+      });
+
+      // Trier par date de création (plus récentes en premier)
+      invitations.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
       debugLog(
-        `✅ ${invitations.length} invitations récupérées pour ${userId}`
+        `✅ [LEGACY+PHASE3] ${invitations.length} invitations récupérées pour ${userId} (${legacySnapshot.size} legacy + ${multipleSnapshot.size} multiples)`
       );
+
       return invitations;
     } catch (error) {
       prodError('❌ Erreur lors de la récupération des invitations:', error);
@@ -774,6 +862,732 @@ export class InvitationService {
       );
     } catch (error) {
       console.error('❌ Erreur notification réponse:', error);
+    }
+  }
+
+  // ===========================
+  // PHASE 3 - INVITATIONS MULTIPLES INTELLIGENTES
+  // ===========================
+
+  /**
+   * Envoie une invitation à plusieurs destinataires simultanément
+   * @param {string} fromUserId - ID de l'expéditeur
+   * @param {string} activity - Type d'activité
+   * @param {string[]} recipientUserIds - IDs des destinataires
+   * @param {Object} location - Position géographique
+   * @param {Object} options - Options avancées (priorité, groupId, etc.)
+   * @returns {Promise<Object>} - Résultat de l'envoi
+   */
+  static async sendMultipleInvitation(
+    fromUserId,
+    activity,
+    recipientUserIds,
+    location,
+    options = {}
+  ) {
+    if (!isOnline()) {
+      throw new Error("Mode offline, impossible d'envoyer des invitations");
+    }
+
+    try {
+      debugLog(
+        `🚀 [PHASE 3] Envoi invitation multiple: ${fromUserId} -> ${recipientUserIds.length} destinataires pour ${activity}`
+      );
+
+      // Validation des paramètres
+      const validation = await this._validateMultipleInvitation(
+        fromUserId,
+        recipientUserIds,
+        activity,
+        options
+      );
+
+      if (!validation.isValid) {
+        throw new Error(validation.error);
+      }
+
+      // Vérifier les conflits pour chaque destinataire
+      const conflictResults = await this._checkRecipientsConflicts(
+        fromUserId,
+        recipientUserIds,
+        activity
+      );
+
+      // Filtrer les destinataires valides
+      const validRecipients = conflictResults
+        .filter(r => r.canReceive)
+        .map(r => r.userId);
+      const blockedRecipients = conflictResults.filter(r => !r.canReceive);
+
+      if (validRecipients.length === 0) {
+        throw new Error(
+          "Aucun destinataire disponible pour recevoir l'invitation"
+        );
+      }
+
+      // Créer l'invitation principale
+      const invitationData = await this._createMultipleInvitationData(
+        fromUserId,
+        activity,
+        validRecipients,
+        location,
+        options
+      );
+
+      const invitationRef = await addDoc(
+        collection(db, 'invitations'),
+        invitationData
+      );
+      const invitationId = invitationRef.id;
+
+      // Créer les notifications pour chaque destinataire valide
+      await this._sendMultipleInvitationNotifications(
+        invitationId,
+        fromUserId,
+        activity,
+        validRecipients
+      );
+
+      // Programmer l'expiration automatique
+      this._scheduleInvitationExpiration(
+        invitationId,
+        invitationData.expiresAt
+      );
+
+      debugLog(
+        `✅ [PHASE 3] Invitation multiple créée: ${invitationId} pour ${validRecipients.length} destinataires`
+      );
+
+      return {
+        success: true,
+        invitationId,
+        sentToCount: validRecipients.length,
+        blockedCount: blockedRecipients.length,
+        sentToUsers: validRecipients,
+        blockedUsers: blockedRecipients,
+        expiresAt: invitationData.expiresAt,
+      };
+    } catch (error) {
+      prodError('❌ [PHASE 3] Erreur envoi invitation multiple:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Répond à une invitation multiple (accepter/décliner)
+   * @param {string} invitationId - ID de l'invitation
+   * @param {string} userId - ID de l'utilisateur qui répond
+   * @param {string} response - 'accepted' ou 'declined'
+   * @returns {Promise<Object>} - Résultat de la réponse
+   */
+  static async respondToMultipleInvitation(invitationId, userId, response) {
+    if (!isOnline()) {
+      throw new Error('Mode offline, impossible de répondre');
+    }
+
+    try {
+      debugLog(
+        `🎯 [PHASE 3] Réponse invitation multiple: ${userId} -> ${response} pour ${invitationId}`
+      );
+
+      // Récupérer l'invitation
+      const invitationRef = doc(db, 'invitations', invitationId);
+      const invitationSnap = await getDoc(invitationRef);
+
+      if (!invitationSnap.exists()) {
+        throw new Error('Invitation non trouvée');
+      }
+
+      const invitationData = invitationSnap.data();
+
+      // Vérifier que l'utilisateur peut répondre
+      if (!invitationData.toUserIds.includes(userId)) {
+        throw new Error(
+          'Utilisateur non autorisé à répondre à cette invitation'
+        );
+      }
+
+      // Vérifier si l'invitation n'a pas expiré
+      if (this._isInvitationExpired(invitationData)) {
+        await this._expireInvitation(invitationId, 'Invitation expirée');
+        throw new Error('Cette invitation a expiré');
+      }
+
+      // Vérifier si l'utilisateur n'a pas déjà répondu
+      if (
+        invitationData.acceptedByUserIds.includes(userId) ||
+        invitationData.declinedByUserIds.includes(userId)
+      ) {
+        throw new Error('Vous avez déjà répondu à cette invitation');
+      }
+
+      // Mettre à jour l'invitation selon la réponse
+      const updateData = {
+        updatedAt: serverTimestamp(),
+      };
+
+      if (response === 'accepted') {
+        updateData.acceptedByUserIds = [
+          ...invitationData.acceptedByUserIds,
+          userId,
+        ];
+
+        // Si tous les destinataires ont accepté, marquer comme complètement acceptée
+        if (
+          updateData.acceptedByUserIds.length === invitationData.totalRecipients
+        ) {
+          updateData.status = 'fully_accepted';
+        }
+      } else if (response === 'declined') {
+        updateData.declinedByUserIds = [
+          ...invitationData.declinedByUserIds,
+          userId,
+        ];
+
+        // Si tous les destinataires ont décliné, marquer comme déclinée
+        const totalResponded =
+          updateData.declinedByUserIds.length +
+          invitationData.acceptedByUserIds.length;
+        if (
+          totalResponded === invitationData.totalRecipients &&
+          invitationData.acceptedByUserIds.length === 0
+        ) {
+          updateData.status = 'declined';
+        }
+      }
+
+      // Sauvegarder la mise à jour
+      await updateDoc(invitationRef, updateData);
+
+      // Notifier l'expéditeur de la réponse
+      await this._notifyInvitationResponse(
+        invitationData.fromUserId,
+        userId,
+        invitationData.activity,
+        response,
+        invitationData.totalRecipients,
+        updateData.acceptedByUserIds?.length ||
+          invitationData.acceptedByUserIds.length
+      );
+
+      // Gérer les conflits si accepté
+      if (response === 'accepted') {
+        await this._resolveInvitationConflicts(userId, invitationId);
+      }
+
+      debugLog(
+        `✅ [PHASE 3] Réponse enregistrée: ${response} pour invitation ${invitationId}`
+      );
+
+      return {
+        success: true,
+        response,
+        invitationId,
+        updatedStatus: updateData.status || invitationData.status,
+      };
+    } catch (error) {
+      prodError('❌ [PHASE 3] Erreur réponse invitation multiple:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Récupère les invitations en attente pour un utilisateur
+   * @param {string} userId - ID de l'utilisateur
+   * @returns {Promise<Array>} - Liste des invitations en attente
+   */
+  static async getUserPendingInvitations(userId) {
+    if (!isOnline()) {
+      return [];
+    }
+
+    try {
+      const pendingQuery = query(
+        collection(db, 'invitations'),
+        where('toUserIds', 'array-contains', userId),
+        where('status', '==', 'pending'),
+        orderBy('createdAt', 'desc'),
+        limit(20)
+      );
+
+      const snapshot = await getDocs(pendingQuery);
+      const invitations = [];
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+
+        // Filtrer les invitations expirées
+        if (!this._isInvitationExpired(data)) {
+          invitations.push({
+            id: doc.id,
+            ...data,
+            // Ajouter des informations calculées
+            hasUserResponded:
+              data.acceptedByUserIds.includes(userId) ||
+              data.declinedByUserIds.includes(userId),
+            acceptanceRate:
+              data.acceptedByUserIds.length / data.totalRecipients,
+            timeRemaining: this._getTimeRemaining(data.expiresAt),
+          });
+        }
+      });
+
+      return invitations;
+    } catch (error) {
+      prodError(
+        '❌ [PHASE 3] Erreur récupération invitations en attente:',
+        error
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Expire automatiquement les invitations obsolètes
+   * @returns {Promise<number>} - Nombre d'invitations expirées
+   */
+  static async expireOldInvitations() {
+    if (!isOnline()) {
+      return 0;
+    }
+
+    try {
+      debugLog('🧹 [PHASE 3] Nettoyage invitations expirées...');
+
+      const now = new Date();
+      const expiredQuery = query(
+        collection(db, 'invitations'),
+        where('status', '==', 'pending'),
+        where('expiresAt', '<', now)
+      );
+
+      const snapshot = await getDocs(expiredQuery);
+      let expiredCount = 0;
+
+      for (const docSnapshot of snapshot.docs) {
+        const invitationData = docSnapshot.data();
+
+        // Marquer comme expirée
+        await updateDoc(docSnapshot.ref, {
+          status: 'expired',
+          autoExpired: true,
+          expiredAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+
+        // Notifier l'expéditeur si pas encore fait
+        if (!invitationData.expirationNotificationSent) {
+          await this._notifyInvitationExpired(docSnapshot.id, invitationData);
+        }
+
+        expiredCount++;
+      }
+
+      debugLog(`✅ [PHASE 3] ${expiredCount} invitations expirées nettoyées`);
+      return expiredCount;
+    } catch (error) {
+      prodError('❌ [PHASE 3] Erreur expiration invitations:', error);
+      return 0;
+    }
+  }
+
+  // ===========================
+  // MÉTHODES PRIVÉES PHASE 3
+  // ===========================
+
+  /**
+   * Valide une invitation multiple
+   * @private
+   */
+  static async _validateMultipleInvitation(
+    fromUserId,
+    recipientUserIds,
+    activity,
+    options
+  ) {
+    // Vérifier les paramètres de base
+    if (!fromUserId || !activity || !Array.isArray(recipientUserIds)) {
+      return { isValid: false, error: 'Paramètres manquants ou invalides' };
+    }
+
+    if (recipientUserIds.length === 0) {
+      return { isValid: false, error: 'Au moins un destinataire requis' };
+    }
+
+    if (recipientUserIds.length > 8) {
+      // EVENT_CONSTANTS.MAX_MULTIPLE_RECIPIENTS
+      return { isValid: false, error: 'Maximum 8 destinataires autorisés' };
+    }
+
+    // Vérifier que l'expéditeur n'est pas dans la liste
+    if (recipientUserIds.includes(fromUserId)) {
+      return { isValid: false, error: "Impossible de s'inviter soi-même" };
+    }
+
+    // TODO: Ajouter vérification du cooldown anti-spam
+    // TODO: Ajouter vérification du statut de l'expéditeur
+
+    return { isValid: true };
+  }
+
+  /**
+   * Vérifie les conflits pour chaque destinataire
+   * @private
+   */
+  static async _checkRecipientsConflicts(
+    fromUserId,
+    recipientUserIds,
+    activity
+  ) {
+    const results = [];
+
+    for (const recipientId of recipientUserIds) {
+      try {
+        // Vérifier les invitations existantes
+        const hasConflict = await this.checkExistingInvitation(
+          fromUserId,
+          recipientId,
+          activity
+        );
+
+        // TODO: Ajouter vérification du statut du destinataire
+        // TODO: Ajouter vérification des relations bilatérales
+
+        results.push({
+          userId: recipientId,
+          canReceive: !hasConflict,
+          reason: hasConflict ? 'Invitation ou relation déjà active' : null,
+        });
+      } catch (error) {
+        results.push({
+          userId: recipientId,
+          canReceive: false,
+          reason: `Erreur vérification: ${error.message}`,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Crée les données d'une invitation multiple
+   * @private
+   */
+  static async _createMultipleInvitationData(
+    fromUserId,
+    activity,
+    validRecipients,
+    location,
+    options
+  ) {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes
+
+    return {
+      fromUserId,
+      toUserIds: validRecipients,
+      activity,
+      status: 'pending',
+      createdAt: serverTimestamp(),
+      expiresAt,
+      updatedAt: serverTimestamp(),
+
+      // Propriétés Phase 3
+      isMultipleInvitation: validRecipients.length > 1,
+      totalRecipients: validRecipients.length,
+      acceptedByUserIds: [],
+      declinedByUserIds: [],
+      priority: options.priority || 'normal',
+      conflictsWith: [],
+      autoExpired: false,
+      expirationNotificationSent: false,
+
+      // Métadonnées
+      location: location || null,
+      groupId: options.groupId || null,
+      invitationType: options.groupId ? 'group' : 'individual',
+    };
+  }
+
+  /**
+   * Envoie les notifications pour invitation multiple
+   * @private
+   */
+  static async _sendMultipleInvitationNotifications(
+    invitationId,
+    fromUserId,
+    activity,
+    validRecipients
+  ) {
+    // Récupérer les infos de l'expéditeur
+    const fromUserDoc = await getDoc(doc(db, 'users', fromUserId));
+    const fromUserName = fromUserDoc.exists()
+      ? fromUserDoc.data().name
+      : 'Un ami';
+
+    const activities = {
+      coffee: 'Coffee',
+      lunch: 'Lunch',
+      drinks: 'Drinks',
+      chill: 'Chill',
+      clubbing: 'Clubbing',
+      cinema: 'Cinema',
+    };
+
+    const activityLabel = activities[activity] || activity;
+
+    // Créer une notification pour chaque destinataire
+    const notificationPromises = validRecipients.map(async recipientId => {
+      const message =
+        validRecipients.length > 1
+          ? `🎉 ${fromUserName} vous invite pour ${activityLabel} (${validRecipients.length} invités)`
+          : `🎉 ${fromUserName} vous invite pour ${activityLabel}`;
+
+      return NotificationService.createNotification(
+        recipientId,
+        fromUserId,
+        'invitation',
+        message,
+        {
+          invitationId,
+          activity,
+          activityLabel,
+          fromUserName,
+          isMultipleInvitation: validRecipients.length > 1,
+          totalRecipients: validRecipients.length,
+        }
+      );
+    });
+
+    await Promise.all(notificationPromises);
+  }
+
+  /**
+   * Vérifie si une invitation est expirée
+   * @private
+   */
+  static _isInvitationExpired(invitationData) {
+    if (!invitationData.expiresAt) return false;
+
+    const expirationTime = invitationData.expiresAt.toDate
+      ? invitationData.expiresAt.toDate().getTime()
+      : new Date(invitationData.expiresAt).getTime();
+
+    return Date.now() > expirationTime;
+  }
+
+  /**
+   * Calcule le temps restant avant expiration
+   * @private
+   */
+  static _getTimeRemaining(expiresAt) {
+    if (!expiresAt) return null;
+
+    const expirationTime = expiresAt.toDate
+      ? expiresAt.toDate().getTime()
+      : new Date(expiresAt).getTime();
+
+    const remaining = expirationTime - Date.now();
+    return remaining > 0 ? remaining : 0;
+  }
+
+  /**
+   * Programme l'expiration automatique d'une invitation
+   * @private
+   */
+  static _scheduleInvitationExpiration(invitationId, expiresAt) {
+    const expirationTime = expiresAt.getTime
+      ? expiresAt.getTime()
+      : new Date(expiresAt).getTime();
+
+    const delay = expirationTime - Date.now();
+
+    if (delay > 0) {
+      setTimeout(async () => {
+        try {
+          // Vérifier si l'invitation existe encore et n'est pas déjà expirée
+          const invitationRef = doc(db, 'invitations', invitationId);
+          const invitationSnap = await getDoc(invitationRef);
+
+          if (invitationSnap.exists()) {
+            const data = invitationSnap.data();
+            if (data.status === 'pending') {
+              await this._expireInvitation(
+                invitationId,
+                'Expiration automatique'
+              );
+            }
+          }
+        } catch (error) {
+          prodError('❌ Erreur expiration automatique:', error);
+        }
+      }, delay);
+    }
+  }
+
+  /**
+   * Expire une invitation et notifie
+   * @private
+   */
+  static async _expireInvitation(invitationId, reason) {
+    const invitationRef = doc(db, 'invitations', invitationId);
+
+    await updateDoc(invitationRef, {
+      status: 'expired',
+      autoExpired: true,
+      expiredAt: serverTimestamp(),
+      expiredReason: reason,
+      updatedAt: serverTimestamp(),
+    });
+
+    debugLog(`⏰ [PHASE 3] Invitation ${invitationId} expirée: ${reason}`);
+  }
+
+  /**
+   * Notifie l'expéditeur qu'une invitation a expiré
+   * @private
+   */
+  static async _notifyInvitationExpired(invitationId, invitationData) {
+    try {
+      const activities = {
+        coffee: 'Coffee',
+        lunch: 'Lunch',
+        drinks: 'Drinks',
+        chill: 'Chill',
+        clubbing: 'Clubbing',
+        cinema: 'Cinema',
+      };
+
+      const activityLabel =
+        activities[invitationData.activity] || invitationData.activity;
+      const message = invitationData.isMultipleInvitation
+        ? `⏰ Votre invitation pour ${activityLabel} (${invitationData.totalRecipients} destinataires) a expiré`
+        : `⏰ Votre invitation pour ${activityLabel} a expiré`;
+
+      await NotificationService.createNotification(
+        invitationData.fromUserId,
+        'system',
+        'invitation_expired',
+        message,
+        {
+          invitationId,
+          activity: invitationData.activity,
+          activityLabel,
+          totalRecipients: invitationData.totalRecipients,
+          acceptedCount: invitationData.acceptedByUserIds.length,
+        }
+      );
+
+      // Marquer la notification d'expiration comme envoyée
+      await updateDoc(doc(db, 'invitations', invitationId), {
+        expirationNotificationSent: true,
+      });
+    } catch (error) {
+      prodError('❌ Erreur notification expiration:', error);
+    }
+  }
+
+  /**
+   * Notifie l'expéditeur d'une réponse à invitation
+   * @private
+   */
+  static async _notifyInvitationResponse(
+    fromUserId,
+    respondingUserId,
+    activity,
+    response,
+    totalRecipients,
+    acceptedCount
+  ) {
+    try {
+      // Récupérer le nom de celui qui répond
+      const respondingUserDoc = await getDoc(
+        doc(db, 'users', respondingUserId)
+      );
+      const respondingUserName = respondingUserDoc.exists()
+        ? respondingUserDoc.data().name
+        : 'Un ami';
+
+      const activities = {
+        coffee: 'Coffee',
+        lunch: 'Lunch',
+        drinks: 'Drinks',
+        chill: 'Chill',
+        clubbing: 'Clubbing',
+        cinema: 'Cinema',
+      };
+
+      const activityLabel = activities[activity] || activity;
+
+      let message;
+      if (totalRecipients > 1) {
+        if (response === 'accepted') {
+          message = `✅ ${respondingUserName} a accepté votre invitation pour ${activityLabel} (${acceptedCount}/${totalRecipients} ont accepté)`;
+        } else {
+          message = `❌ ${respondingUserName} a décliné votre invitation pour ${activityLabel}`;
+        }
+      } else {
+        message =
+          response === 'accepted'
+            ? `✅ ${respondingUserName} a accepté votre invitation pour ${activityLabel} !`
+            : `❌ ${respondingUserName} a décliné votre invitation pour ${activityLabel}`;
+      }
+
+      await NotificationService.createNotification(
+        fromUserId,
+        respondingUserId,
+        'invitation_response',
+        message,
+        {
+          activity,
+          activityLabel,
+          accepted: response === 'accepted',
+          respondingUserId,
+          respondingUserName,
+          totalRecipients,
+          acceptedCount,
+        }
+      );
+    } catch (error) {
+      prodError('❌ Erreur notification réponse:', error);
+    }
+  }
+
+  /**
+   * Résout les conflits d'invitations quand un utilisateur accepte
+   * @private
+   */
+  static async _resolveInvitationConflicts(userId, acceptedInvitationId) {
+    try {
+      // Récupérer toutes les autres invitations pending pour cet utilisateur
+      const conflictingQuery = query(
+        collection(db, 'invitations'),
+        where('toUserIds', 'array-contains', userId),
+        where('status', '==', 'pending')
+      );
+
+      const snapshot = await getDocs(conflictingQuery);
+
+      for (const docSnapshot of snapshot.docs) {
+        // Ignorer l'invitation acceptée
+        if (docSnapshot.id === acceptedInvitationId) continue;
+
+        // Marquer les autres comme en conflit ou déclinées automatiquement
+        await updateDoc(docSnapshot.ref, {
+          conflictsWith: [acceptedInvitationId],
+          status: 'auto_declined',
+          autoDeclinedReason: 'Utilisateur a accepté une autre invitation',
+          declinedByUserIds: [userId],
+          updatedAt: serverTimestamp(),
+        });
+
+        debugLog(
+          `🚫 [PHASE 3] Invitation ${docSnapshot.id} auto-déclinée à cause de conflit`
+        );
+      }
+    } catch (error) {
+      prodError('❌ Erreur résolution conflits:', error);
     }
   }
 }
