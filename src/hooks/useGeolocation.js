@@ -333,6 +333,10 @@ export const useGeolocation = () => {
       const handleError = error => {
         let errorMessage = "Impossible d'obtenir la position";
 
+        // 🔧 DÉVELOPPEMENT WINDOWS: Fallback automatique vers Paris après timeout
+        const isDev = process.env.NODE_ENV === 'development';
+        const isWindows = navigator.userAgent.includes('Windows');
+
         switch (error.code) {
           case 1:
             errorMessage = 'Accès à la localisation refusé';
@@ -348,6 +352,28 @@ export const useGeolocation = () => {
           case 3:
             errorMessage = "Délai d'attente dépassé";
             lastErrorType.current = 'timeout';
+            // 🔧 DÉVELOPPEMENT WINDOWS: Fallback silencieux vers Paris
+            if (isDev && isWindows) {
+              console.warn(
+                '⚠️ Timeout GPS initial sur Windows - Fallback automatique vers Paris'
+              );
+              const parisLocation = {
+                lat: 48.8566,
+                lng: 2.3522,
+                accuracy: 1000,
+                timestamp: Date.now(),
+                isDefault: true,
+              };
+              setLocation(parisLocation);
+              stableLocationRef.current = parisLocation;
+              setError(null);
+              lastLocationTime.current = Date.now();
+              lastErrorType.current = null;
+              setLoading(false);
+              isRequesting.current = false;
+              isStabilizing.current = false;
+              return; // Éviter le fallback vers Paris normal
+            }
             break;
           default:
             errorMessage = 'Erreur de géolocalisation';
@@ -365,11 +391,20 @@ export const useGeolocation = () => {
         isStabilizing.current = false;
       };
 
+      // 🔧 DÉVELOPPEMENT WINDOWS: Configuration adaptée pour éviter les timeouts
+      const isDev = process.env.NODE_ENV === 'development';
+      const isWindows = navigator.userAgent.includes('Windows');
+
       const options = {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 30000,
+        enableHighAccuracy: isDev && isWindows ? false : true, // Moins strict en dev Windows
+        timeout: isDev && isWindows ? 8000 : 15000, // 8s timeout en dev Windows
+        maximumAge: isDev && isWindows ? 300000 : 30000, // 5 min cache en dev Windows
       };
+
+      console.log(
+        `🔧 GPS Initial Config - Dev: ${isDev}, Windows: ${isWindows}`,
+        options
+      );
 
       try {
         navigator.geolocation.getCurrentPosition(
@@ -397,11 +432,20 @@ export const useGeolocation = () => {
     let visibilityCheckTimeout = null;
 
     if (navigator.geolocation) {
+      // 🔧 DÉVELOPPEMENT WINDOWS: Configuration adaptée pour éviter les timeouts
+      const isDev = process.env.NODE_ENV === 'development';
+      const isWindows = navigator.userAgent.includes('Windows');
+
       const watchOptions = {
-        enableHighAccuracy: true,
-        timeout: 30000, // Plus de temps pour watchPosition
-        maximumAge: 60000, // 🔥 NOUVEAU: Position récente de 60 secondes (au lieu de 15s)
+        enableHighAccuracy: isDev && isWindows ? false : true, // Moins strict en dev Windows
+        timeout: isDev && isWindows ? 10000 : 30000, // 10s timeout en dev Windows
+        maximumAge: isDev && isWindows ? 300000 : 60000, // 5 min cache en dev Windows
       };
+
+      console.log(
+        `🔧 GPS Config - Dev: ${isDev}, Windows: ${isWindows}`,
+        watchOptions
+      );
 
       const handleWatchSuccess = position => {
         const newLocation = {
@@ -443,11 +487,32 @@ export const useGeolocation = () => {
       };
 
       const handleWatchError = error => {
-        // 🔥 FIX: Gestion plus silencieuse des timeouts pour éviter le spam de logs
+        // 🔧 DÉVELOPPEMENT WINDOWS: Fallback automatique vers Paris après timeout
         if (error.code === 3) {
           // TIMEOUT
-          // Log timeout seulement toutes les 5 minutes pour éviter le spam
           const now = Date.now();
+
+          // En développement Windows, fallback automatique vers Paris après timeout
+          if (isDev && isWindows && !stableLocationRef.current) {
+            console.warn(
+              '⚠️ Timeout GPS sur Windows - Fallback automatique vers Paris'
+            );
+            const parisLocation = {
+              lat: 48.8566,
+              lng: 2.3522,
+              accuracy: 1000,
+              timestamp: Date.now(),
+              isDefault: true,
+            };
+            setLocation(parisLocation);
+            stableLocationRef.current = parisLocation;
+            setError(null);
+            lastLocationTime.current = Date.now();
+            lastErrorType.current = null;
+            return;
+          }
+
+          // Log timeout seulement toutes les 5 minutes pour éviter le spam
           if (
             !lastTimeoutLog.current ||
             now - lastTimeoutLog.current > 300000
@@ -690,12 +755,55 @@ export const useGeolocation = () => {
     }, 100);
   }, [notifyGPSEnabled, notifyGPSDisabled]);
 
+  // 🔧 DÉVELOPPEMENT: Fonction pour forcer une localisation de test
+  const setTestLocation = useCallback((lat, lng, name = 'Test Location') => {
+    if (process.env.NODE_ENV !== 'development') {
+      console.warn('⚠️ setTestLocation disponible uniquement en développement');
+      return;
+    }
+
+    const testLocation = {
+      lat: lat,
+      lng: lng,
+      accuracy: 10,
+      timestamp: Date.now(),
+      isDefault: false,
+      isTest: true,
+      name: name,
+    };
+
+    console.log(`🧪 Test location forcée: ${name} (${lat}, ${lng})`);
+    setLocation(testLocation);
+    stableLocationRef.current = testLocation;
+    setError(null);
+    lastLocationTime.current = Date.now();
+    lastErrorType.current = null;
+  }, []);
+
+  // 🔧 DÉVELOPPEMENT: Exposer setTestLocation sur window pour tests manuels
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      window.setTestLocation = setTestLocation;
+      window.getLocationInfo = () => ({
+        current: location,
+        stable: stableLocationRef.current,
+        error: error,
+        loading: loading,
+      });
+      console.log(
+        '🧪 Fonctions test GPS disponibles: window.setTestLocation(lat, lng, name)'
+      );
+    }
+  }, [setTestLocation, location, error, loading]);
+
   return {
     location,
     error,
     loading,
     retryGeolocation,
     requestLocationPermission,
+    setTestLocation:
+      process.env.NODE_ENV === 'development' ? setTestLocation : undefined,
   };
 };
 
