@@ -44,7 +44,7 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "test:ci": "react-scripts test --ci --watchAll=false --testPathPattern=\"(mockData|invitationService|errorMonitoring|PWAInstallPrompt|WarningBanner|googleSignInService|appCheckService|authService|useAuth|NotificationBadge|mapUtils|logger|avatarUtils|cookieService|GoogleSignInButton|useGeolocation|useGPSNotifications|GPSStatusToast|useMapLogic|LoginScreen|HomeScreen).test.js\"",
+    "test:ci": "react-scripts test --ci --watchAll=false --testPathPattern=\"(mockData|invitationService|errorMonitoring|PWAInstallPrompt|WarningBanner|googleSignInService|appCheckService|authService|useAuth|NotificationBadge|mapUtils|logger|avatarUtils|cookieService|GoogleSignInButton|useGeolocation|useGPSNotifications|GPSStatusToast|useMapLogic|LoginScreen|HomeScreen|MapScreen|BaseMapView|MapControls|MapMarkers|AddFriendModal|FriendInviteForm|PhoneSearch|QRCodeScanner).test.js\"",
     "eject": "react-scripts eject",
     "lint": "eslint src/**/*.{js,jsx}",
     "format": "prettier --write src/**/*.{js,jsx,css,json}",
