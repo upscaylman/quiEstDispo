@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { NotificationService } from '../services/firebaseService';
 
@@ -125,6 +125,7 @@ const NotificationTest = ({ darkMode = false }) => {
 
   return (
     <div
+      data-testid="notification-test"
       className={`p-4 rounded-lg ${darkMode ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-900'}`}
     >
       <h3 className="text-lg font-bold mb-4">🧪 Test des Notifications</h3>

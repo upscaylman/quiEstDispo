@@ -42,7 +42,7 @@ describe('CookieConsent - Composant UI simple', () => {
       render(<CookieConsent darkMode={false} />);
 
       expect(
-        screen.getByText('Nous utilisons des cookies')
+        screen.getByText('🍪 Nous utilisons des cookies')
       ).toBeInTheDocument();
       expect(screen.getByText('Accepter tout')).toBeInTheDocument();
     });
@@ -95,7 +95,9 @@ describe('CookieConsent - Composant UI simple', () => {
 
       render(<CookieConsent darkMode={false} />);
 
-      fireEvent.click(screen.getByText('Personnaliser'));
+      // Chercher le bouton Personnaliser avec Settings icon
+      const personaliserButtons = screen.getAllByText('Personnaliser');
+      fireEvent.click(personaliserButtons[0]); // Premier bouton trouvé
 
       expect(screen.getByText('Préférences des cookies')).toBeInTheDocument();
     });
@@ -108,7 +110,7 @@ describe('CookieConsent - Composant UI simple', () => {
       render(<CookieConsent darkMode={true} />);
 
       expect(
-        screen.getByText('Nous utilisons des cookies')
+        screen.getByText('🍪 Nous utilisons des cookies')
       ).toBeInTheDocument();
     });
 
@@ -118,7 +120,7 @@ describe('CookieConsent - Composant UI simple', () => {
       render(<CookieConsent darkMode={false} />);
 
       expect(
-        screen.getByText('Nous utilisons des cookies')
+        screen.getByText('🍪 Nous utilisons des cookies')
       ).toBeInTheDocument();
     });
   });

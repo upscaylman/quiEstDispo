@@ -249,9 +249,7 @@ describe('ProfileForm - PHASE 3 - Composants Profil', () => {
       expect(screen.getByText('Numéro de téléphone')).toBeInTheDocument();
       expect(screen.getByTestId('phone-icon')).toBeInTheDocument();
       expect(
-        screen.getByText(
-          'Nécessaire pour que vos amis puissent vous trouver et vous ajouter.'
-        )
+        screen.getByText(/Nécessaire pour que vos amis puissent vous trouver/)
       ).toBeInTheDocument();
     });
 

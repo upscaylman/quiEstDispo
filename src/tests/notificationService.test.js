@@ -108,12 +108,17 @@ describe('NotificationService - Gestion notifications Firestore', () => {
         ],
       };
 
+      // Capturer la fonction de callback pour l'appeler manuellement
+      let capturedCallback;
       onSnapshot.mockImplementation((query, successCallback) => {
-        successCallback(mockSnapshot);
+        capturedCallback = successCallback;
         return jest.fn();
       });
 
       NotificationService.onNotifications('user123', callback);
+
+      // Appeler manuellement le callback avec le snapshot mocké
+      capturedCallback(mockSnapshot);
 
       expect(callback).toHaveBeenCalledWith([
         expect.objectContaining({
@@ -162,20 +167,21 @@ describe('NotificationService - Gestion notifications Firestore', () => {
       const { updateDoc, doc, serverTimestamp } = require('firebase/firestore');
       const { db, retryWithBackoff } = require('../services/firebaseUtils');
 
-      doc.mockReturnValue({ __type: 'docRef' });
-      retryWithBackoff.mockImplementation(async fn => await fn());
+      const mockDocRef = { __type: 'docRef', id: 'notif123' };
+      doc.mockReturnValue(mockDocRef);
+      updateDoc.mockResolvedValue(undefined);
+      retryWithBackoff.mockImplementation(async fn => {
+        return await fn();
+      });
 
       await NotificationService.markAsRead('notif123');
 
       expect(doc).toHaveBeenCalledWith(db, 'notifications', 'notif123');
       expect(retryWithBackoff).toHaveBeenCalled();
-      expect(updateDoc).toHaveBeenCalledWith(
-        { __type: 'docRef' },
-        {
-          read: true,
-          updatedAt: { __type: 'timestamp' },
-        }
-      );
+      expect(updateDoc).toHaveBeenCalledWith(mockDocRef, {
+        read: true,
+        updatedAt: { __type: 'timestamp' },
+      });
     });
 
     test('ne doit pas marquer comme lu en mode offline', async () => {
@@ -189,9 +195,14 @@ describe('NotificationService - Gestion notifications Firestore', () => {
     });
 
     test('doit gérer les erreurs lors du marquage', async () => {
-      const { retryWithBackoff } = require('../services/firebaseUtils');
+      const {
+        retryWithBackoff,
+        isOnline,
+      } = require('../services/firebaseUtils');
       const { prodError } = require('../utils/logger');
 
+      // S'assurer qu'on est en mode online pour que l'erreur soit testée
+      isOnline.mockReturnValue(true);
       retryWithBackoff.mockRejectedValue(new Error('Update failed'));
 
       await NotificationService.markAsRead('notif123');

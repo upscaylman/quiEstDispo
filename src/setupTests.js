@@ -10,6 +10,16 @@ import 'web-streams-polyfill';
 
 // Setup pour les tests Jest
 
+// Mock ReadableStream pour éviter l'erreur undici
+if (typeof global.ReadableStream === 'undefined') {
+  global.ReadableStream = class ReadableStream {
+    constructor() {}
+    getReader() {
+      return { read: () => Promise.resolve({ done: true }) };
+    }
+  };
+}
+
 // Polyfill simple pour ReadableStream
 if (typeof global.ReadableStream === 'undefined') {
   global.ReadableStream = class ReadableStream {

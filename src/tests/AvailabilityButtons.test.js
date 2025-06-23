@@ -38,6 +38,26 @@ jest.mock('lucide-react', () => ({
       ☕
     </div>
   ),
+  Utensils: ({ size, className }) => (
+    <div data-testid="utensils-icon" style={{ width: size, height: size }}>
+      🍴
+    </div>
+  ),
+  Wine: ({ size, className }) => (
+    <div data-testid="wine-icon" style={{ width: size, height: size }}>
+      🍷
+    </div>
+  ),
+  Music: ({ size, className }) => (
+    <div data-testid="music-icon" style={{ width: size, height: size }}>
+      🎵
+    </div>
+  ),
+  Film: ({ size, className }) => (
+    <div data-testid="film-icon" style={{ width: size, height: size }}>
+      🎬
+    </div>
+  ),
   MapPin: ({ size, className }) => (
     <div data-testid="mappin-icon" style={{ width: size, height: size }}>
       📍
@@ -71,7 +91,7 @@ describe('AvailabilityButtons - PHASE 2 - Logique Métier Core', () => {
     currentActivity: null,
     onStartAvailability: jest.fn(),
     onStopAvailability: jest.fn(),
-    location: null,
+    location: { latitude: 48.8566, longitude: 2.3522 }, // Paris coords pour éviter loading
     locationError: null,
     darkMode: false,
   };
@@ -135,7 +155,7 @@ describe('AvailabilityButtons - PHASE 2 - Logique Métier Core', () => {
 
       render(<AvailabilityButtons {...props} />);
 
-      const stopButton = screen.getByText(/arrêter/i);
+      const stopButton = screen.getByText(/arrêter ma disponibilité/i);
       fireEvent.click(stopButton);
 
       expect(onStopAvailability).toHaveBeenCalledTimes(1);
@@ -151,7 +171,7 @@ describe('AvailabilityButtons - PHASE 2 - Logique Métier Core', () => {
 
       render(<AvailabilityButtons {...props} />);
 
-      expect(screen.getByText(/localisation/i)).toBeInTheDocument();
+      expect(screen.getByText(/localisation requise/i)).toBeInTheDocument();
     });
 
     test('doit permettre de réessayer la géolocalisation', () => {
@@ -164,7 +184,7 @@ describe('AvailabilityButtons - PHASE 2 - Logique Métier Core', () => {
 
       render(<AvailabilityButtons {...props} />);
 
-      const retryButton = screen.getByText(/réessayer/i);
+      const retryButton = screen.getByText(/autoriser la localisation/i);
       fireEvent.click(retryButton);
 
       expect(retryGeolocation).toHaveBeenCalledTimes(1);

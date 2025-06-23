@@ -209,14 +209,16 @@ describe('SettingsScreen - PHASE 3 - UI Complexe', () => {
     });
 
     test('doit activer le thème automatique', () => {
-      render(<SettingsScreen {...defaultProps} />);
+      const { container } = render(<SettingsScreen {...defaultProps} />);
 
-      // Rechercher le bouton du thème automatique
-      const autoToggleContainer = screen
-        .getByText('Thème automatique')
-        .closest('div')
-        .closest('div');
-      const autoToggle = autoToggleContainer.querySelector('button');
+      // Rechercher le bouton du thème automatique plus directement
+      const autoToggle =
+        container.querySelector('button[aria-label*="automatique"]') ||
+        container.querySelector('button[title*="automatique"]') ||
+        screen
+          .getByText('Thème automatique')
+          .closest('div')
+          .querySelector('button');
 
       fireEvent.click(autoToggle);
 
@@ -225,13 +227,15 @@ describe('SettingsScreen - PHASE 3 - UI Complexe', () => {
 
     test('doit désactiver le thème automatique', () => {
       const autoProps = { ...defaultProps, themeMode: 'auto' };
-      render(<SettingsScreen {...autoProps} />);
+      const { container } = render(<SettingsScreen {...autoProps} />);
 
-      const autoToggleContainer = screen
-        .getByText('Thème automatique')
-        .closest('div')
-        .closest('div');
-      const autoToggle = autoToggleContainer.querySelector('button');
+      const autoToggle =
+        container.querySelector('button[aria-label*="automatique"]') ||
+        container.querySelector('button[title*="automatique"]') ||
+        screen
+          .getByText('Thème automatique')
+          .closest('div')
+          .querySelector('button');
 
       fireEvent.click(autoToggle);
 
@@ -242,9 +246,9 @@ describe('SettingsScreen - PHASE 3 - UI Complexe', () => {
       const autoProps = { ...defaultProps, themeMode: 'auto' };
       render(<SettingsScreen {...autoProps} />);
 
-      const themeToggle = screen
-        .getByTestId('smartphone-icon')
-        .closest('button');
+      // Utiliser getAllByTestId pour gérer les éléments multiples
+      const smartphoneIcons = screen.getAllByTestId('smartphone-icon');
+      const themeToggle = smartphoneIcons[0].closest('button');
       expect(themeToggle).toBeDisabled();
     });
   });
@@ -354,6 +358,11 @@ describe('SettingsScreen - PHASE 3 - UI Complexe', () => {
         darkMode: false,
         themeMode: 'light',
         currentScreen: 'settings',
+        pushNotificationStatus: {
+          supported: false,
+          permission: 'default',
+          subscribed: false,
+        },
       };
 
       expect(() => {
@@ -401,9 +410,9 @@ describe('SettingsScreen - PHASE 3 - UI Complexe', () => {
     test('doit indiquer visuellement les états des toggles', () => {
       render(<SettingsScreen {...defaultProps} />);
 
-      // Toggle principal - position pour thème clair
-      const themeToggle = screen.getByTestId('sun-icon').closest('div');
-      expect(themeToggle).toHaveClass('translate-x-0');
+      // Toggle principal - position pour thème clair (dans le div parent du sun-icon)
+      const themeToggleDiv = screen.getByTestId('sun-icon').parentElement;
+      expect(themeToggleDiv).toHaveClass('translate-x-0');
 
       // Toggle automatique - désactivé par défaut
       const autoToggleContainer = screen
@@ -411,7 +420,8 @@ describe('SettingsScreen - PHASE 3 - UI Complexe', () => {
         .closest('div')
         .closest('div');
       const autoToggleButton = autoToggleContainer.querySelector('button');
-      expect(autoToggleButton.firstChild).toHaveClass('translate-x-0');
+      const autoToggleDiv = autoToggleButton.querySelector('div');
+      expect(autoToggleDiv).toHaveClass('translate-x-0');
     });
 
     test('doit indiquer les états activés visuellement', () => {
@@ -425,7 +435,9 @@ describe('SettingsScreen - PHASE 3 - UI Complexe', () => {
         .closest('div');
       const autoToggleButton = autoToggleContainer.querySelector('button');
       expect(autoToggleButton).toHaveClass('bg-purple-500');
-      expect(autoToggleButton.firstChild).toHaveClass('translate-x-6');
+
+      const autoToggleDiv = autoToggleButton.querySelector('div');
+      expect(autoToggleDiv).toHaveClass('translate-x-6');
     });
   });
 

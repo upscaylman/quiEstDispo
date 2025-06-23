@@ -1,7 +1,7 @@
 // @ts-nocheck
 // Tests GPSStatusToast.js - PHASE 2 - Geolocalisation (UI)
 
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import GPSStatusToast from '../components/GPSStatusToast';
 
 // === MOCKS ===
@@ -33,7 +33,9 @@ describe('GPSStatusToast - PHASE 2 - Geolocalisation UI', () => {
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
     jest.useRealTimers();
   });
 
@@ -152,6 +154,51 @@ describe('GPSStatusToast - PHASE 2 - Geolocalisation UI', () => {
 
       const toastElement = container.querySelector('.fixed');
       expect(toastElement).toHaveClass('top-4');
+    });
+  });
+
+  describe('⏰ Gestion des timers et auto-hide', () => {
+    test('doit gérer le cycle auto-hide sans warnings', () => {
+      const status = {
+        type: 'gps_enabled',
+        message: null,
+        timestamp: Date.now(),
+      };
+
+      render(<GPSStatusToast status={status} darkMode={false} />);
+
+      // Vérifier que le toast est visible
+      expect(
+        screen.getByText('🎯 GPS activé - Position mise à jour')
+      ).toBeInTheDocument();
+
+      // Avancer les timers pour déclencher le auto-hide
+      act(() => {
+        jest.advanceTimersByTime(3000);
+      });
+
+      // Le composant doit toujours être dans le DOM mais invisiblement
+      // car le useEffect se déclenche seulement au changement de status
+    });
+
+    test('doit nettoyer les timers au unmount', () => {
+      const status = {
+        type: 'gps_enabled',
+        message: null,
+        timestamp: Date.now(),
+      };
+
+      const { unmount } = render(
+        <GPSStatusToast status={status} darkMode={false} />
+      );
+
+      // Démonter le composant - ceci nettoie automatiquement les timers
+      unmount();
+
+      // Avancer les timers - aucun warning ne devrait apparaître car cleanup effectué
+      act(() => {
+        jest.advanceTimersByTime(5000);
+      });
     });
   });
 

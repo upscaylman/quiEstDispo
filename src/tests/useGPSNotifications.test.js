@@ -14,7 +14,9 @@ describe('useGPSNotifications - PHASE 2 - Notifications GPS', () => {
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
     jest.useRealTimers();
   });
 
