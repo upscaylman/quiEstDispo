@@ -61,7 +61,8 @@ describe('firebase - PHASE 5 - Intégrations Firebase', () => {
 
       expect(firebase.auth).toBeDefined();
       expect(firebase.db).toBeDefined();
-      expect(firebase.storage).toBeDefined();
+      // NOTE: storage désactivé pour optimisation performance
+      // expect(firebase.storage).toBeDefined();
     });
 
     test('doit exporter appCheck comme null', () => {

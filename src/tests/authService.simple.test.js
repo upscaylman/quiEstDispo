@@ -1,7 +1,36 @@
 // @ts-nocheck
 // Tests AuthService - PHASE 2 - Version SIMPLIFIÉE pour debug
 
+// POLYFILL CRITIQUE : Doit être importé en premier pour éviter les erreurs undici
+import 'web-streams-polyfill';
+
 import { AuthService } from '../services/authService';
+
+// Polyfill ReadableStream pour éviter l'erreur undici
+if (typeof global.ReadableStream === 'undefined') {
+  global.ReadableStream = class ReadableStream {
+    constructor() {}
+    getReader() {
+      return {
+        read: () => Promise.resolve({ done: true, value: undefined }),
+        releaseLock: () => {},
+        cancel: () => Promise.resolve(),
+      };
+    }
+    cancel() {
+      return Promise.resolve();
+    }
+    pipeTo() {
+      return Promise.resolve();
+    }
+    pipeThrough() {
+      return this;
+    }
+    tee() {
+      return [this, this];
+    }
+  };
+}
 
 // Mock navigator globalement
 global.navigator = {

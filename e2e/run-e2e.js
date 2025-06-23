@@ -42,8 +42,9 @@ console.log(`🧪 Pattern de test: ${testPattern}`);
 console.log(`⏱️  Timeout par test: ${jestConfig.testTimeout}ms`);
 console.log('');
 
-// Lancer Jest
+// Lancer Jest - Correction Windows
 const jestArgs = [
+  'jest',
   '--config',
   configPath,
   '--runInBand', // Exécuter les tests en série pour éviter les conflits
@@ -54,9 +55,15 @@ if (verbose) {
   jestArgs.push('--verbose');
 }
 
-const jestProcess = spawn('npx', ['jest', ...jestArgs], {
+// Utiliser npm run pour éviter les problèmes de PATH Windows
+const isWindows = process.platform === 'win32';
+const command = isWindows ? 'npm.cmd' : 'npm';
+const args = ['exec', '--', ...jestArgs];
+
+const jestProcess = spawn(command, args, {
   stdio: 'inherit',
   cwd: process.cwd(),
+  shell: isWindows, // Utiliser shell sur Windows
 });
 
 jestProcess.on('close', code => {

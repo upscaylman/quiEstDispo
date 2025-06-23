@@ -15,11 +15,15 @@ jest.mock('../firebase', () => ({
   db: { mock: 'db' },
 }));
 
-// Mock navigator
-Object.defineProperty(navigator, 'onLine', {
-  writable: true,
-  value: true,
-});
+// Mock navigator avec vérification d'existence
+if (typeof navigator === 'undefined') {
+  global.navigator = { onLine: true };
+} else {
+  Object.defineProperty(navigator, 'onLine', {
+    writable: true,
+    value: true,
+  });
+}
 
 // === TESTS ===
 

@@ -13,10 +13,14 @@ jest.mock('lucide-react', () => ({
 }));
 
 // Mock des APIs navigator.contacts
-Object.defineProperty(navigator, 'contacts', {
-  writable: true,
-  value: undefined,
-});
+if (typeof navigator === 'undefined') {
+  global.navigator = { contacts: undefined };
+} else {
+  Object.defineProperty(navigator, 'contacts', {
+    writable: true,
+    value: undefined,
+  });
+}
 
 // === TESTS ===
 

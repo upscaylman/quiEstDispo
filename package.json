@@ -34,25 +34,31 @@
     "autoprefixer": "^10.4.16",
     "babel-jest": "^30.0.0",
     "eslint": "^8.56.0",
+    "identity-obj-proxy": "^3.0.0",
     "postcss": "^8.4.32",
     "prettier": "^3.1.1",
-    "puppeteer": "^24.10.0",
     "tailwindcss": "^3.4.0",
-    "web-streams-polyfill": "^4.1.0"
+    "web-streams-polyfill": "^4.1.0",
+    "webpack-bundle-analyzer": "^4.10.2"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "test:ci": "react-scripts test --ci --watchAll=false --testPathPattern=\"(mockData|invitationService|errorMonitoring|PWAInstallPrompt|WarningBanner|googleSignInService|appCheckService|authService|useAuth|NotificationBadge|mapUtils|logger|avatarUtils|cookieService|GoogleSignInButton|useGeolocation|useGPSNotifications|GPSStatusToast|useMapLogic|LoginScreen|HomeScreen|MapScreen|BaseMapView|MapControls|MapMarkers|AddFriendModal|FriendInviteForm|PhoneSearch|QRCodeScanner|firebaseService|firebaseUtils|firebase).test.js\"",
+    "start": "craco start",
+    "build": "craco build",
+    "test": "craco test",
+    "test:ci": "craco test --ci --watchAll=false --testPathPattern=\"(mockData|invitationService|errorMonitoring|PWAInstallPrompt|WarningBanner|googleSignInService|appCheckService|authService|useAuth|NotificationBadge|mapUtils|logger|avatarUtils|cookieService|GoogleSignInButton|useGeolocation|useGPSNotifications|GPSStatusToast|useMapLogic|LoginScreen|HomeScreen|MapScreen|BaseMapView|MapControls|MapMarkers|AddFriendModal|FriendInviteForm|PhoneSearch|QRCodeScanner|firebaseService|firebaseUtils|firebase).test.js\"",
     "test:e2e": "node e2e/run-e2e.js",
     "test:e2e:auth": "node e2e/run-e2e.js 01-auth-flow.e2e.js",
     "test:e2e:friends": "node e2e/run-e2e.js 02-add-friend-flow.e2e.js",
+    "test:e2e:map": "node e2e/run-e2e.js 03-map-usage-flow.e2e.js",
+    "test:e2e:availability": "node e2e/run-e2e.js 04-availability-change-flow.e2e.js",
+    "test:e2e:notifications": "node e2e/run-e2e.js 05-notifications-flow.e2e.js",
     "test:e2e:verbose": "node e2e/run-e2e.js --verbose",
+    "test:e2e:advanced": "node e2e/run-e2e.js 03-map-usage-flow.e2e.js 04-availability-change-flow.e2e.js 05-notifications-flow.e2e.js",
     "eject": "react-scripts eject",
     "lint": "eslint src/**/*.{js,jsx}",
     "format": "prettier --write src/**/*.{js,jsx,css,json}",
-    "convert-svg": "node scripts/convert-svg-to-png.js"
+    "convert-svg": "node scripts/convert-svg-to-png.js",
+    "analyze": "npm run build && npx webpack-bundle-analyzer build/static/js/*.js"
   },
   "browserslist": {
     "production": [

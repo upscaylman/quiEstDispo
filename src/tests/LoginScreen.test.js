@@ -106,10 +106,14 @@ jest.mock('../components/GoogleSignInButton', () => {
 });
 
 // Mock window pour éviter les erreurs JSDOM
-Object.defineProperty(window, 'location', {
-  value: { href: 'http://localhost:3000' },
-  writable: true,
-});
+if (typeof window === 'undefined') {
+  global.window = { location: { href: 'http://localhost:3000' } };
+} else {
+  Object.defineProperty(window, 'location', {
+    value: { href: 'http://localhost:3000' },
+    writable: true,
+  });
+}
 
 describe('LoginScreen - PHASE 3 - UI Complexe', () => {
   beforeEach(() => {

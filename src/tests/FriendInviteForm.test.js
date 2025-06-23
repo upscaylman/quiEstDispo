@@ -12,10 +12,14 @@ jest.mock('lucide-react', () => ({
 }));
 
 // Mock des APIs navigator
-Object.defineProperty(navigator, 'share', {
-  writable: true,
-  value: jest.fn(),
-});
+if (typeof navigator === 'undefined') {
+  global.navigator = { share: jest.fn() };
+} else {
+  Object.defineProperty(navigator, 'share', {
+    writable: true,
+    value: jest.fn(),
+  });
+}
 
 Object.defineProperty(navigator, 'clipboard', {
   writable: true,

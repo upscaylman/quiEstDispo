@@ -1,4 +1,4 @@
-// Configuration Firebase simplifiée pour qui est dispo
+// Configuration Firebase optimisée pour performances - BUNDLE RÉDUIT
 import { initializeApp } from 'firebase/app';
 // Ne pas importer App Check pour éviter les conflits
 // import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
@@ -10,8 +10,8 @@ import {
   getFirestore,
   setLogLevel,
 } from 'firebase/firestore';
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { getStorage } from 'firebase/storage';
+// import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+// import { getStorage } from 'firebase/storage';
 
 // ⚠️ IMPORTANT: Configuration propre pour résoudre les erreurs SMS
 console.log('🔧 Configuration Firebase pour authentification SMS');
@@ -75,7 +75,7 @@ if (typeof window !== 'undefined') {
 // Services Firebase avec configuration optimisée
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
+// export const storage = getStorage(app);
 export { appCheck };
 
 // ⚠️ CORRECTION CRITIQUE: Configuration spéciale pour l'authentification par téléphone
@@ -163,12 +163,18 @@ try {
 // Par défaut, Firebase maintient l'état d'authentification dans le stockage local
 // Cela permet à l'utilisateur de rester connecté après rechargement de page
 
-// Initialiser messaging seulement si supporté
+// 🚀 OPTIMISATION: Messaging et Storage désactivés pour réduire le bundle
+// Initialiser messaging seulement si supporté et si les imports sont disponibles
 let messaging = null;
 try {
-  if ('serviceWorker' in navigator && 'PushManager' in window) {
-    messaging = getMessaging(app);
-  }
+  // Import conditionnel pour éviter d'alourdir le bundle principal
+  // if ('serviceWorker' in navigator && 'PushManager' in window) {
+  //   const { getMessaging } = await import('firebase/messaging');
+  //   messaging = getMessaging(app);
+  // }
+  console.log(
+    '🚀 Firebase Messaging désactivé pour optimiser les performances'
+  );
 } catch (error) {
   console.warn('Firebase Messaging not supported:', error);
 }
@@ -207,18 +213,12 @@ export const handleNetworkChange = async () => {
 window.addEventListener('online', handleNetworkChange);
 window.addEventListener('offline', handleNetworkChange);
 
-// Configuration des notifications push
+// 🚀 OPTIMISATION: Configuration des notifications push désactivée
 export const requestNotificationPermission = async () => {
   try {
-    if (!messaging) return null;
-
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      const token = await getToken(messaging, {
-        vapidKey: process.env.REACT_APP_FIREBASE_VAPID_KEY,
-      });
-      return token;
-    }
+    console.log(
+      '🚀 Notifications push désactivées pour optimiser les performances'
+    );
     return null;
   } catch (error) {
     console.warn('Notification permission failed:', error);
@@ -226,22 +226,22 @@ export const requestNotificationPermission = async () => {
   }
 };
 
-// Écouter les messages en premier plan
-if (messaging) {
-  onMessage(messaging, payload => {
-    // Afficher la notification
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then(registration => {
-        registration.showNotification(payload.notification.title, {
-          body: payload.notification.body,
-          icon: '/logo192.png',
-          badge: '/logo192.png',
-          tag: payload.data?.type || 'default',
-        });
-      });
-    }
-  });
-}
+// 🚀 OPTIMISATION: Écouter les messages en premier plan désactivé pour performances
+// if (messaging) {
+//   onMessage(messaging, payload => {
+//     // Afficher la notification
+//     if ('serviceWorker' in navigator) {
+//       navigator.serviceWorker.ready.then(registration => {
+//         registration.showNotification(payload.notification.title, {
+//           body: payload.notification.body,
+//           icon: '/logo192.png',
+//           badge: '/logo192.png',
+//           tag: payload.data?.type || 'default',
+//         });
+//       });
+//     }
+//   });
+// }
 
 // Fonctions utilitaires pour Firestore
 export const collections = {

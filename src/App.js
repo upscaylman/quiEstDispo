@@ -1,13 +1,10 @@
 // Application refactorisée avec AppShell et components modulaires
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 
-import AddFriendModal from './components/AddFriendModal';
 import AppShell from './components/AppShell';
 import CookieConsent from './components/CookieConsent';
-import DeleteAccountModal from './components/DeleteAccountModal';
+import LoadingSpinner from './components/LoadingSpinner';
 import LoginScreen from './components/LoginScreen';
-import { MapView } from './components/map';
-import MapboxMapView from './components/map/MapboxMapView';
 import PhoneRequiredModal from './components/PhoneRequiredModal';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import UpdateNotification from './components/UpdateNotification';
@@ -23,6 +20,21 @@ import {
 } from './services/firebaseService';
 import './styles/responsive.css';
 import { getMockDataForOfflineMode } from './utils/mockData';
+
+// 🚀 LAZY LOADING des composants lourds pour optimiser le bundle initial
+const MapView = lazy(() =>
+  import('./components/map').then(module => ({ default: module.MapView }))
+);
+const MapboxMapView = lazy(() => import('./components/map/MapboxMapView'));
+
+// 🎯 LAZY LOADING des modals (chargés seulement à l'ouverture)
+const AddFriendModal = lazy(() => import('./components/AddFriendModal'));
+const DeleteAccountModal = lazy(
+  () => import('./components/DeleteAccountModal')
+);
+const InviteFriendsModal = lazy(
+  () => import('./components/InviteFriendsModal')
+);
 
 // Version de l'application
 const APP_VERSION = '1.3.0';
@@ -1482,17 +1494,22 @@ function App() {
         className={`h-screen flex flex-col ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}
       >
         <div className="flex-1 relative overflow-hidden">
-          <MapComponent
-            userLocation={location}
-            availableFriends={availableFriends}
-            darkMode={darkMode}
-            selectedActivity={currentActivity}
-            isAvailable={isAvailable}
-            currentUser={user}
-            showControls={true}
-            onRetryGeolocation={retryGeolocation}
-            onRequestLocationPermission={requestLocationPermission}
-          />
+          <Suspense
+            fallback={
+              <LoadingSpinner message="Chargement de la carte..." size="lg" />
+            }
+          >
+            <MapComponent
+              userLocation={location}
+              availableFriends={availableFriends}
+              darkMode={darkMode}
+              selectedActivity={currentActivity}
+              isAvailable={isAvailable}
+              showControls={true}
+              onRetryGeolocation={retryGeolocation}
+              onRequestLocationPermission={requestLocationPermission}
+            />
+          </Suspense>
         </div>
 
         {/* Navigation */}
@@ -1556,13 +1573,17 @@ function App() {
         />
 
         {/* Modal d'ajout d'amis */}
-        <AddFriendModal
-          isOpen={showAddFriendModal}
-          onClose={() => setShowAddFriendModal(false)}
-          onAddFriend={handleAddFriend}
-          currentUser={user}
-          darkMode={darkMode}
-        />
+        {showAddFriendModal && (
+          <Suspense fallback={<LoadingSpinner message="Chargement..." />}>
+            <AddFriendModal
+              isOpen={showAddFriendModal}
+              onClose={() => setShowAddFriendModal(false)}
+              onAddFriend={handleAddFriend}
+              currentUser={user}
+              darkMode={darkMode}
+            />
+          </Suspense>
+        )}
 
         {/* Consentement cookies */}
         <CookieConsent darkMode={darkMode} />
@@ -1579,12 +1600,16 @@ function App() {
         />
 
         {/* Modal de suppression de compte */}
-        <DeleteAccountModal
-          isOpen={showDeleteAccountModal}
-          onClose={() => setShowDeleteAccountModal(false)}
-          onConfirm={handleDeleteAccount}
-          darkMode={darkMode}
-        />
+        {showDeleteAccountModal && (
+          <Suspense fallback={<LoadingSpinner message="Chargement..." />}>
+            <DeleteAccountModal
+              isOpen={showDeleteAccountModal}
+              onClose={() => setShowDeleteAccountModal(false)}
+              onConfirm={handleDeleteAccount}
+              darkMode={darkMode}
+            />
+          </Suspense>
+        )}
       </div>
     );
   }
@@ -1649,13 +1674,17 @@ function App() {
       />
 
       {/* Modal d'ajout d'amis */}
-      <AddFriendModal
-        isOpen={showAddFriendModal}
-        onClose={() => setShowAddFriendModal(false)}
-        onAddFriend={handleAddFriend}
-        currentUser={user}
-        darkMode={darkMode}
-      />
+      {showAddFriendModal && (
+        <Suspense fallback={<LoadingSpinner message="Chargement..." />}>
+          <AddFriendModal
+            isOpen={showAddFriendModal}
+            onClose={() => setShowAddFriendModal(false)}
+            onAddFriend={handleAddFriend}
+            currentUser={user}
+            darkMode={darkMode}
+          />
+        </Suspense>
+      )}
 
       {/* Consentement cookies */}
       <CookieConsent darkMode={darkMode} />
@@ -1672,12 +1701,16 @@ function App() {
       />
 
       {/* Modal de suppression de compte */}
-      <DeleteAccountModal
-        isOpen={showDeleteAccountModal}
-        onClose={() => setShowDeleteAccountModal(false)}
-        onConfirm={handleDeleteAccount}
-        darkMode={darkMode}
-      />
+      {showDeleteAccountModal && (
+        <Suspense fallback={<LoadingSpinner message="Chargement..." />}>
+          <DeleteAccountModal
+            isOpen={showDeleteAccountModal}
+            onClose={() => setShowDeleteAccountModal(false)}
+            onConfirm={handleDeleteAccount}
+            darkMode={darkMode}
+          />
+        </Suspense>
+      )}
     </>
   );
 }

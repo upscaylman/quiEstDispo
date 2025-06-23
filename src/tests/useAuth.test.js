@@ -1,7 +1,37 @@
 // @ts-nocheck
 // Tests useAuth Hook - FINALISATION COMPLÈTE avec patterns éprouvés
+
+// POLYFILL CRITIQUE : Doit être importé en premier pour éviter les erreurs undici
+import 'web-streams-polyfill';
+
 import { act, renderHook } from '@testing-library/react';
 import { useAuth } from '../hooks/useAuth';
+
+// Polyfill ReadableStream pour éviter l'erreur undici
+if (typeof global.ReadableStream === 'undefined') {
+  global.ReadableStream = class ReadableStream {
+    constructor() {}
+    getReader() {
+      return {
+        read: () => Promise.resolve({ done: true, value: undefined }),
+        releaseLock: () => {},
+        cancel: () => Promise.resolve(),
+      };
+    }
+    cancel() {
+      return Promise.resolve();
+    }
+    pipeTo() {
+      return Promise.resolve();
+    }
+    pipeThrough() {
+      return this;
+    }
+    tee() {
+      return [this, this];
+    }
+  };
+}
 
 // Mock AuthService avec toutes les méthodes
 jest.mock('../services/authService', () => ({

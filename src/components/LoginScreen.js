@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Clock, MapPin, Smartphone, Users } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import GoogleSignInService from '../services/googleSignInService';
 import GoogleSignInButton from './GoogleSignInButton';
