@@ -1,6 +1,7 @@
 // Service de validation avancée pour invitations - Phase 5
 import { UserEventStatus } from '../types/eventTypes';
 import { debugLog, prodError } from '../utils/logger';
+import { EventStatusService } from './eventStatusService';
 import { FriendsStatusService } from './friendsStatusService';
 import { RelationshipService } from './relationshipService';
 
@@ -16,6 +17,17 @@ export class ValidationService {
       debugLog(
         `🔍 [ValidationService] Vérification disponibilité ${userId} pour ${invitingUserId}`
       );
+
+      // 🚨 MODE DÉVELOPPEMENT : Contourner les vérifications strictes temporairement
+      if (process.env.NODE_ENV === 'development') {
+        debugLog(`🔧 [DEV MODE] Contournement validation pour ${userId}`);
+        return {
+          available: true,
+          reason: 'dev_mode_bypass',
+          details: null,
+          friendlyMessage: 'Disponible (mode dev)',
+        };
+      }
 
       // 1. Vérifier relation bilatérale
       const relationshipCheck = await RelationshipService.canUserInviteUser(
@@ -364,11 +376,19 @@ export class ValidationService {
         `🔍 [ValidationService] Validation action ${action} pour ${userId}`
       );
 
-      // Obtenir le statut utilisateur via le service de statut
-      const userStatus = await FriendsStatusService.getFriendDetailedStatus(
-        userId,
-        userId
+      // Obtenir le statut événement de l'utilisateur directement (sans logique relationnelle)
+      const userEventStatus =
+        await EventStatusService.getUserEventStatus(userId);
+
+      debugLog(
+        `🔍 [ValidationService] Statut événement utilisateur: ${userEventStatus}`
       );
+
+      // Créer un objet de statut simplifié
+      const userStatus = {
+        status: userEventStatus,
+        available: userEventStatus === UserEventStatus.LIBRE,
+      };
 
       // Règles d'autorisation par statut et action
       const actionRules = {

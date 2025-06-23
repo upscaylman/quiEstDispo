@@ -262,13 +262,38 @@ const InviteFriendsModal = ({
     setIsLoading(true);
     try {
       // 🎯 PHASE 5: Validation finale avant envoi
+      console.log(
+        '🧹 [DEBUG] Nettoyage préventif des invitations obsolètes...'
+      );
+
+      // Nettoyer les données obsolètes d'abord
+      try {
+        const { InvitationService } = await import(
+          '../services/invitationService'
+        );
+        await InvitationService.quickCleanupOldInvitations();
+      } catch (cleanupError) {
+        console.warn('⚠️ Erreur nettoyage:', cleanupError);
+      }
+
       const finalValidation =
         await ValidationService.validateInvitationRecipients(
-          Array.from(selectedFriends),
-          currentUserId
+          currentUserId,
+          Array.from(selectedFriends)
         );
 
+      console.log('🔍 [DEBUG] Résultat validation finale:', finalValidation);
+
       if (finalValidation.invalid.length > 0) {
+        // Logs détaillés pour diagnostic
+        console.error('❌ [DEBUG] Validation échouée:', {
+          total: finalValidation.summary?.total,
+          valid: finalValidation.valid,
+          invalid: finalValidation.invalid,
+          blocked: finalValidation.blocked,
+          reasons: finalValidation.reasons,
+        });
+
         alert(
           `⚠️ ${finalValidation.invalid.length} ami(s) ne peuvent plus être invité(s). Leurs statuts ont changé.`
         );

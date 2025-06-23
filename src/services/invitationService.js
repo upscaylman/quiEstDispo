@@ -12,12 +12,48 @@ import {
   serverTimestamp,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import { debugLog, prodError } from '../utils/logger';
 import { db, isOnline, retryWithBackoff } from './firebaseUtils';
 import { NotificationService } from './notificationService';
 
 export class InvitationService {
+  /**
+   * 🧹 Nettoyage rapide des invitations obsolètes (>24h)
+   */
+  static async quickCleanupOldInvitations() {
+    if (!isOnline() || process.env.NODE_ENV !== 'development') {
+      return { cleaned: 0 };
+    }
+
+    try {
+      const cutoffTime = new Date();
+      cutoffTime.setHours(cutoffTime.getHours() - 24);
+
+      const oldQuery = query(
+        collection(db, 'invitations'),
+        where('createdAt', '<', cutoffTime)
+      );
+
+      const snapshot = await getDocs(oldQuery);
+      if (snapshot.empty) return { cleaned: 0 };
+
+      const batch = writeBatch(db);
+      snapshot.forEach(doc => batch.delete(doc.ref));
+
+      await batch.commit();
+      debugLog(
+        `🧹 [QuickCleanup] ${snapshot.size} invitations obsolètes supprimées`
+      );
+
+      return { cleaned: snapshot.size };
+    } catch (error) {
+      prodError('❌ [QuickCleanup] Erreur:', error);
+      return { cleaned: 0 };
+    }
+  }
+
   // Vérifier s'il existe une invitation en cours
   static async checkExistingInvitation(userId1, userId2, activity) {
     if (!isOnline()) {
