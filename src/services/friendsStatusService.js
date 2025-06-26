@@ -7,6 +7,93 @@ import { ValidationService } from './validationService';
 
 export class FriendsStatusService {
   /**
+   * Calcule le statut d'affichage pour un ami spécifique
+   */
+  static async calculateFriendStatus(friendId, currentUserId) {
+    try {
+      // Vérifier relations bilatérales actives
+      const hasRelation = await RelationshipService.hasActiveRelationship(
+        currentUserId,
+        friendId
+      );
+
+      if (hasRelation.hasRelation) {
+        return {
+          status:
+            hasRelation.type === 'sharing' ? 'en_partage' : 'invitation_cours',
+          message:
+            hasRelation.type === 'sharing'
+              ? 'En partage de localisation'
+              : hasRelation.type === 'invitation_received'
+                ? 'Invitation reçue en attente'
+                : 'Invitation envoyée en attente',
+          color:
+            hasRelation.type === 'sharing'
+              ? 'bg-red-500 text-white'
+              : 'bg-orange-500 text-white',
+          available: false,
+          details: hasRelation,
+        };
+      }
+
+      // Vérifier disponibilité de l'ami (logique existante)
+      const validationResult = await ValidationService.canUserInviteUser(
+        currentUserId,
+        friendId
+      );
+
+      return {
+        status: validationResult.canInvite ? 'libre' : 'occupe',
+        message: validationResult.canInvite
+          ? 'Disponible pour activité'
+          : validationResult.reason || 'Non disponible',
+        color: validationResult.canInvite
+          ? 'bg-green-500 text-white'
+          : 'bg-orange-500 text-white',
+        available: validationResult.canInvite,
+        details: validationResult,
+      };
+    } catch (error) {
+      console.error('❌ Erreur calcul statut ami:', error);
+      return {
+        status: 'erreur',
+        message: 'Erreur de chargement',
+        color: 'bg-gray-500 text-white',
+        available: false,
+        details: { error: error.message },
+      };
+    }
+  }
+
+  /**
+   * Calcule les statuts pour une liste d'amis
+   */
+  static async calculateFriendsStatuses(friends, currentUserId) {
+    if (!friends || friends.length === 0) {
+      return {};
+    }
+
+    try {
+      const statusPromises = friends.map(friend =>
+        this.calculateFriendStatus(friend.id, currentUserId)
+      );
+
+      const statusResults = await Promise.all(statusPromises);
+
+      // Créer un map friendId -> status
+      const statusMap = {};
+      friends.forEach((friend, index) => {
+        statusMap[friend.id] = statusResults[index];
+      });
+
+      return statusMap;
+    } catch (error) {
+      console.error('❌ Erreur calcul statuts amis:', error);
+      return {};
+    }
+  }
+
+  /**
    * Obtient le statut détaillé d'un ami spécifique
    * @param {string} friendId - ID de l'ami
    * @param {string} currentUserId - ID utilisateur actuel
@@ -300,8 +387,8 @@ export class FriendsStatusService {
       case UserEventStatus.INVITATION_ENVOYEE:
         return {
           status: UserEventStatus.INVITATION_ENVOYEE,
-          message: 'A envoyé des invitations',
-          color: 'bg-orange-500 text-white',
+          message: 'En attente de partage',
+          color: 'bg-red-500 text-white', // Même couleur que EN_PARTAGE
           available: false,
           details: { eventStatus },
         };

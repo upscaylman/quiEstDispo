@@ -11,6 +11,7 @@ import UpdateNotification from './components/UpdateNotification';
 import { useAuth } from './hooks/useAuth';
 import { useGeolocation } from './hooks/useGeolocation';
 import { CookieService } from './services/cookieService';
+import { EventStatusService } from './services/eventStatusService';
 import {
   AuthService,
   AvailabilityService,
@@ -19,6 +20,8 @@ import {
   NotificationService,
 } from './services/firebaseService';
 import './styles/responsive.css';
+import { UserEventStatus } from './types/eventTypes';
+import { debugLog, prodError } from './utils/logger';
 import { getMockDataForOfflineMode } from './utils/mockData';
 
 // 🚀 LAZY LOADING des composants lourds pour optimiser le bundle initial
@@ -122,6 +125,58 @@ function App() {
     );
   }, []);
 
+  // 🎯 TASK 1.4 - VALIDATION ÉTATS (un seul état par user)
+  const validateUserState = async (expectedState = null) => {
+    if (!user?.uid) return { valid: true, currentState: UserEventStatus.LIBRE };
+
+    try {
+      // 🎯 UTILISE la nouvelle méthode centralisée de validation
+      const validation = await EventStatusService.validateSingleUserState(
+        user.uid
+      );
+
+      debugLog(`🔍 [VALIDATION] Résultat validation:`, validation);
+
+      // Si auto-correction effectuée, rafraîchir les états locaux
+      if (validation.wasAutoFixed) {
+        setIsAvailable(false);
+        setCurrentActivity(null);
+        setAvailabilityId(null);
+        setAvailabilityStartTime(null);
+        setPendingInvitation(null);
+
+        // Nettoyer localStorage
+        localStorage.removeItem('availabilityState');
+        localStorage.removeItem('pendingInvitation');
+
+        debugLog(
+          `✅ [VALIDATION] États locaux réinitialisés après auto-correction`
+        );
+      }
+
+      // Vérifier l'état attendu si spécifié
+      if (expectedState && validation.currentState !== expectedState) {
+        return {
+          valid: false,
+          currentState: validation.currentState,
+          expectedState,
+          error: `État attendu: ${expectedState}, état actuel: ${validation.currentState}`,
+          correctedIssues: validation.correctedIssues,
+        };
+      }
+
+      return {
+        valid: validation.valid,
+        currentState: validation.currentState,
+        correctedIssues: validation.correctedIssues,
+        wasAutoFixed: validation.wasAutoFixed,
+      };
+    } catch (error) {
+      prodError('❌ [VALIDATION] Erreur validation état:', error);
+      return { valid: false, error: error.message };
+    }
+  };
+
   // Gestion du thème avec support du mode système et cookies
   const [themeMode, setThemeMode] = useState(() => {
     const cookieTheme = CookieService.getThemePreference();
@@ -186,11 +241,71 @@ function App() {
   ) => {
     if (!user || !location) return;
 
+    // 🎯 TASK 1.4 - VALIDATION ÉTAT avant démarrage
+    // 🚨 FIX: Pour les réponses aux invitations, ne pas exiger l'état LIBRE
+    if (!isResponseToInvitation) {
+      const validation = await validateUserState(UserEventStatus.LIBRE);
+      if (!validation.valid && !validation.wasAutoFixed) {
+        debugLog(
+          `❌ [VALIDATION] Impossible de démarrer disponibilité: ${validation.error}`,
+          'StateValidation'
+        );
+        alert(`Impossible de démarrer l'activité: ${validation.error}`);
+        return;
+      }
+
+      if (validation.wasAutoFixed) {
+        debugLog(
+          `✅ [VALIDATION] État corrigé automatiquement, démarrage possible`,
+          'StateValidation'
+        );
+      }
+    } else {
+      // Pour les réponses aux invitations, validation plus souple
+      debugLog(
+        `🎯 [VALIDATION] Réponse à invitation - validation souple pour ${activity}`,
+        'StateValidation'
+      );
+
+      // 🚨 MODE DÉVELOPPEMENT : Contourner complètement la validation
+      if (process.env.NODE_ENV === 'development') {
+        debugLog(
+          `🔧 [DEV MODE] Contournement validation réponse invitation`,
+          'StateValidation'
+        );
+      } else {
+        // En production, juste vérifier que l'utilisateur existe et corriger si nécessaire
+        const validation = await validateUserState(); // Sans état spécifique attendu
+        if (validation.wasAutoFixed) {
+          debugLog(
+            `✅ [VALIDATION] État corrigé automatiquement pour réponse invitation`,
+            'StateValidation'
+          );
+        }
+      }
+    }
+
     const startTime = new Date().getTime();
 
     try {
       console.log(
         `🚀 Démarrage disponibilité: ${activity}${isResponseToInvitation ? ' (réponse à invitation)' : ''}`
+      );
+
+      // 🎯 CORRECTION - DISTINCTION entre INVITATION_ENVOYEE et EN_PARTAGE
+      const targetStatus = isResponseToInvitation
+        ? UserEventStatus.EN_PARTAGE // Réponse à invitation = partage immédiat
+        : UserEventStatus.INVITATION_ENVOYEE; // Démarrage pour inviter = attente
+
+      await EventStatusService.setUserEventStatus(user.uid, targetStatus, {
+        currentActivity: activity,
+        availabilityStartTime: startTime,
+        isResponseToInvitation,
+        respondingToUserId,
+      });
+
+      console.log(
+        `📊 [STATUT] ${isResponseToInvitation ? '✅ EN_PARTAGE (acceptation invitation)' : '⏳ INVITATION_ENVOYEE (en attente acceptation)'}`
       );
 
       const metadata = isResponseToInvitation
@@ -240,6 +355,32 @@ function App() {
           },
         })
       );
+
+      // 🎯 NOUVEAU: Déclencher mise à jour statuts amis temps réel
+      window.dispatchEvent(new CustomEvent('friendsStatusUpdate'));
+      console.log(
+        '📡 [APP] Événement friendsStatusUpdate émis (début partage)'
+      );
+
+      // 🔔 AMÉLIORATION MAJEURE: Utiliser le service pour notifier les participants
+      console.log('🚨 [AVANT] Appel notifyFriendsOfDeparture...', {
+        user: user.uid,
+        availabilityId,
+      });
+      try {
+        await AvailabilityService.notifyFriendsOfDeparture(
+          user.uid,
+          availabilityId
+        );
+        console.log('🚨 [APRÈS] notifyFriendsOfDeparture TERMINÉ SANS ERREUR');
+      } catch (notificationError) {
+        console.error(
+          '🚨 [ERREUR] Erreur notifications participants:',
+          notificationError
+        );
+        console.error('🚨 [ERREUR] Stack trace:', notificationError.stack);
+        // Ne pas bloquer l'arrêt pour une erreur de notification
+      }
     } catch (error) {
       // Mode offline - juste mettre à jour l'état local
       const offlineId = 'offline-' + Date.now();
@@ -999,33 +1140,42 @@ function App() {
         await AvailabilityService.stopAvailability(user.uid, availabilityId);
       }
 
-      // Si un ami avait accepté, lui envoyer une notification d'annulation
-      if (friendWhoAccepted) {
-        console.log(
-          '🛑 [DEBUG] Envoi notification annulation à:',
-          friendWhoAccepted.friend.name
+      // 🔔 AMÉLIORATION MAJEURE: Utiliser le service pour notifier les participants
+      console.log('🚨 [AVANT] Appel notifyFriendsOfDeparture...', {
+        user: user.uid,
+        availabilityId,
+      });
+      try {
+        await AvailabilityService.notifyFriendsOfDeparture(
+          user.uid,
+          availabilityId
         );
-        await NotificationService.createNotification(
-          friendWhoAccepted.userId, // À qui
-          user.uid, // De qui
-          'activity_cancelled', // Type
-          `❌ ${user.displayName || user.name || 'Un ami'} a annulé l'activité ${activityToCancel}`,
-          {
-            activity: activityToCancel,
-            cancelledBy: user.uid,
-            cancelledByName: user.displayName || user.name || 'Un ami',
-          }
+        console.log('🚨 [APRÈS] notifyFriendsOfDeparture TERMINÉ SANS ERREUR');
+      } catch (notificationError) {
+        console.error(
+          '🚨 [ERREUR] Erreur notifications participants:',
+          notificationError
         );
-        console.log('🛑 [DEBUG] ✅ Notification annulation envoyée');
+        console.error('🚨 [ERREUR] Stack trace:', notificationError.stack);
+        // Ne pas bloquer l'arrêt pour une erreur de notification
       }
 
       console.log('🛑 [DEBUG] ✅ Disponibilité arrêtée');
+
+      // 🔔 SUPPRIMÉ: Auto-notification inutile car l'utilisateur sait qu'il a arrêté son partage
+      // Seules les notifications aux autres participants sont nécessaires
 
       // 🚀 DÉCLENCHEMENT IMMÉDIAT: Informer l'interface du changement
       window.dispatchEvent(
         new CustomEvent('availability-state-changed', {
           detail: { userId: user.uid, newState: 'LIBRE', activity: null },
         })
+      );
+
+      // 🎯 NOUVEAU: Déclencher mise à jour statuts amis temps réel
+      window.dispatchEvent(new CustomEvent('friendsStatusUpdate'));
+      console.log(
+        '📡 [APP] Événement friendsStatusUpdate émis (arrêt partage)'
       );
     } catch (error) {
       console.error("❌ Erreur lors de l'arrêt de disponibilité:", error);
@@ -1402,10 +1552,14 @@ function App() {
 
         // Démarrer la disponibilité avec décompte pour l'expéditeur original
         if (!isAvailable || currentActivity !== notification.data.activity) {
+          console.log(
+            `🔧 [FIX] Démarrage automatique pour expéditeur - validation souple activée`
+          );
+
           await handleStartAvailability(
             notification.data.activity,
-            false, // Pas une réponse à invitation, c'est l'expéditeur original
-            null
+            true, // 🚨 FIX: Traiter comme une "réponse" pour éviter la validation stricte
+            notification.data.acceptedBy // L'utilisateur qui a accepté
           );
 
           console.log(

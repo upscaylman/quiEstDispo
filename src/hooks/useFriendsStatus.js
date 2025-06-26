@@ -1,7 +1,6 @@
 // Hook pour la gestion des états d'amis en temps réel - Phase 4
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FriendsStatusService } from '../services/friendsStatusService';
-import { debugLog, prodError } from '../utils/logger';
 
 /**
  * Hook pour gérer les états des amis en temps réel
@@ -10,138 +9,124 @@ import { debugLog, prodError } from '../utils/logger';
  * @returns {Object} - { friendsStatus, loading, error, refreshStatus }
  */
 export const useFriendsStatus = (friends, currentUserId) => {
-  const [friendsStatus, setFriendsStatus] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [friendsStatuses, setFriendsStatuses] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [lastUpdate, setLastUpdate] = useState(Date.now());
+  const lastRefreshRef = useRef(0);
+  const intervalRef = useRef(null);
 
   // Fonction pour rafraîchir les statuts
-  const refreshStatus = useCallback(
-    async (force = false) => {
-      if (!friends?.length || !currentUserId) {
-        debugLog(
-          "🔄 [useFriendsStatus] Pas d'amis ou d'utilisateur, skip refresh"
-        );
-        return;
-      }
+  const refreshStatuses = useCallback(async () => {
+    if (!friends || friends.length === 0 || !currentUserId) {
+      return;
+    }
 
-      const now = Date.now();
-      const timeSinceLastUpdate = now - lastUpdate;
+    const now = Date.now();
+    if (now - lastRefreshRef.current < 2000) {
+      // Éviter trop de refreshs rapprochés (< 2s)
+      return;
+    }
 
-      // Éviter les refresh trop fréquents (sauf si forcé)
-      if (!force && timeSinceLastUpdate < 10000) {
-        // 10 secondes minimum
-        debugLog('🔄 [useFriendsStatus] Refresh trop récent, skip');
-        return;
-      }
+    try {
+      setIsLoading(true);
+      setError(null);
+      lastRefreshRef.current = now;
 
-      try {
-        setLoading(true);
-        setError(null);
+      const statusResults = await FriendsStatusService.getAllFriendsStatus(
+        friends,
+        currentUserId
+      );
 
-        debugLog(
-          `🔄 [useFriendsStatus] Refresh statuts pour ${friends.length} amis`
-        );
+      setFriendsStatuses(statusResults);
+    } catch (error) {
+      console.error('❌ Erreur refresh statuts:', error);
+      setError(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [friends, currentUserId]);
 
-        // Calculer les statuts de tous les amis
-        const statusResults = await FriendsStatusService.getAllFriendsStatus(
-          friends,
-          currentUserId
-        );
+  // Démarrer/arrêter le refresh automatique
+  const startAutoRefresh = useCallback(() => {
+    if (intervalRef.current) return; // Déjà démarré
 
-        setFriendsStatus(statusResults);
-        setLastUpdate(now);
+    intervalRef.current = setInterval(() => {
+      refreshStatuses();
+    }, 15000); // Toutes les 15 secondes
+  }, [refreshStatuses]);
 
-        debugLog('🔄 [useFriendsStatus] ✅ Statuts mis à jour:', statusResults);
-        debugLog(
-          `🔄 [useFriendsStatus] ✅ ${Object.keys(statusResults).length} statuts calculés`
-        );
+  const stopAutoRefresh = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
 
-        // Déclencher un événement custom pour forcer le re-render
-        window.dispatchEvent(
-          new CustomEvent('friendsStatusUpdated', {
-            detail: { statusResults, timestamp: now },
-          })
-        );
-      } catch (err) {
-        prodError('❌ [useFriendsStatus] Erreur refresh statuts:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
+  // Refresh manuel avec événement personnalisé
+  const handleFriendsStatusUpdate = useCallback(
+    event => {
+      console.log(
+        '🔄 [DEBUG] Événement friendsStatusUpdate reçu !',
+        new Date().toLocaleTimeString()
+      );
+      refreshStatuses();
     },
-    [friends, currentUserId, lastUpdate]
+    [refreshStatuses]
   );
 
-  // Refresh automatique toutes les 15 secondes
+  // Gestion visibilité page
+  const handleVisibilityChange = useCallback(() => {
+    if (!document.hidden) {
+      // Page redevient visible
+      refreshStatuses();
+    }
+  }, [refreshStatuses]);
+
+  // Effects
+  useEffect(() => {
+    // Rafraîchir immédiatement
+    refreshStatuses();
+  }, [refreshStatuses]);
+
+  // 🎯 NOUVEAU: Forcer refresh toutes les 10 secondes pour débugger
   useEffect(() => {
     if (!friends?.length || !currentUserId) return;
 
-    debugLog('🔄 [useFriendsStatus] Démarrage refresh automatique');
+    const forceInterval = setInterval(() => {
+      console.log(
+        '🔄 [DEBUG] Force refresh statuts amis...',
+        new Date().toLocaleTimeString()
+      );
+      refreshStatuses();
+    }, 10000); // Toutes les 10 secondes pour tester
 
-    // Premier refresh immédiat
-    refreshStatus(true);
+    return () => clearInterval(forceInterval);
+  }, [friends, currentUserId, refreshStatuses]);
 
-    // Intervalle de refresh
-    const interval = setInterval(() => {
-      debugLog('🔄 [useFriendsStatus] Refresh automatique (15s)');
-      refreshStatus();
-    }, 15000);
-
-    return () => {
-      debugLog('🔄 [useFriendsStatus] Arrêt refresh automatique');
-      clearInterval(interval);
-    };
-  }, [refreshStatus]);
-
-  // Écouter les événements de changement d'état
   useEffect(() => {
-    const handleStatusChange = event => {
-      debugLog('🔄 [useFriendsStatus] Événement détecté:', event.type);
-      // Refresh immédiat en cas d'événement
-      setTimeout(() => refreshStatus(true), 100);
-    };
+    startAutoRefresh();
+    return () => stopAutoRefresh();
+  }, [startAutoRefresh, stopAutoRefresh]);
 
-    // Événements qui déclenchent un refresh immédiat
-    const events = [
-      'invitation-sent',
-      'invitation-responded',
-      'availability-changed',
-      'friendsStatusUpdate',
-      'location-sharing-started',
-      'location-sharing-stopped',
-    ];
-
-    events.forEach(eventType => {
-      window.addEventListener(eventType, handleStatusChange);
-    });
-
-    return () => {
-      events.forEach(eventType => {
-        window.removeEventListener(eventType, handleStatusChange);
-      });
-    };
-  }, [refreshStatus]);
-
-  // Écouter les changements de visibilité de la page
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        debugLog('🔄 [useFriendsStatus] Page visible, refresh statuts');
-        setTimeout(() => refreshStatus(true), 500);
-      }
-    };
-
+    // Écouter événements personnalisés
+    window.addEventListener('friendsStatusUpdate', handleFriendsStatusUpdate);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () =>
+
+    return () => {
+      window.removeEventListener(
+        'friendsStatusUpdate',
+        handleFriendsStatusUpdate
+      );
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [refreshStatus]);
+      stopAutoRefresh();
+    };
+  }, [handleFriendsStatusUpdate, handleVisibilityChange, stopAutoRefresh]);
 
   return {
-    friendsStatus,
-    loading,
+    friendsStatuses,
+    isLoading,
     error,
-    refreshStatus: () => refreshStatus(true),
-    lastUpdate: new Date(lastUpdate).toLocaleTimeString(),
+    refreshStatuses,
   };
 };

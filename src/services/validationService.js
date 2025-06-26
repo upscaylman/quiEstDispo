@@ -1,6 +1,5 @@
 // Service de validation avancée pour invitations - Phase 5
 import { UserEventStatus } from '../types/eventTypes';
-import { debugLog, prodError } from '../utils/logger';
 import { EventStatusService } from './eventStatusService';
 import { FriendsStatusService } from './friendsStatusService';
 import { RelationshipService } from './relationshipService';
@@ -14,13 +13,9 @@ export class ValidationService {
    */
   static async checkUserAvailability(userId, invitingUserId) {
     try {
-      debugLog(
-        `🔍 [ValidationService] Vérification disponibilité ${userId} pour ${invitingUserId}`
-      );
-
       // 🚨 MODE DÉVELOPPEMENT : Contourner les vérifications strictes temporairement
       if (process.env.NODE_ENV === 'development') {
-        debugLog(`🔧 [DEV MODE] Contournement validation pour ${userId}`);
+        console.log(`🔧 [DEV MODE] Contournement validation pour ${userId}`);
         return {
           available: true,
           reason: 'dev_mode_bypass',
@@ -69,10 +64,7 @@ export class ValidationService {
         friendlyMessage: 'Disponible pour invitation',
       };
     } catch (error) {
-      prodError(
-        '❌ [ValidationService] Erreur vérification disponibilité:',
-        error
-      );
+      console.error('❌ Erreur vérification disponibilité:', error);
       return {
         available: false,
         reason: 'error',
@@ -124,25 +116,8 @@ export class ValidationService {
     }
 
     try {
-      debugLog(
-        `🔍 [ValidationService] Validation invitation multiple: ${recipientIds.length} destinataires`
-      );
-
-      const valid = [];
-      const invalid = [];
-      const blocked = [];
-      const reasons = {};
-
-      // Options par défaut
-      const validationOptions = {
-        allowSelfInvite: false,
-        maxRecipients: 8,
-        requireAllValid: false,
-        ...options,
-      };
-
       // 1. Validation basique
-      if (recipientIds.length > validationOptions.maxRecipients) {
+      if (recipientIds.length > 8) {
         return {
           valid: [],
           invalid: recipientIds,
@@ -154,24 +129,33 @@ export class ValidationService {
             blocked: 0,
           },
           reasons: {
-            global: `Maximum ${validationOptions.maxRecipients} destinataires autorisés`,
+            global: 'Maximum 8 destinataires autorisés',
           },
         };
       }
 
       // 2. Éliminer auto-invitation
-      const filteredRecipients = validationOptions.allowSelfInvite
-        ? recipientIds
-        : recipientIds.filter(id => id !== fromUserId);
+      const filteredRecipients =
+        fromUserId === recipientIds[0]
+          ? recipientIds
+          : recipientIds.filter(id => id !== fromUserId);
 
       if (filteredRecipients.length !== recipientIds.length) {
         const selfIds = recipientIds.filter(id => id === fromUserId);
         selfIds.forEach(id => {
-          blocked.push(id);
-          reasons[id] = {
-            category: 'blocked',
-            reason: 'self_invite',
-            message: 'Auto-invitation non autorisée',
+          return {
+            valid: [],
+            invalid: recipientIds,
+            blocked: [id],
+            summary: {
+              total: recipientIds.length,
+              valid: 0,
+              invalid: recipientIds.length,
+              blocked: 1,
+            },
+            reasons: {
+              global: 'Auto-invitation non autorisée',
+            },
           };
         });
       }
@@ -195,6 +179,11 @@ export class ValidationService {
       const results = await Promise.all(validationPromises);
 
       // 4. Classer les résultats
+      const valid = [];
+      const invalid = [];
+      const blocked = [];
+      const reasons = {};
+
       results.forEach(result => {
         if (result.available) {
           valid.push(result.recipientId);
@@ -231,23 +220,16 @@ export class ValidationService {
         blocked: blocked.length,
       };
 
-      debugLog(`🔍 [ValidationService] ✅ Validation terminée:`, summary);
-
       return {
         valid,
         invalid,
         blocked,
         summary,
         reasons,
-        canProceed:
-          valid.length > 0 &&
-          (!validationOptions.requireAllValid || invalid.length === 0),
+        canProceed: valid.length > 0 && invalid.length === 0,
       };
     } catch (error) {
-      prodError(
-        '❌ [ValidationService] Erreur validation destinataires:',
-        error
-      );
+      console.error('❌ Erreur validation destinataires:', error);
       return {
         valid: [],
         invalid: recipientIds,
@@ -284,10 +266,6 @@ export class ValidationService {
     }
 
     try {
-      debugLog(
-        `🔍 [ValidationService] Filtrage ${friendsList.length} amis pour ${currentUserId}`
-      );
-
       const available = [];
       const unavailable = [];
 
@@ -341,17 +319,13 @@ export class ValidationService {
         percentage: Math.round((available.length / friendsList.length) * 100),
       };
 
-      debugLog(
-        `🔍 [ValidationService] ✅ Filtrage terminé: ${summary.available}/${summary.total} (${summary.percentage}%) disponibles`
-      );
-
       return {
         available,
         unavailable,
         summary,
       };
     } catch (error) {
-      prodError('❌ [ValidationService] Erreur filtrage amis:', error);
+      console.error('❌ Erreur filtrage amis:', error);
       return {
         available: [],
         unavailable: friendsList,
@@ -372,17 +346,22 @@ export class ValidationService {
    */
   static async validateActionByUserState(userId, action) {
     try {
-      debugLog(
-        `🔍 [ValidationService] Validation action ${action} pour ${userId}`
-      );
+      // 🚨 MODE DÉVELOPPEMENT : Contourner aussi les vérifications d'état
+      if (process.env.NODE_ENV === 'development') {
+        console.log(
+          `🔧 [DEV MODE] Contournement validation état pour ${userId}`
+        );
+        return {
+          allowed: true,
+          reason: 'dev_mode_bypass',
+          details: { action, userMessage: 'Autorisé (mode développement)' },
+          userMessage: 'Autorisé en mode développement',
+        };
+      }
 
       // Obtenir le statut événement de l'utilisateur directement (sans logique relationnelle)
       const userEventStatus =
         await EventStatusService.getUserEventStatus(userId);
-
-      debugLog(
-        `🔍 [ValidationService] Statut événement utilisateur: ${userEventStatus}`
-      );
 
       // Créer un objet de statut simplifié
       const userStatus = {
@@ -426,6 +405,7 @@ export class ValidationService {
           allowed: false,
           reason: 'unknown_action',
           details: { action },
+          userMessage: 'Action non reconnue',
         };
       }
 
@@ -437,24 +417,28 @@ export class ValidationService {
           allowed: true,
           reason: 'state_allows',
           details: { currentStatus, action },
+          userMessage: 'Action autorisée',
         };
       }
 
       // Vérifier blocage
       if (rules.blocked.includes(currentStatus)) {
+        const message = this._getBlockedActionMessage(currentStatus, action);
         return {
           allowed: false,
           reason: 'state_blocks',
           details: {
             currentStatus,
             action,
-            message: this._getBlockedActionMessage(currentStatus, action),
+            message: message,
           },
+          userMessage: message,
         };
       }
 
       // Vérifier avertissement
       if (rules.warning.includes(currentStatus)) {
+        const message = this._getWarningActionMessage(currentStatus, action);
         return {
           allowed: true,
           reason: 'state_warns',
@@ -462,8 +446,9 @@ export class ValidationService {
           details: {
             currentStatus,
             action,
-            message: this._getWarningActionMessage(currentStatus, action),
+            message: message,
           },
+          userMessage: message,
         };
       }
 
@@ -471,13 +456,15 @@ export class ValidationService {
         allowed: false,
         reason: 'state_unknown',
         details: { currentStatus, action },
+        userMessage: `État non reconnu: ${currentStatus}`,
       };
     } catch (error) {
-      prodError('❌ [ValidationService] Erreur validation action:', error);
+      console.error('❌ Erreur validation action:', error);
       return {
         allowed: false,
         reason: 'error',
         details: error.message,
+        userMessage: 'Erreur lors de la validation',
       };
     }
   }
@@ -511,16 +498,17 @@ export class ValidationService {
   static _getBlockedActionMessage(status, action) {
     const messages = {
       [`${UserEventStatus.EN_PARTAGE}_send_invitation`]:
-        "Impossible d'inviter pendant le partage de localisation",
+        "Impossible d'inviter pendant le partage de localisation. Arrêtez d'abord votre partage.",
       [`${UserEventStatus.EN_PARTAGE}_accept_invitation`]:
-        "Impossible d'accepter pendant le partage de localisation",
+        "Impossible d'accepter pendant le partage de localisation. Arrêtez d'abord votre partage.",
       [`${UserEventStatus.EN_PARTAGE}_start_sharing`]: 'Partage déjà en cours',
       [`${UserEventStatus.INVITATION_ENVOYEE}_send_invitation`]:
-        'Invitation déjà envoyée, attendez une réponse',
+        "Invitation déjà envoyée, attendez une réponse avant d'en envoyer une nouvelle",
     };
 
     return (
-      messages[`${status}_${action}`] || 'Action non autorisée dans cet état'
+      messages[`${status}_${action}`] ||
+      `Action "${action}" non autorisée dans l'état "${status}"`
     );
   }
 
@@ -544,5 +532,56 @@ export class ValidationService {
       messages[`${status}_${action}`] ||
       'Action possible mais attention à votre état actuel'
     );
+  }
+
+  /**
+   * Vérifie si un utilisateur peut inviter un autre utilisateur
+   */
+  static async canUserInviteUser(invitingUserId, userId) {
+    try {
+      // [CONTOURNEMENT DEV MODE - Phase 1]
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🔧 [DEV MODE] Contournement validation pour ${userId}`);
+        return {
+          canInvite: true,
+          reason: 'dev_mode_bypass',
+          details: { devMode: true },
+        };
+      }
+
+      // Vérifier si l'utilisateur a déjà des invitations pending
+      const pendingInvitations =
+        await this._checkUserPendingInvitations(userId);
+      if (pendingInvitations.length > 0) {
+        return {
+          canInvite: false,
+          reason: `A déjà ${pendingInvitations.length} invitation(s) en attente`,
+          details: { pendingInvitations },
+        };
+      }
+
+      // Vérifier si l'utilisateur partage déjà sa localisation
+      const isSharing = await this._checkUserLocationSharing(userId);
+      if (isSharing.isSharing) {
+        return {
+          canInvite: false,
+          reason: `Partage déjà sa localisation pour ${isSharing.activity}`,
+          details: isSharing,
+        };
+      }
+
+      return {
+        canInvite: true,
+        reason: 'user_available',
+        details: {},
+      };
+    } catch (error) {
+      console.error('❌ Erreur validation utilisateur:', error);
+      return {
+        canInvite: false,
+        reason: 'Erreur de validation',
+        details: { error: error.message },
+      };
+    }
   }
 }

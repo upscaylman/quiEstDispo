@@ -276,43 +276,47 @@ const HomeScreen = ({
 
           {/* Section Inviter des amis */}
           <motion.div
-            className="mt-6"
+            className="mt-4"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <h3
-              className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}
+            <div
+              className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg`}
             >
-              Élargis ton cercle
-            </h3>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={onAddFriend}
-              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-3 px-4 rounded-xl font-medium flex items-center justify-center transition-all shadow-lg"
-            >
-              <UserPlus size={20} className="mr-2" />
-              <span>Inviter des amis 🎉</span>
-            </motion.button>
+              <h3
+                className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+              >
+                🚀 Élargis ton cercle
+              </h3>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={onAddFriend}
+                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-3 px-4 rounded-xl font-medium flex items-center justify-center transition-all shadow-lg"
+              >
+                <UserPlus size={20} className="mr-2" />
+                <span>Inviter des amis 🎉</span>
+              </motion.button>
 
-            {/* Boutons de test en mode développement */}
-            {process.env.NODE_ENV === 'development' && (
-              <div className="mt-4 space-y-2">
-                <button
-                  onClick={onCreateTestFriendships}
-                  className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg text-sm font-medium"
-                >
-                  🧪 Créer des amitiés de test
-                </button>
-                <button
-                  onClick={onLoadMockData}
-                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg text-sm font-medium"
-                >
-                  🎭 Charger des données de démo
-                </button>
-              </div>
-            )}
+              {/* Boutons de test en mode développement */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-4 space-y-2">
+                  <button
+                    onClick={onCreateTestFriendships}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg text-sm font-medium"
+                  >
+                    🧪 Créer des amitiés de test
+                  </button>
+                  <button
+                    onClick={onLoadMockData}
+                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg text-sm font-medium"
+                  >
+                    🎭 Charger des données de démo
+                  </button>
+                </div>
+              )}
+            </div>
           </motion.div>
         </div>
 

@@ -12,6 +12,8 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 // 🎯 PHASE 5 - Validation UI selon état utilisateur
 import { ValidationService } from '../services/validationService';
+// 🎯 TASK 1.5 - Interface états temps réel
+import { useFriendsStatus } from '../hooks/useFriendsStatus';
 
 const InviteFriendsModal = ({
   isOpen,
@@ -34,6 +36,13 @@ const InviteFriendsModal = ({
   });
   const [validatingUser, setValidatingUser] = useState(false);
 
+  // 🎯 TASK 1.5 - Hook pour les statuts temps réel des amis
+  const {
+    friendsStatus,
+    loading: statusLoading,
+    error: statusError,
+  } = useFriendsStatus(friends, currentUserId);
+
   useEffect(() => {
     if (isOpen) {
       setSelectedActivity(activity);
@@ -48,6 +57,16 @@ const InviteFriendsModal = ({
 
     setValidatingUser(true);
     try {
+      // 🔍 DEBUG: Vérifier d'abord l'état brut de l'utilisateur
+      if (process.env.NODE_ENV === 'development') {
+        const { EventStatusService } = await import(
+          '../services/eventStatusService'
+        );
+        const rawStatus =
+          await EventStatusService.getUserEventStatus(currentUserId);
+        console.log('🔍 [MODAL DEBUG] État brut utilisateur:', rawStatus);
+      }
+
       const validation = await ValidationService.validateActionByUserState(
         currentUserId,
         'send_invitation'
@@ -61,7 +80,11 @@ const InviteFriendsModal = ({
       });
 
       if (process.env.NODE_ENV === 'development') {
-        console.log('🔍 [MODAL VALIDATION] État utilisateur:', validation);
+        console.log('🔍 [MODAL VALIDATION] Validation complète:', validation);
+        console.log(
+          '🔍 [MODAL VALIDATION] Interface sera:',
+          validation.allowed ? 'AUTORISÉE' : 'BLOQUÉE'
+        );
       }
     } catch (error) {
       console.error('❌ [MODAL] Erreur validation utilisateur:', error);
@@ -440,16 +463,45 @@ const InviteFriendsModal = ({
                       {userActionValid.userMessage ||
                         "Votre état actuel ne permet pas d'envoyer des invitations."}
                     </p>
-                    <button
-                      onClick={validateUserCanSendInvitations}
-                      className={`text-xs mt-2 underline ${
-                        darkMode
-                          ? 'text-red-400 hover:text-red-300'
-                          : 'text-red-700 hover:text-red-800'
-                      }`}
-                    >
-                      Vérifier à nouveau
-                    </button>
+                    <div className="space-y-2">
+                      <button
+                        onClick={validateUserCanSendInvitations}
+                        className={`text-xs underline ${
+                          darkMode
+                            ? 'text-red-400 hover:text-red-300'
+                            : 'text-red-700 hover:text-red-800'
+                        }`}
+                      >
+                        Vérifier à nouveau
+                      </button>
+                      {process.env.NODE_ENV === 'development' && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              const { EventStatusService } = await import(
+                                '../services/eventStatusService'
+                              );
+                              await EventStatusService.forceResetToLibre(
+                                currentUserId,
+                                'Reset manuel depuis modal'
+                              );
+                              console.log('🔄 Reset forcé vers LIBRE effectué');
+                              // Re-valider après reset
+                              await validateUserCanSendInvitations();
+                            } catch (error) {
+                              console.error('❌ Erreur reset:', error);
+                            }
+                          }}
+                          className={`block text-xs underline ${
+                            darkMode
+                              ? 'text-yellow-400 hover:text-yellow-300'
+                              : 'text-yellow-700 hover:text-yellow-800'
+                          }`}
+                        >
+                          🔧 [DEV] Forcer reset état
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -618,19 +670,33 @@ const InviteFriendsModal = ({
                             >
                               {friend.name}
                             </p>
-                            <p
-                              className={`text-sm ${
-                                isDisabled
-                                  ? 'text-gray-400'
-                                  : darkMode
+                            <div className="flex items-center gap-2">
+                              <p
+                                className={`text-sm ${
+                                  isDisabled
                                     ? 'text-gray-400'
-                                    : 'text-gray-600'
-                              }`}
-                            >
-                              {friend.isOnline
-                                ? '🟢 En ligne'
-                                : '⚫ Hors ligne'}
-                            </p>
+                                    : darkMode
+                                      ? 'text-gray-400'
+                                      : 'text-gray-600'
+                                }`}
+                              >
+                                {friend.isOnline
+                                  ? '🟢 En ligne'
+                                  : '⚫ Hors ligne'}
+                              </p>
+                              {/* 🎯 NOUVEAU: Affichage du statut temps réel */}
+                              {friendsStatus?.[friend.id] && (
+                                <span
+                                  className={`text-xs px-2 py-1 rounded-full ${
+                                    friendsStatus[friend.id].available
+                                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                      : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                                  }`}
+                                >
+                                  {friendsStatus[friend.id].message}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           <div

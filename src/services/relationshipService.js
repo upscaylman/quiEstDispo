@@ -1,6 +1,5 @@
 // Service pour la gestion des relations bilatérales - Phase 5
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
-import { debugLog, prodError } from '../utils/logger';
 import { db, isOnline } from './firebaseUtils';
 
 export class RelationshipService {
@@ -16,44 +15,38 @@ export class RelationshipService {
     }
 
     try {
-      debugLog(
-        `🔍 [RelationshipService] Vérification relation ${userId1} ↔ ${userId2}`
-      );
-
-      // 1. Vérifier invitations pending entre les deux utilisateurs
-      const pendingInvitations = await this._checkPendingInvitations(
+      // 1. Vérifier invitation en cours dans les deux sens
+      const hasInvitation = await this._checkPendingInvitations(
         userId1,
         userId2
       );
-      if (pendingInvitations.hasRelation) {
-        return pendingInvitations;
+      if (hasInvitation.hasRelation) {
+        return hasInvitation;
       }
 
-      // 2. Vérifier partage de localisation actif
-      const locationSharing = await this._checkLocationSharing(
-        userId1,
-        userId2
-      );
-      if (locationSharing.hasRelation) {
-        return locationSharing;
+      // 2. Vérifier partage de géolocalisation mutuel
+      const hasSharing = await this._checkLocationSharing(userId1, userId2);
+      if (hasSharing.hasRelation) {
+        return {
+          hasRelation: true,
+          type: 'sharing',
+          details: hasSharing.details,
+        };
       }
 
-      // 3. Vérifier disponibilité partagée commune
-      const sharedAvailability = await this._checkSharedAvailability(
-        userId1,
-        userId2
-      );
-      if (sharedAvailability.hasRelation) {
-        return sharedAvailability;
-      }
-
-      return { hasRelation: false, type: null, reason: 'no_active_relation' };
+      return {
+        hasRelation: false,
+        type: null,
+        details: null,
+      };
     } catch (error) {
-      prodError(
-        '❌ [RelationshipService] Erreur vérification relation:',
-        error
-      );
-      return { hasRelation: false, type: 'error', reason: error.message };
+      console.error('❌ Erreur vérification relation:', error);
+      return {
+        hasRelation: false,
+        type: null,
+        details: null,
+        error: error.message,
+      };
     }
   }
 
@@ -76,10 +69,6 @@ export class RelationshipService {
    */
   static async canUserInviteUser(fromUserId, toUserId) {
     try {
-      debugLog(
-        `🔍 [RelationshipService] Vérification invitation ${fromUserId} → ${toUserId}`
-      );
-
       // 1. Vérifier relation existante
       const relationship = await this.hasActiveRelationship(
         fromUserId,
@@ -121,10 +110,7 @@ export class RelationshipService {
         details: null,
       };
     } catch (error) {
-      prodError(
-        '❌ [RelationshipService] Erreur validation invitation:',
-        error
-      );
+      console.error('❌ Erreur validation invitation:', error);
       return {
         canInvite: false,
         reason: 'error',
@@ -145,12 +131,6 @@ export class RelationshipService {
     }
 
     try {
-      debugLog(
-        `🔍 [RelationshipService] Calcul amis indisponibles pour ${userId} (${friendsList.length} amis)`
-      );
-
-      const unavailableFriends = [];
-
       // Vérifier chaque ami en parallèle
       const checkPromises = friendsList.map(async friend => {
         const canInvite = await this.canUserInviteUser(userId, friend.id);
@@ -172,21 +152,11 @@ export class RelationshipService {
       const results = await Promise.all(checkPromises);
 
       // Filtrer les résultats non-null
-      results.forEach(result => {
-        if (result) {
-          unavailableFriends.push(result);
-        }
-      });
+      const unavailableFriends = results.filter(result => result !== null);
 
-      debugLog(
-        `🔍 [RelationshipService] ✅ ${unavailableFriends.length}/${friendsList.length} amis indisponibles`
-      );
       return unavailableFriends;
     } catch (error) {
-      prodError(
-        '❌ [RelationshipService] Erreur calcul amis indisponibles:',
-        error
-      );
+      console.error('❌ Erreur calcul amis indisponibles:', error);
       return [];
     }
   }
@@ -203,10 +173,6 @@ export class RelationshipService {
     }
 
     try {
-      debugLog(
-        `🔍 [RelationshipService] Validation ${recipientIds.length} destinataires`
-      );
-
       const valid = [];
       const invalid = [];
       const reasons = {};
@@ -232,16 +198,9 @@ export class RelationshipService {
 
       await Promise.all(validationPromises);
 
-      debugLog(
-        `🔍 [RelationshipService] ✅ Validation: ${valid.length} valides, ${invalid.length} invalides`
-      );
-
       return { valid, invalid, reasons };
     } catch (error) {
-      prodError(
-        '❌ [RelationshipService] Erreur validation destinataires:',
-        error
-      );
+      console.error('❌ Erreur validation destinataires:', error);
       return { valid: [], invalid: recipientIds, reasons: {} };
     }
   }
@@ -337,7 +296,7 @@ export class RelationshipService {
 
       return { hasRelation: false };
     } catch (error) {
-      prodError('❌ Erreur vérification invitations pending:', error);
+      console.error('❌ Erreur vérification invitations pending:', error);
       return { hasRelation: false };
     }
   }
@@ -385,19 +344,9 @@ export class RelationshipService {
 
       return { hasRelation: false };
     } catch (error) {
-      prodError('❌ Erreur vérification partage localisation:', error);
+      console.error('❌ Erreur vérification partage localisation:', error);
       return { hasRelation: false };
     }
-  }
-
-  /**
-   * Vérifie la disponibilité partagée commune
-   * @private
-   */
-  static async _checkSharedAvailability(userId1, userId2) {
-    // Pour l'instant, considérons que le partage de localisation couvre ce cas
-    // Peut être étendu plus tard pour d'autres types de disponibilité partagée
-    return { hasRelation: false };
   }
 
   /**
@@ -487,7 +436,7 @@ export class RelationshipService {
 
       return { isBusy: false, type: null };
     } catch (error) {
-      prodError('❌ Erreur vérification statut utilisateur:', error);
+      console.error('❌ Erreur vérification statut utilisateur:', error);
       return { isBusy: false, type: 'error' };
     }
   }

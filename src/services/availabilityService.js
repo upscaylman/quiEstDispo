@@ -213,67 +213,93 @@ export class AvailabilityService {
     }
   }
 
-  // 🔥 NOUVELLE MÉTHODE: Notifier les amis du départ
+  // 🔥 NOTIFIER LES AMIS DU DÉPART - ADAPTÉ À CETTE BRANCHE !
   static async notifyFriendsOfDeparture(userId, availabilityId) {
     try {
-      console.log(`📢 [DEBUG] Notification départ pour ${userId}`);
+      // Récupérer info utilisateur qui part
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
 
-      // Récupérer l'availability pour obtenir l'activité et les détails
-      const availabilityRef = doc(db, 'availabilities', availabilityId);
-      const availabilitySnap = await getDoc(availabilityRef);
-
-      if (!availabilitySnap.exists()) {
-        console.log(`📢 [DEBUG] Availability ${availabilityId} n'existe plus`);
+      if (!userSnap.exists()) {
+        console.log('❌ Utilisateur inexistant');
         return;
       }
 
-      const availabilityData = availabilitySnap.data();
-      const activity = availabilityData.activity;
+      const userData = userSnap.data();
+      const userName = userData.displayName || userData.name || 'Un ami';
+      const activity =
+        userData.mutualSharingActivity ||
+        userData.currentActivity ||
+        'une activité';
 
-      // Récupérer le nom de l'utilisateur qui part
-      const userRef = doc(db, 'users', userId);
-      const userSnap = await getDoc(userRef);
-      const userName = userSnap.exists()
-        ? userSnap.data().displayName || userSnap.data().name || 'Un ami'
-        : 'Un ami';
-
-      // Trouver tous les amis qui avaient rejoint cette activité
-      const activeParticipantsQuery = query(
-        collection(db, 'availabilities'),
-        where('joinedByFriend', '==', userId),
-        where('isActive', '==', true)
+      console.log('🔍 [DÉPART DEBUG] userData COMPLÈTE:', userData);
+      console.log('🔍 [DÉPART DEBUG] userName:', userName);
+      console.log('🔍 [DÉPART DEBUG] activity:', activity);
+      console.log(
+        '🔍 [DÉPART DEBUG] mutualSharingWith:',
+        userData.mutualSharingWith
+      );
+      console.log(
+        '🔍 [DÉPART DEBUG] mutualSharingActivity:',
+        userData.mutualSharingActivity
+      );
+      console.log('🔍 [DÉPART DEBUG] locationShared:', userData.locationShared);
+      console.log(
+        '🔍 [DÉPART DEBUG] currentActivity:',
+        userData.currentActivity
       );
 
-      const participantsSnapshot = await getDocs(activeParticipantsQuery);
+      // 🔥 UTILISER mutualSharingWith QUI EXISTE DANS CETTE BRANCHE !
+      const participantsToNotify = new Set();
+
+      // A. Si j'ai mutualSharingWith, notifier cette personne
+      if (userData.mutualSharingWith) {
+        participantsToNotify.add(userData.mutualSharingWith);
+      }
+
+      // B. Chercher qui partage avec moi (relation inverse)
+      const reverseMutualQuery = query(
+        collection(db, 'users'),
+        where('mutualSharingWith', '==', userId)
+      );
+      const reverseMutualSnapshot = await getDocs(reverseMutualQuery);
+
+      reverseMutualSnapshot.docs.forEach(doc => {
+        participantsToNotify.add(doc.id);
+      });
 
       console.log(
-        `📢 [DEBUG] ${participantsSnapshot.size} participants à notifier`
+        '🔍 [DÉPART DEBUG] participantsToNotify:',
+        Array.from(participantsToNotify)
       );
 
-      // Notifier chaque participant
-      for (const participantDoc of participantsSnapshot.docs) {
-        const participantData = participantDoc.data();
-        const participantUserId = participantData.userId;
+      if (participantsToNotify.size === 0) {
+        console.log('❌ PROBLÈME: Aucun participant trouvé !', {
+          userData,
+          userId,
+        });
+        return;
+      }
 
-        console.log(`📢 [DEBUG] Notification à ${participantUserId}`);
-
-        // Créer notification de départ
+      // 3. Envoyer notifications avec le bon type/message
+      for (const participantId of participantsToNotify) {
         await addDoc(collection(db, 'notifications'), {
-          to: participantUserId,
+          to: participantId,
           from: userId,
-          type: 'friend_left_activity',
-          message: `👋 ${userName} a quitté l'activité ${activity}`,
+          type: 'friend_stopped_sharing',
+          message: `👋 ${userName} a arrêté le partage de localisation pour ${activity}`,
           data: {
             activity,
-            leftUserId: userId,
-            leftUserName: userName,
+            stoppedBy: userId,
+            stoppedByName: userName,
           },
           read: false,
           createdAt: serverTimestamp(),
         });
+        console.log(`✅ Notification envoyée à ${participantId}`);
       }
 
-      console.log(`📢 [DEBUG] ✅ Notifications de départ envoyées`);
+      console.log(`✅ ${participantsToNotify.size} notifications envoyées`);
     } catch (error) {
       console.error('❌ Erreur notification départ:', error);
       // Ne pas faire échouer l'arrêt de disponibilité
@@ -852,6 +878,10 @@ export class AvailabilityService {
 
   // 🔥 NOUVELLE MÉTHODE: Gérer le partage mutuel de géolocalisation (style WhatsApp)
   static async enableMutualLocationSharing(userId1, userId2, activity) {
+    console.log(
+      `🚨🚨🚨 [ENABLE MUTUAL] DÉBUT DE LA FONCTION! userId1=${userId1}, userId2=${userId2}, activity=${activity}`
+    );
+
     if (!isOnline()) {
       console.warn('⚠️ Offline mode, cannot enable mutual sharing');
       return;
@@ -899,7 +929,11 @@ export class AvailabilityService {
         console.warn(
           '⚠️ Impossible de récupérer les locations pour le partage mutuel'
         );
-        return;
+        console.warn(
+          '🔧 [FIX] Activation relation mutuelle SANS locations - les locations sont optionnelles !'
+        );
+        // 🔧 CORRECTION CRITIQUE: Continuer QUAND MÊME pour créer la relation mutuelle
+        // Les locations ne sont PAS obligatoires pour les notifications de départ !
       }
 
       // Activer le partage pour les deux utilisateurs simultanément avec leurs locations
@@ -908,22 +942,31 @@ export class AvailabilityService {
 
       const timestamp = serverTimestamp();
       const mutualSharingData1 = {
-        location: user1Location, // 🔥 IMPORTANT: Copier la location dans le profil
         locationShared: true,
         lastLocationUpdate: timestamp,
-        mutualSharingWith: userId2,
+        mutualSharingWith: userId2, // 🔥 CRITIQUE: Toujours stocker la relation !
         mutualSharingActivity: activity,
         updatedAt: timestamp,
       };
 
       const mutualSharingData2 = {
-        location: user2Location, // 🔥 IMPORTANT: Copier la location dans le profil
         locationShared: true,
         lastLocationUpdate: timestamp,
-        mutualSharingWith: userId1,
+        mutualSharingWith: userId1, // 🔥 CRITIQUE: Toujours stocker la relation !
         mutualSharingActivity: activity,
         updatedAt: timestamp,
       };
+
+      // 🔧 NOUVEAU: Ajouter les locations seulement si elles existent
+      if (user1Location) {
+        mutualSharingData1.location = user1Location;
+        console.log('📍 Location user1 ajoutée au profil');
+      }
+
+      if (user2Location) {
+        mutualSharingData2.location = user2Location;
+        console.log('📍 Location user2 ajoutée au profil');
+      }
 
       // Mise à jour simultanée pour garantir la réciprocité
       await Promise.all([

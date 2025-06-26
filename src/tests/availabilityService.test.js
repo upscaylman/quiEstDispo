@@ -467,32 +467,140 @@ describe('AvailabilityService - FINALISATION COMPLÈTE Foundation Services', () 
 
       await AvailabilityService.cleanupInactiveResponses();
 
-      // Seule la réponse > 1h doit être supprimée
+      // Doit supprimer seulement l'ancienne réponse
       expect(firebaseMocks.deleteDoc).toHaveBeenCalledTimes(1);
     });
 
-    test('doit nettoyer les réponses pour des activités spécifiques', async () => {
-      const responses = [
-        createMockResponse({ id: 'resp-1', availabilityId: 'activity-target' }),
-        createMockResponse({ id: 'resp-2', availabilityId: 'activity-target' }),
+    test('doit nettoyer les availabilities expirées', async () => {
+      const expiredAvailabilities = [
+        createMockAvailability({
+          id: 'expired-1',
+          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2h ago
+          expiresAt: new Date(Date.now() - 60 * 60 * 1000), // 1h ago
+        }),
+        createMockAvailability({
+          id: 'expired-2',
+          createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000), // 3h ago
+          expiresAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2h ago
+        }),
       ];
-      setupMockQuery(responses);
 
-      await AvailabilityService.cleanupActivityResponses('activity-target');
+      setupMockQuery(expiredAvailabilities);
+
+      await AvailabilityService.cleanupExpiredAvailabilities();
 
       expect(firebaseMocks.deleteDoc).toHaveBeenCalledTimes(2);
     });
 
     test('doit nettoyer les invitations expirées', async () => {
       const expiredInvitations = [
-        { id: 'inv-1', createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000) }, // 25h ago
-        { id: 'inv-2', createdAt: new Date(Date.now() - 30 * 60 * 60 * 1000) }, // 30h ago
+        { id: 'inv1', expiresAt: new Date(Date.now() - 60 * 60 * 1000) },
+        { id: 'inv2', expiresAt: new Date(Date.now() - 30 * 60 * 1000) },
       ];
+
       setupMockQuery(expiredInvitations);
 
       await AvailabilityService.cleanupExpiredInvitations();
 
       expect(firebaseMocks.deleteDoc).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('📢 Notifications de Départ - Tests Simples', () => {
+    test('doit notifier ami via mutualSharingWith', async () => {
+      // Setup: Paul partage avec Jack
+      firebaseMocks.getDoc.mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          displayName: 'Paul',
+          mutualSharingWith: 'jack-123',
+          mutualSharingActivity: 'coffee',
+        }),
+      });
+
+      // Mock query pour relation inverse (personne qui partage avec Paul)
+      firebaseMocks.getDocs.mockResolvedValueOnce({
+        size: 0,
+        docs: [],
+      });
+
+      firebaseMocks.addDoc.mockResolvedValue({ id: 'notification-456' });
+
+      await AvailabilityService.notifyFriendsOfDeparture(
+        'paul-123',
+        'availability-123'
+      );
+
+      // Doit créer 1 notification pour Jack
+      expect(firebaseMocks.addDoc).toHaveBeenCalledTimes(1);
+      expect(firebaseMocks.addDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          to: 'jack-123',
+          from: 'paul-123',
+          type: 'friend_stopped_sharing',
+          message: '👋 Paul a arrêté le partage de localisation pour coffee',
+        })
+      );
+    });
+
+    test('doit notifier relations inverses (qui partagent avec moi)', async () => {
+      // Setup: Paul n'a pas mutualSharingWith mais Jack partage avec Paul
+      firebaseMocks.getDoc.mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          displayName: 'Paul',
+          mutualSharingWith: null,
+        }),
+      });
+
+      // Mock query pour relation inverse
+      firebaseMocks.getDocs.mockResolvedValueOnce({
+        size: 1,
+        docs: [{ id: 'jack-123' }],
+      });
+
+      firebaseMocks.addDoc.mockResolvedValue({ id: 'notification-456' });
+
+      await AvailabilityService.notifyFriendsOfDeparture(
+        'paul-123',
+        'availability-123'
+      );
+
+      // Doit créer 1 notification pour Jack
+      expect(firebaseMocks.addDoc).toHaveBeenCalledTimes(1);
+      expect(firebaseMocks.addDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          to: 'jack-123',
+          from: 'paul-123',
+          type: 'friend_stopped_sharing',
+        })
+      );
+    });
+
+    test('ne doit pas notifier si pas de relations', async () => {
+      // Setup: Paul n'a aucune relation mutuelle
+      firebaseMocks.getDoc.mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          displayName: 'Paul',
+          mutualSharingWith: null,
+        }),
+      });
+
+      firebaseMocks.getDocs.mockResolvedValueOnce({
+        size: 0,
+        docs: [],
+      });
+
+      await AvailabilityService.notifyFriendsOfDeparture(
+        'paul-123',
+        'availability-123'
+      );
+
+      // Aucune notification envoyée
+      expect(firebaseMocks.addDoc).not.toHaveBeenCalled();
     });
   });
 

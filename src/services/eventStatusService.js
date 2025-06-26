@@ -183,6 +183,154 @@ export class EventStatusService {
     }
   }
 
+  // 🎯 TASK 1.4 - VALIDATION UN SEUL ÉTAT PAR USER
+  /**
+   * Valide qu'un utilisateur n'a qu'un seul état actif et corrige les incohérences
+   * @param {string} userId - ID de l'utilisateur
+   * @returns {Promise<{valid: boolean, correctedIssues: string[], currentState: string}>}
+   */
+  static async validateSingleUserState(userId) {
+    if (!isOnline()) {
+      return {
+        valid: true,
+        correctedIssues: [],
+        currentState: UserEventStatus.LIBRE,
+      };
+    }
+
+    try {
+      return await retryWithBackoff(async () => {
+        const userRef = doc(db, EVENT_CONSTANTS.COLLECTIONS.USERS, userId);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+          debugLog(`⚠️ Utilisateur ${userId} non trouvé pour validation`);
+          return {
+            valid: true,
+            correctedIssues: [],
+            currentState: UserEventStatus.LIBRE,
+          };
+        }
+
+        const userData = userSnap.data();
+        const currentState = userData.eventStatus || UserEventStatus.LIBRE;
+        const correctedIssues = [];
+
+        // 🔍 DÉTECTION INCOHÉRENCES MULTIPLES ÉTATS
+        let hasMultipleStates = false;
+        const activeStates = [];
+
+        // Vérifier les états simultanés invalides
+        if (userData.isAvailable && userData.currentActivity) {
+          activeStates.push('EN_PARTAGE');
+        }
+        if (
+          userData.pendingInvitations &&
+          userData.pendingInvitations.length > 0
+        ) {
+          activeStates.push('INVITATION_RECUE');
+        }
+        if (
+          userData.currentEventId &&
+          currentState === UserEventStatus.INVITATION_ENVOYEE
+        ) {
+          activeStates.push('INVITATION_ENVOYEE');
+        }
+
+        // Détecter conflits d'états
+        if (activeStates.length > 1) {
+          hasMultipleStates = true;
+          correctedIssues.push(
+            `États multiples détectés: ${activeStates.join(', ')}`
+          );
+        }
+
+        // 🔍 DÉTECTION INCOHÉRENCES ÉTAT vs DONNÉES
+        const stateDataInconsistencies = [];
+
+        switch (currentState) {
+          case UserEventStatus.LIBRE:
+            if (userData.isAvailable || userData.currentActivity) {
+              stateDataInconsistencies.push('État LIBRE mais isAvailable=true');
+            }
+            if (userData.pendingInvitations?.length > 0) {
+              stateDataInconsistencies.push(
+                'État LIBRE mais pendingInvitations existe'
+              );
+            }
+            break;
+
+          case UserEventStatus.EN_PARTAGE:
+            if (!userData.isAvailable || !userData.currentActivity) {
+              stateDataInconsistencies.push(
+                'État EN_PARTAGE mais isAvailable=false'
+              );
+            }
+            break;
+
+          case UserEventStatus.INVITATION_ENVOYEE:
+            if (!userData.currentEventId) {
+              stateDataInconsistencies.push(
+                'État INVITATION_ENVOYEE mais pas currentEventId'
+              );
+            }
+            break;
+
+          case UserEventStatus.INVITATION_RECUE:
+            if (!userData.pendingInvitations?.length) {
+              stateDataInconsistencies.push(
+                'État INVITATION_RECUE mais pas pendingInvitations'
+              );
+            }
+            break;
+
+          default:
+            debugLog(`⚠️ État non reconnu "${currentState}" pour ${userId}`);
+            stateDataInconsistencies.push(`État non reconnu: ${currentState}`);
+            break;
+        }
+
+        // 🔧 AUTO-CORRECTION si incohérences détectées
+        if (hasMultipleStates || stateDataInconsistencies.length > 0) {
+          debugLog(`🔧 [VALIDATION] Correction incohérences pour ${userId}:`, {
+            currentState,
+            hasMultipleStates,
+            stateDataInconsistencies,
+            activeStates,
+          });
+
+          // Reset complet vers LIBRE
+          await this.forceResetToLibre(
+            userId,
+            'Correction validation état unique'
+          );
+
+          correctedIssues.push(...stateDataInconsistencies);
+          correctedIssues.push('Auto-correction vers LIBRE effectuée');
+
+          return {
+            valid: false,
+            correctedIssues,
+            currentState: UserEventStatus.LIBRE,
+            wasAutoFixed: true,
+          };
+        }
+
+        debugLog(
+          `✅ [VALIDATION] État utilisateur ${userId} cohérent: ${currentState}`
+        );
+        return { valid: true, correctedIssues: [], currentState };
+      });
+    } catch (error) {
+      prodError('❌ [VALIDATION] Erreur validation état unique:', error);
+      return {
+        valid: false,
+        correctedIssues: [`Erreur validation: ${error.message}`],
+        currentState: UserEventStatus.LIBRE,
+      };
+    }
+  }
+
   // ===========================
   // VALIDATION DES ACTIONS
   // ===========================

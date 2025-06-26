@@ -24,10 +24,16 @@ const FriendsScreen = ({
 }) => {
   // 🎨 [PHASE 4] Hook pour les statuts temps réel
   const {
-    friendsStatus,
-    loading: statusLoading,
+    friendsStatuses: friendsStatusRaw,
+    isLoading: statusLoading,
     error: statusError,
   } = useFriendsStatus(friends, user?.uid);
+
+  // Protection contre friendsStatus undefined
+  const friendsStatus = friendsStatusRaw || {};
+
+  // Helper pour accès sécurisé aux statuts
+  const getFriendStatus = friendId => friendsStatus?.[friendId] || null;
 
   // Filtrer les notifications d'amis non lues
   const getFriendInvitations = () => {
@@ -184,14 +190,20 @@ const FriendsScreen = ({
                 >
                   {friend.name}
                 </h3>
-                {/* 🎨 [PHASE 4] Badge de statut temps réel */}
-                {friendsStatus[friend.id] && (
+                {/* 🎨 TASK 1.5 - Badge de statut temps réel avec couleurs flow */}
+                {getFriendStatus(friend.id) && (
                   <StatusBadge
-                    status={friendsStatus[friend.id].status}
-                    message={friendsStatus[friend.id].message}
-                    color={friendsStatus[friend.id].color}
+                    status={getFriendStatus(friend.id).status}
+                    message={getFriendStatus(friend.id).message}
+                    color={getFriendStatus(friend.id).color}
                     size="xs"
-                    showIcon={false}
+                    showIcon={true}
+                    animate={[
+                      'INVITATION_ENVOYEE',
+                      'INVITATION_RECUE',
+                      'EN_PARTAGE',
+                    ].includes(getFriendStatus(friend.id).status)}
+                    darkMode={darkMode}
                   />
                 )}
               </div>
@@ -202,15 +214,15 @@ const FriendsScreen = ({
                   {friend.isOnline ? '🟢 En ligne' : '⚫ Hors ligne'}
                 </p>
                 {/* 🎨 [PHASE 4] Indicateur de disponibilité pour invitation */}
-                {friendsStatus[friend.id] && (
+                {getFriendStatus(friend.id) && (
                   <span
                     className={`text-xs px-1.5 py-0.5 rounded ${
-                      friendsStatus[friend.id].available
+                      getFriendStatus(friend.id).available
                         ? 'bg-green-100 text-green-700'
                         : 'bg-gray-100 text-gray-600'
                     }`}
                   >
-                    {friendsStatus[friend.id].available
+                    {getFriendStatus(friend.id).available
                       ? '✓ Invitable'
                       : '✗ Occupé'}
                   </span>

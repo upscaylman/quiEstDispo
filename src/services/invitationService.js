@@ -447,6 +447,12 @@ export class InvitationService {
         `✅ ${successCount} invitations envoyées pour ${activity} (${blockedCount} bloquées)`
       );
 
+      // 🎯 NOUVEAU: Déclencher mise à jour statuts amis temps réel
+      if (successCount > 0) {
+        window.dispatchEvent(new CustomEvent('friendsStatusUpdate'));
+        debugLog('📡 [INVITATION SERVICE] Événement friendsStatusUpdate émis');
+      }
+
       return {
         success: true,
         count: successCount,
@@ -529,6 +535,12 @@ export class InvitationService {
           );
 
           debugLog(`✅ [LEGACY] Réponse ${response} enregistrée`);
+
+          // 🎯 NOUVEAU: Déclencher mise à jour statuts amis temps réel
+          window.dispatchEvent(new CustomEvent('friendsStatusUpdate'));
+          debugLog(
+            '📡 [INVITATION SERVICE] Événement friendsStatusUpdate émis (legacy response)'
+          );
         } else if (isMultipleInvitation) {
           // === TRAITEMENT PHASE 3 (MULTIPLE) ===
           debugLog(`🔧 [PHASE3] Traitement invitation multiple pour ${userId}`);
@@ -1106,13 +1118,22 @@ export class InvitationService {
           invitationData.acceptedByUserIds.length
       );
 
-      // Gérer les conflits si accepté
+      // Gérer les conflits et transitions d'état si accepté
       if (response === 'accepted') {
         await this._resolveInvitationConflicts(userId, invitationId);
+
+        // 🎯 CORRECTION CRITIQUE: Passer les deux utilisateurs en EN_PARTAGE quand invitation acceptée
+        await this._transitionUsersToSharing(userId, invitationData);
       }
 
       debugLog(
         `✅ [PHASE 3] Réponse enregistrée: ${response} pour invitation ${invitationId}`
+      );
+
+      // 🎯 NOUVEAU: Déclencher mise à jour statuts amis temps réel
+      window.dispatchEvent(new CustomEvent('friendsStatusUpdate'));
+      debugLog(
+        '📡 [INVITATION SERVICE] Événement friendsStatusUpdate émis (multiple response)'
       );
 
       return {
@@ -1624,6 +1645,52 @@ export class InvitationService {
       }
     } catch (error) {
       prodError('❌ Erreur résolution conflits:', error);
+    }
+  }
+
+  /**
+   * Fait la transition des utilisateurs vers l'état EN_PARTAGE quand une invitation est acceptée
+   * @private
+   */
+  static async _transitionUsersToSharing(acceptingUserId, invitationData) {
+    try {
+      // Import statique en haut du fichier pour éviter problèmes linting
+      const EventStatusService =
+        require('./eventStatusService').EventStatusService;
+      const { UserEventStatus } = require('../types/eventTypes');
+
+      debugLog(`🔄 [STATUT] Transition EN_PARTAGE pour acceptation invitation`);
+
+      // 1. Passer l'utilisateur qui accepte en EN_PARTAGE
+      await EventStatusService.setUserEventStatus(
+        acceptingUserId,
+        UserEventStatus.EN_PARTAGE,
+        {
+          acceptedInvitationId: invitationData.id,
+          acceptedActivity: invitationData.activity,
+          acceptedFromUserId: invitationData.fromUserId,
+        }
+      );
+      debugLog(`✅ [STATUT] ${acceptingUserId} → EN_PARTAGE (acceptation)`);
+
+      // 2. Passer l'expéditeur en EN_PARTAGE aussi (partage mutuel)
+      await EventStatusService.setUserEventStatus(
+        invitationData.fromUserId,
+        UserEventStatus.EN_PARTAGE,
+        {
+          invitationAcceptedBy: acceptingUserId,
+          sharedActivity: invitationData.activity,
+        }
+      );
+      debugLog(
+        `✅ [STATUT] ${invitationData.fromUserId} → EN_PARTAGE (mutuel)`
+      );
+
+      debugLog(
+        `🎯 [STATUT] Transition complète: ${acceptingUserId} ↔ ${invitationData.fromUserId} → EN_PARTAGE`
+      );
+    } catch (error) {
+      prodError('❌ [STATUT] Erreur transition EN_PARTAGE:', error);
     }
   }
 }

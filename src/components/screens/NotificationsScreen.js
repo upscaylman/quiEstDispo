@@ -41,6 +41,43 @@ const NotificationsScreen = ({
     }
   }, [notifications]);
 
+  // 🔥 MARQUER AUTOMATIQUEMENT LES NOTIFICATIONS DE DÉPART COMME LUES
+  useEffect(() => {
+    const markDepartureNotificationsAsRead = async () => {
+      if (!notifications || notifications.length === 0) return;
+
+      // Trouver les notifications de départ non lues
+      const unreadDepartureNotifications = notifications.filter(
+        notif => ['friend_stopped_sharing'].includes(notif.type) && !notif.read
+      );
+
+      if (unreadDepartureNotifications.length === 0) return;
+
+      console.log(
+        `📢 [AUTO-READ] Marquage automatique de ${unreadDepartureNotifications.length} notifications de départ comme lues`
+      );
+
+      // Marquer chaque notification comme lue
+      for (const notification of unreadDepartureNotifications) {
+        try {
+          await NotificationService.markAsRead(notification.id);
+          console.log(
+            `📢 [AUTO-READ] ✅ Notification ${notification.id} marquée comme lue`
+          );
+        } catch (error) {
+          console.error(
+            `📢 [AUTO-READ] ❌ Erreur marquage ${notification.id}:`,
+            error
+          );
+        }
+      }
+    };
+
+    // Marquer les notifications avec un délai pour éviter les spams
+    const timeoutId = setTimeout(markDepartureNotificationsAsRead, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [notifications]);
+
   // Grouper les notifications avec protection d'erreur
   const groupedNotifications =
     notifications && notifications.length > 0
@@ -136,6 +173,7 @@ const NotificationsScreen = ({
         'activity_joined',
         'activity_cancelled',
         'activity_terminated',
+        'friend_stopped_sharing', // 🔔 Notifications d'arrêt de partage par d'autres utilisateurs
       ].includes(notif.type)
     )
   );
