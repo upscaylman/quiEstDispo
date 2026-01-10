@@ -43,7 +43,8 @@
   },
   "scripts": {
     "start": "craco start",
-    "build": "craco build",
+    "build": "set NODE_ENV=production && craco build",
+    "build:vercel": "NODE_ENV=production craco build",
     "test": "craco test",
     "test:ci": "craco test --ci --watchAll=false --testPathPattern=\"(mockData|invitationService|errorMonitoring|PWAInstallPrompt|WarningBanner|googleSignInService|appCheckService|authService|useAuth|NotificationBadge|mapUtils|logger|avatarUtils|cookieService|GoogleSignInButton|useGeolocation|useGPSNotifications|GPSStatusToast|useMapLogic|LoginScreen|HomeScreen|MapScreen|BaseMapView|MapControls|MapMarkers|AddFriendModal|FriendInviteForm|PhoneSearch|QRCodeScanner|firebaseService|firebaseUtils|firebase).test.js\"",
     "test:e2e": "node e2e/run-e2e.js",
