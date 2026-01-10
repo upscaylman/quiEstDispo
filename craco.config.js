@@ -1,4 +1,9 @@
 module.exports = {
+  babel: {
+    plugins: process.env.NODE_ENV === 'development' ? [
+      ['react-refresh/babel', { skipEnvCheck: true }]
+    ] : []
+  },
   webpack: {
     configure: webpackConfig => {
       // 🚀 OPTIMISATION BUNDLE: Configuration splitChunks avancée
