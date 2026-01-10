@@ -3,7 +3,8 @@
   "alias": ["qui-est-dispo.vercel.app"],
   "build": {
     "env": {
-      "REACT_APP_ENV": "production"
+      "REACT_APP_ENV": "production",
+      "CI": "false"
     }
   },
   "headers": [
