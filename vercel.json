@@ -1,6 +1,9 @@
 {
   "version": 2,
   "alias": ["qui-est-dispo.vercel.app"],
+  "buildCommand": "npm run build",
+  "outputDirectory": "build",
+  "framework": "create-react-app",
   "build": {
     "env": {
       "REACT_APP_ENV": "production",
