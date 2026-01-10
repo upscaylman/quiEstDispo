@@ -1727,6 +1727,7 @@ export class InvitationService {
 
         const snapshot = await getDocs(invitationsQuery);
 
+        // eslint-disable-next-line no-loop-func
         snapshot.forEach(doc => {
           batch.update(doc.ref, {
             status: 'cancelled',
