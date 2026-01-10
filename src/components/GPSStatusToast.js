@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle, MapPin, MapPinOff } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const GPSStatusToast = ({ status, darkMode }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -40,7 +40,7 @@ const GPSStatusToast = ({ status, darkMode }) => {
           icon: MapPin,
           bgColor: darkMode ? 'bg-blue-800' : 'bg-blue-500',
           textColor: 'text-white',
-          message: '📍 Mise à jour de votre position...',
+          message: 'Mise à jour de votre position...',
         };
       default:
         return {

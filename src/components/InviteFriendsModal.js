@@ -1,8 +1,10 @@
 import { motion } from 'framer-motion';
 import {
+  AlertTriangle,
   Check,
   Coffee,
   Film,
+  MapPin,
   Music,
   Users,
   Utensils,
@@ -326,7 +328,7 @@ const InviteFriendsModal = ({
         });
 
         alert(
-          `⚠️ ${finalValidation.invalid.length} ami(s) ne peuvent plus être invité(s). Leurs statuts ont changé.`
+          `${finalValidation.invalid.length} ami(s) ne peuvent plus être invité(s). Leurs statuts ont changé.`
         );
         // Retirer les amis invalides de la sélection
         const validFriendIds = new Set(finalValidation.valid);
@@ -505,7 +507,7 @@ const InviteFriendsModal = ({
               </div>
             ) : (
               <div className="flex items-start space-x-3 text-[var(--md-sys-color-on-error-container)]">
-                <span className="text-lg">⚠️</span>
+                <AlertTriangle size={20} className="flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-body-medium font-medium">
                     Action non autorisée
@@ -641,7 +643,7 @@ const InviteFriendsModal = ({
                     }`}
                   >
                     <div className="flex items-start space-x-2">
-                      <span className="text-lg">📍</span>
+                      <MapPin size={18} className="flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">
                           Partage de localisation

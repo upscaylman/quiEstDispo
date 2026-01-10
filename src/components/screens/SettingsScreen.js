@@ -2,14 +2,18 @@
 import { motion } from 'framer-motion';
 import {
   Bell,
+  Bug,
+  FlaskConical,
   LogOut,
   Moon,
   Palette,
+  Search,
   Shield,
   Smartphone,
   Sun,
   Trash2,
 } from 'lucide-react';
+import { showDevTools } from '../../utils/adminUtils';
 import ProfileEditor from '../ProfileEditor';
 import MD3Button from '../common/MD3Button';
 import MD3Card from '../common/MD3Card';
@@ -158,7 +162,7 @@ const SettingsScreen = ({
       </motion.div>
 
       {/* Section Notifications Push (dev seulement) - MD3 Style */}
-      {process.env.NODE_ENV === 'development' && (
+      {showDevTools(user) && (
         <motion.div variants={itemVariants}>
           <MD3Card variant="outlined" className="mb-6">
             <div className="flex items-center gap-3 mb-4">
@@ -196,22 +200,25 @@ const SettingsScreen = ({
                 variant="tonal"
                 size="small"
                 onClick={onCheckPushStatus}
+                icon={<Search size={14} />}
               >
-                🔍 Statut
+                Statut
               </MD3Button>
               <MD3Button
                 variant="tonal"
                 size="small"
                 onClick={onTestPushNotification}
+                icon={<FlaskConical size={14} />}
               >
-                🧪 Tester
+                Tester
               </MD3Button>
               <MD3Button
                 variant="outlined"
                 size="small"
                 onClick={onOpenDebugNotifications}
+                icon={<Bug size={14} />}
               >
-                🐛 Debug
+                Debug
               </MD3Button>
             </div>
           </MD3Card>
@@ -219,7 +226,7 @@ const SettingsScreen = ({
       )}
 
       {/* Section Provider de Cartes (dev) - MD3 Style */}
-      {process.env.NODE_ENV === 'development' && (
+      {showDevTools(user) && (
         <motion.div variants={itemVariants}>
           <MD3Card variant="outlined" className="mb-6">
             <div className="flex items-center justify-between">

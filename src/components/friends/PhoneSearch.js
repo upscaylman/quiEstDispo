@@ -1,5 +1,5 @@
-import { Contact, Users } from 'lucide-react';
-import React, { useState } from 'react';
+import { AlertTriangle, Contact, Users } from 'lucide-react';
+import { useState } from 'react';
 
 const PhoneSearch = ({
   onAddFriend,
@@ -183,8 +183,11 @@ const PhoneSearch = ({
                 : 'text-amber-600 bg-amber-50'
             }`}
           >
-            ⚠️ Votre ami doit s'être connecté au moins une fois à l'application
-            pour être trouvable
+            <span className="flex items-center gap-1">
+              <AlertTriangle size={14} />
+              Votre ami doit s'être connecté au moins une fois à l'application
+              pour être trouvable
+            </span>
           </p>
         </div>
       </div>

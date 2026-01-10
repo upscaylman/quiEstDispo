@@ -1,8 +1,17 @@
 // Écran de gestion des amis - MD3 Expressive
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, Sparkles, UserPlus, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  FlaskConical,
+  Sparkles,
+  UserPlus,
+  Users,
+  Wrench,
+} from 'lucide-react';
 import { useFriendsStatus } from '../../hooks/useFriendsStatus';
 import { EventStatusService } from '../../services/eventStatusService';
+import { showDevTools } from '../../utils/adminUtils';
 import FriendListItem from '../common/FriendListItem';
 import MD3Button from '../common/MD3Button';
 import MD3Card from '../common/MD3Card';
@@ -118,8 +127,8 @@ const FriendsScreen = ({
           variant="filled"
           className="mb-4 bg-[var(--md-sys-color-error-container)]"
         >
-          <p className="text-[var(--md-sys-color-on-error-container)] text-sm">
-            ⚠️ Erreur statuts: {statusError}
+          <p className="text-[var(--md-sys-color-on-error-container)] text-sm flex items-center gap-2">
+            <AlertTriangle size={16} /> Erreur statuts: {statusError}
           </p>
         </MD3Card>
       )}
@@ -267,37 +276,23 @@ const FriendsScreen = ({
             </MD3Button>
 
             {/* Boutons de debug en mode développement */}
-            {process.env.NODE_ENV === 'development' && (
+            {showDevTools(user) && (
               <MD3Card
                 variant="outlined"
                 className="mt-8 max-w-sm mx-auto bg-[var(--md-sys-color-warning-container)]"
               >
-                <h4 className="font-semibold text-[var(--md-sys-color-on-warning-container)] mb-3">
-                  🛠️ Outils de debug
+                <h4 className="font-semibold text-[var(--md-sys-color-on-warning-container)] mb-3 flex items-center gap-2">
+                  <Wrench size={16} /> Outils de debug
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   <MD3Button
                     variant="tonal"
                     size="small"
-                    onClick={onDebugFriends}
-                    disabled={!isOnline}
-                  >
-                    🔍 Debug
-                  </MD3Button>
-                  <MD3Button
-                    variant="tonal"
-                    size="small"
                     onClick={onCreateTestFriendships}
                     disabled={!isOnline}
+                    icon={<FlaskConical size={14} />}
                   >
-                    🧪 Test amitiés
-                  </MD3Button>
-                  <MD3Button
-                    variant="tonal"
-                    size="small"
-                    onClick={onLoadMockData}
-                  >
-                    📊 Données démo
+                    Test amitiés
                   </MD3Button>
                 </div>
               </MD3Card>
@@ -314,15 +309,6 @@ const FriendsScreen = ({
         position="bottom-right"
         className="mb-16"
       />
-
-      {/* Bouton debug temporaire - MD3 Style */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed bottom-20 left-4 z-50">
-          <MD3Button variant="tonal" size="small" onClick={handleDebugStatuts}>
-            🐛 Debug
-          </MD3Button>
-        </div>
-      )}
     </div>
   );
 };

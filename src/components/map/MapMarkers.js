@@ -295,37 +295,73 @@ const FriendDetails = ({
   );
 };
 
-// Message si pas de localisation
+// Message si pas de localisation - MD3 Expressive Design
 const NoLocationMessage = ({ darkMode, onRequestLocationPermission }) => (
-  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-    <div className="bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface)] rounded-lg shadow-lg p-6">
-      <MapPinIcon
-        size={48}
-        className="mx-auto mb-4 text-[var(--md-sys-color-warning)]"
-      />
-      <h3 className="text-lg font-semibold mb-2">Localisation requise</h3>
-      <p className="text-sm opacity-75 mb-2">
-        Autorisez la géolocalisation pour voir votre position sur la carte
+  <motion.div
+    className="absolute inset-0 flex items-center justify-center p-4"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    transition={{ duration: 0.4 }}
+  >
+    <motion.div
+      className="bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface)] rounded-[28px] shadow-[var(--md-sys-elevation-level3)] p-8 max-w-sm w-full text-center border border-[var(--md-sys-color-outline-variant)]"
+      initial={{ scale: 0.9, y: 20 }}
+      animate={{ scale: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.1 }}
+    >
+      {/* Icône animée dans un container circulaire */}
+      <motion.div
+        className="w-20 h-20 mx-auto mb-6 rounded-full bg-[var(--md-sys-color-tertiary-container)] flex items-center justify-center"
+        animate={{
+          scale: [1, 1.05, 1],
+        }}
+        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+      >
+        <motion.div
+          animate={{ y: [0, -3, 0] }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <MapPinIcon
+            size={36}
+            className="text-[var(--md-sys-color-on-tertiary-container)]"
+          />
+        </motion.div>
+      </motion.div>
+
+      {/* Titre */}
+      <h3 className="text-xl font-bold mb-2 text-[var(--md-sys-color-on-surface)]">
+        Localisation requise
+      </h3>
+
+      {/* Description */}
+      <p className="text-sm text-[var(--md-sys-color-on-surface-variant)] mb-6 leading-relaxed">
+        Autorisez l'accès à votre position pour voir vos amis sur la carte et
+        leur permettre de vous retrouver.
       </p>
-      <p className="text-xs opacity-60 mb-4 leading-relaxed">
-        L'application a besoin de votre position GPS pour vous localiser sur la
-        carte et permettre à vos amis de vous retrouver facilement.
-      </p>
-      <button
+
+      {/* Bouton MD3 */}
+      <motion.button
         onClick={() => {
-          // Utiliser le callback approprié pour demander la permission de localisation
           if (onRequestLocationPermission) {
             onRequestLocationPermission();
           } else {
             console.warn('onRequestLocationPermission callback not available');
           }
         }}
-        className="bg-[var(--md-sys-color-primary)] hover:opacity-90 text-[var(--md-sys-color-on-primary)] px-4 py-2 rounded-lg text-sm font-medium"
+        className="w-full py-3 px-6 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] font-medium text-base shadow-[var(--md-sys-elevation-level1)] hover:shadow-[var(--md-sys-elevation-level2)] transition-all flex items-center justify-center gap-2"
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
       >
+        <MapPinIcon size={20} />
         Activer la localisation
-      </button>
-    </div>
-  </div>
+      </motion.button>
+
+      {/* Note de confidentialité */}
+      <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] mt-4 opacity-70">
+        Votre position reste privée et n'est partagée qu'avec vos amis
+      </p>
+    </motion.div>
+  </motion.div>
 );
 
 // Composant principal MapMarkers

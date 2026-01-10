@@ -38,7 +38,13 @@ export class FriendsService {
 
   // Debug : lister tous les utilisateurs
   static async debugListAllUsers() {
-    if (process.env.NODE_ENV !== 'development') {
+    // Autoriser en développement et sur localhost
+    const isDev =
+      process.env.NODE_ENV === 'development' ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1';
+
+    if (!isDev) {
       console.warn(
         '⚠️ Cette fonction est disponible uniquement en développement'
       );
@@ -51,13 +57,14 @@ export class FriendsService {
     }
 
     try {
+      console.log('🔍 [DEBUG] Récupération de tous les utilisateurs...');
       const usersSnapshot = await getDocs(collection(db, 'users'));
       const users = usersSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
       }));
 
-      console.log('👥 Tous les utilisateurs:', users);
+      console.log('👥 Tous les utilisateurs:', users.length, users);
       return users;
     } catch (error) {
       console.error('❌ Error listing users:', error);
@@ -125,25 +132,48 @@ export class FriendsService {
 
   // Ajouter des amitiés de test
   static async addTestFriendships(currentUserId) {
-    if (process.env.NODE_ENV !== 'development') {
+    // Autoriser en développement et sur localhost
+    const isDev =
+      process.env.NODE_ENV === 'development' ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1';
+
+    if (!isDev) {
       console.warn(
         '⚠️ Cette fonction est disponible uniquement en développement'
       );
+      alert('Cette fonction est disponible uniquement en mode développement');
       return [];
     }
 
     if (!isOnline()) {
       console.warn('⚠️ Offline mode, cannot add test friendships');
+      alert('Connexion requise pour créer des amitiés de test');
       return [];
     }
 
+    console.log(
+      '🧪 [DEBUG] Début création amitiés de test pour:',
+      currentUserId
+    );
+
     try {
       const allUsers = await this.debugListAllUsers();
+      console.log(
+        '🧪 [DEBUG] Utilisateurs trouvés:',
+        allUsers.length,
+        allUsers
+      );
+
       const otherUsers = allUsers.filter(user => user.id !== currentUserId);
+      console.log('🧪 [DEBUG] Autres utilisateurs:', otherUsers.length);
 
       if (otherUsers.length === 0) {
         console.log(
           'ℹ️ [DEBUG] Aucun autre utilisateur trouvé pour créer des amitiés'
+        );
+        alert(
+          "Aucun autre utilisateur trouvé dans la base. Créez d'abord un autre compte."
         );
         return [];
       }
@@ -152,26 +182,44 @@ export class FriendsService {
 
       // Créer une amitié avec les 2 premiers autres utilisateurs
       const usersToAddAsFriends = otherUsers.slice(0, 2);
+      console.log(
+        '🧪 [DEBUG] Utilisateurs à ajouter comme amis:',
+        usersToAddAsFriends
+      );
 
       for (const user of usersToAddAsFriends) {
         try {
+          console.log(
+            `🧪 [DEBUG] Tentative ajout amitié avec ${user.name || user.id}...`
+          );
           await this.addMutualFriendship(currentUserId, user.id);
           friendships.push({
             id: user.id,
-            name: user.name,
+            name: user.name || 'Utilisateur',
           });
-          console.log(`✅ [DEBUG] Amitié créée avec ${user.name} (${user.id})`);
+          console.log(
+            `✅ [DEBUG] Amitié créée avec ${user.name || user.id} (${user.id})`
+          );
         } catch (error) {
           console.warn(
-            `⚠️ [DEBUG] Erreur création amitié avec ${user.name}:`,
+            `⚠️ [DEBUG] Erreur création amitié avec ${user.name || user.id}:`,
             error
           );
         }
       }
 
+      if (friendships.length > 0) {
+        alert(
+          `✅ ${friendships.length} amitié(s) de test créée(s) !\n${friendships.map(f => f.name).join(', ')}`
+        );
+      } else {
+        alert('Aucune nouvelle amitié créée (peut-être déjà existantes)');
+      }
+
       return friendships;
     } catch (error) {
       console.error('❌ [DEBUG] Erreur création amitiés de test:', error);
+      alert(`Erreur: ${error.message}`);
       return [];
     }
   }

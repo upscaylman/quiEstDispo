@@ -1,6 +1,6 @@
 // Composant AppShell - Structure principale et navigation
 import { motion } from 'framer-motion';
-import { ArrowLeft, Bell, Coffee, MapPin, Users } from 'lucide-react';
+import { ArrowLeft, Bell, Home, MapPin, Users } from 'lucide-react';
 import NavigationBar from './common/NavigationBar';
 import InviteFriendsModal from './InviteFriendsModal';
 import NotificationBadge from './NotificationBadge';
@@ -88,7 +88,7 @@ const AppShell = ({
       {
         id: 'home',
         label: 'Accueil',
-        icon: Coffee,
+        icon: Home,
         active: currentScreen === 'home',
       },
       {
@@ -208,7 +208,7 @@ const AppShell = ({
               <div
                 className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700/50' : 'bg-gray-100'}`}
               >
-                <Coffee
+                <Home
                   size={24}
                   className={darkMode ? 'text-gray-300' : 'text-gray-600'}
                 />
@@ -239,7 +239,7 @@ const AppShell = ({
                 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}
               >
                 {currentScreen === 'home' &&
-                  `Salut ${user.name?.split(' ')[0]}! 👋`}
+                  `Salut ${user.name?.split(' ')[0]} !`}
                 {currentScreen === 'map' && 'Carte'}
                 {currentScreen === 'friends' && 'Mes Amis'}
                 {currentScreen === 'notifications' && 'Notifications'}

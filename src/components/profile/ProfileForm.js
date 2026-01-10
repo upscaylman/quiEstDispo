@@ -1,5 +1,13 @@
 import { motion } from 'framer-motion';
-import { Check, Edit2, Phone, Save, X } from 'lucide-react';
+import {
+  Check,
+  Edit2,
+  FlaskConical,
+  Phone,
+  Save,
+  Search,
+  X,
+} from 'lucide-react';
 import { AuthService } from '../../services/firebaseService';
 
 const ProfileForm = ({
@@ -286,9 +294,9 @@ const ProfileForm = ({
             <div className="space-y-2">
               <button
                 onClick={onDebug}
-                className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-xs font-medium mr-2"
+                className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-xs font-medium mr-2 inline-flex items-center gap-1"
               >
-                🔍 Vérifier données Firebase
+                <Search size={12} /> Vérifier données Firebase
               </button>
               <button
                 onClick={async () => {
@@ -304,9 +312,9 @@ const ProfileForm = ({
                     );
                   }
                 }}
-                className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-xs font-medium"
+                className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-xs font-medium inline-flex items-center gap-1"
               >
-                🧪 Tester conflit numéro
+                <FlaskConical size={12} /> Tester conflit numéro
               </button>
             </div>
           </div>

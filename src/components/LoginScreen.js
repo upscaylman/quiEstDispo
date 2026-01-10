@@ -1,5 +1,12 @@
 import { motion } from 'framer-motion';
-import { Clock, MapPin, Sparkles, Users, Zap } from 'lucide-react';
+import {
+  AlertTriangle,
+  Clock,
+  MapPin,
+  Sparkles,
+  Users,
+  Zap,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import GoogleSignInService from '../services/googleSignInService';
@@ -398,7 +405,9 @@ const LoginScreen = () => {
               animate={{ opacity: 1, scale: 1 }}
               className="mb-6 p-4 bg-[var(--md-sys-color-error-container)] text-[var(--md-sys-color-on-error-container)] rounded-2xl text-sm flex items-start gap-3"
             >
-              <div className="mt-0.5 text-lg">⚠️</div>
+              <div className="mt-0.5">
+                <AlertTriangle size={20} />
+              </div>
               <div className="whitespace-pre-line font-medium">{error}</div>
             </motion.div>
           )}

@@ -111,21 +111,53 @@ const AvailabilityButtons = ({
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className={`${darkMode ? 'bg-yellow-900/20 border-yellow-700' : 'bg-yellow-50 border-yellow-200'} border rounded-xl p-6`}
+        className="bg-[var(--md-sys-color-surface-container-highest)] rounded-[28px] p-8 shadow-[var(--md-sys-elevation-level2)] border border-[var(--md-sys-color-outline-variant)]"
       >
         <div className="text-center">
-          <MapPin className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-          <h3
-            className={`text-lg font-semibold mb-2 ${darkMode ? 'text-yellow-300' : 'text-yellow-700'}`}
+          {/* Icône animée dans container circulaire */}
+          <motion.div
+            className="w-20 h-20 mx-auto mb-6 rounded-full bg-[var(--md-sys-color-tertiary-container)] flex items-center justify-center"
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
           >
+            <motion.div
+              animate={{ y: [0, -3, 0] }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              }}
+            >
+              <MapPin className="w-9 h-9 text-[var(--md-sys-color-on-tertiary-container)]" />
+            </motion.div>
+          </motion.div>
+
+          {/* Titre */}
+          <h3 className="text-xl font-bold mb-2 text-[var(--md-sys-color-on-surface)]">
             Localisation requise
           </h3>
-          <button
+
+          {/* Description */}
+          <p className="text-sm text-[var(--md-sys-color-on-surface-variant)] mb-6 leading-relaxed">
+            Autorisez l'accès à votre position pour voir vos amis sur la carte
+            et leur permettre de vous retrouver.
+          </p>
+
+          {/* Bouton MD3 */}
+          <motion.button
             onClick={requestLocationPermission || retryGeolocation}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
+            className="w-full py-3 px-6 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] font-medium text-base shadow-[var(--md-sys-elevation-level1)] hover:shadow-[var(--md-sys-elevation-level2)] transition-all flex items-center justify-center gap-2"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
-            Autoriser la localisation
-          </button>
+            <MapPin size={20} />
+            Activer la localisation
+          </motion.button>
+
+          {/* Note de confidentialité */}
+          <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] mt-4 opacity-70">
+            Votre position reste privée et n'est partagée qu'avec vos amis
+          </p>
         </div>
       </motion.div>
     );
@@ -133,16 +165,67 @@ const AvailabilityButtons = ({
 
   if (!location) {
     return (
-      <div
-        className={`${darkMode ? 'bg-gray-800' : 'bg-gray-50'} rounded-xl p-6`}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-[var(--md-sys-color-surface-container-highest)] rounded-[28px] p-8 shadow-[var(--md-sys-elevation-level2)] border border-[var(--md-sys-color-outline-variant)]"
       >
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4" />
-          <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            Obtention de ta position...
+          {/* Icône de chargement */}
+          <motion.div
+            className="w-20 h-20 mx-auto mb-6 rounded-full bg-[var(--md-sys-color-primary-container)] flex items-center justify-center relative"
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            {/* Cercle de chargement */}
+            <motion.div
+              className="absolute inset-0 rounded-full border-4 border-[var(--md-sys-color-primary)] border-t-transparent"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+            />
+            <motion.div
+              animate={{ y: [0, -3, 0] }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              }}
+            >
+              <MapPin className="w-8 h-8 text-[var(--md-sys-color-on-primary-container)]" />
+            </motion.div>
+          </motion.div>
+
+          {/* Titre */}
+          <h3 className="text-xl font-bold mb-2 text-[var(--md-sys-color-on-surface)]">
+            Localisation en cours
+          </h3>
+
+          {/* Description */}
+          <p className="text-sm text-[var(--md-sys-color-on-surface-variant)] mb-4 leading-relaxed">
+            Nous déterminons votre position pour afficher vos amis proches.
           </p>
+
+          {/* Indicateur de progression animé */}
+          <div className="flex justify-center gap-1.5">
+            {[0, 1, 2].map(i => (
+              <motion.div
+                key={i}
+                className="w-2 h-2 rounded-full bg-[var(--md-sys-color-primary)]"
+                animate={{
+                  opacity: [0.3, 1, 0.3],
+                  scale: [0.8, 1.2, 0.8],
+                }}
+                transition={{
+                  duration: 1.2,
+                  repeat: Infinity,
+                  delay: i * 0.2,
+                  ease: 'easeInOut',
+                }}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 

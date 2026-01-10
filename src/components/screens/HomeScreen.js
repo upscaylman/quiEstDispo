@@ -2,7 +2,9 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Clock as ClockIcon,
+  Coffee,
   Facebook,
+  FlaskConical,
   HelpCircle,
   Instagram,
   Linkedin,
@@ -13,7 +15,10 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { MOCK_INVITATIONS } from '../../data/mockInvitations';
+import { showDevTools } from '../../utils/adminUtils';
 import AvailabilityButtons from '../AvailabilityButtons';
+import InvitationListItem from '../cards/InvitationListItem';
 import MD3Button from '../common/MD3Button';
 import MD3Card from '../common/MD3Card';
 import MD3IconButton from '../common/MD3IconButton';
@@ -46,12 +51,14 @@ const HomeScreen = ({
   onInviteFriends,
   onAddFriend,
   onCreateTestFriendships,
-  onLoadMockData,
   onFriendInvitationResponse,
   onActivityInvitationResponse,
 }) => {
   // State pour forcer le re-render et mettre à jour les temps
   const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // State pour afficher/cacher les mocks d'invitations (admin only)
+  const [showInvitationMocks, setShowInvitationMocks] = useState(false);
 
   // Timer pour mettre à jour l'affichage du temps restant
   useEffect(() => {
@@ -321,86 +328,232 @@ const HomeScreen = ({
                 Inviter des amis 🎉
               </MD3Button>
 
-              {/* Boutons de test en mode développement */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="mt-5 flex gap-3">
+              {/* Bouton de test en mode développement */}
+              {showDevTools(user) && (
+                <div className="mt-5 space-y-2">
                   <MD3Button
                     variant="tonal"
                     onClick={onCreateTestFriendships}
                     size="small"
-                    className="flex-1"
+                    fullWidth
+                    icon={<FlaskConical size={14} />}
                   >
-                    🧪 Test amitiés
+                    Test amitiés
                   </MD3Button>
                   <MD3Button
-                    variant="outlined"
-                    onClick={onLoadMockData}
+                    variant={showInvitationMocks ? 'filled' : 'outlined'}
+                    onClick={() => setShowInvitationMocks(!showInvitationMocks)}
                     size="small"
-                    className="flex-1"
+                    fullWidth
+                    icon={<Coffee size={16} />}
                   >
-                    🎭 Démo
+                    {showInvitationMocks ? 'Masquer' : 'Afficher'} mocks
+                    invitations
                   </MD3Button>
                 </div>
               )}
             </MD3Card>
           </motion.div>
+
+          {/* ========== SECTION MOCKS INVITATIONS (Admin only) ========== */}
+          {showDevTools(user) && showInvitationMocks && (
+            <motion.div
+              className="mt-6 space-y-3"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              {/* Titre de section avec toggle vue */}
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-[var(--md-sys-color-tertiary)] animate-pulse" />
+                  <h2 className="text-sm font-semibold text-[var(--md-sys-color-tertiary)] uppercase tracking-wide">
+                    Mocks Invitations (Dev)
+                  </h2>
+                </div>
+                <span className="text-xs text-[var(--md-sys-color-on-surface-variant)] bg-[var(--md-sys-color-surface-container)] px-2 py-1 rounded-full">
+                  Liste compacte avec expansion
+                </span>
+              </div>
+
+              {/* Rendu en liste compacte avec expansion */}
+              {MOCK_INVITATIONS.map(invitation => (
+                <InvitationListItem
+                  key={invitation.id}
+                  {...invitation}
+                  onAccept={() => console.log('Accept:', invitation.id)}
+                  onDecline={() => console.log('Decline:', invitation.id)}
+                  onCancel={() => console.log('Cancel:', invitation.id)}
+                  onViewOnMap={() => console.log('View on map:', invitation.id)}
+                  onExtend={() => console.log('Extend:', invitation.id)}
+                  onTerminate={() => console.log('Terminate:', invitation.id)}
+                  onJoinGroup={() => console.log('Join group:', invitation.id)}
+                  onViewDetails={() =>
+                    console.log('View details:', invitation.id)
+                  }
+                  onInviteOther={() =>
+                    console.log('Invite other:', invitation.id)
+                  }
+                />
+              ))}
+            </motion.div>
+          )}
+          {/* ========== FIN SECTION MOCKS INVITATIONS ========== */}
         </div>
 
-        {/* Section Carte - MD3 Style */}
-        <div className="flex-1 relative min-h-[300px] mx-4 sm:mx-6 mb-6 rounded-[28px] overflow-hidden shadow-[var(--md-sys-elevation-level2)]">
-          {location ? (
-            <SafeMapComponent
-              availableFriends={availableFriends}
-              userLocation={location}
-              darkMode={darkMode}
-              isAvailable={isAvailable}
-              selectedActivity={currentActivity}
-              currentUser={user}
-              showControls={false}
-              onRetryGeolocation={onRetryGeolocation}
-              onRequestLocationPermission={onRequestLocationPermission}
-            />
-          ) : (
-            <div className="h-full flex items-center justify-center bg-[var(--md-sys-color-surface-container)]">
-              <div className="text-center p-8">
+        {/* Section Carte - MD3 Style - Affichée seulement si amis disponibles ou en attente de localisation */}
+        {(availableFriends?.length > 0 || !location) && (
+          <div className="flex-1 relative min-h-[300px] mx-4 sm:mx-6 rounded-[28px] overflow-hidden shadow-[var(--md-sys-elevation-level2)]">
+            {location ? (
+              <SafeMapComponent
+                availableFriends={availableFriends}
+                userLocation={location}
+                darkMode={darkMode}
+                isAvailable={isAvailable}
+                selectedActivity={currentActivity}
+                currentUser={user}
+                showControls={false}
+                onRetryGeolocation={onRetryGeolocation}
+                onRequestLocationPermission={onRequestLocationPermission}
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center bg-[var(--md-sys-color-surface-container)] p-4">
                 <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                  className="mx-auto mb-4 w-12 h-12 rounded-full border-4 border-[var(--md-sys-color-primary)] border-t-transparent"
-                />
-                <h3 className="text-lg font-semibold mb-2 text-[var(--md-sys-color-on-surface)]">
-                  Localisation en cours...
-                </h3>
-                <p className="text-sm mb-2 text-[var(--md-sys-color-on-surface-variant)]">
-                  {locationError
-                    ? 'Erreur de géolocalisation. Vérifiez vos permissions.'
-                    : 'Nous déterminons votre position pour afficher vos amis.'}
-                </p>
-                {locationError && (
-                  <p className="text-xs mb-4 text-[var(--md-sys-color-on-surface-variant)] leading-relaxed">
-                    L'application a besoin de votre position GPS pour vous
-                    localiser sur la carte et permettre à vos amis de vous
-                    retrouver facilement.
-                  </p>
-                )}
-                {locationError && (
-                  <MD3Button
-                    variant="filled"
-                    onClick={onRetryGeolocation}
-                    icon={<MapPin size={18} />}
-                  >
-                    Réessayer
-                  </MD3Button>
-                )}
+                  className="bg-[var(--md-sys-color-surface-container-highest)] rounded-[28px] shadow-[var(--md-sys-elevation-level3)] p-8 max-w-sm w-full text-center border border-[var(--md-sys-color-outline-variant)]"
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  {locationError ? (
+                    <>
+                      {/* État d'erreur */}
+                      <motion.div
+                        className="w-20 h-20 mx-auto mb-6 rounded-full bg-[var(--md-sys-color-error-container)] flex items-center justify-center"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{
+                          type: 'spring',
+                          duration: 0.5,
+                          delay: 0.1,
+                        }}
+                      >
+                        <MapPin
+                          size={36}
+                          className="text-[var(--md-sys-color-on-error-container)]"
+                        />
+                      </motion.div>
+
+                      <h3 className="text-xl font-bold mb-2 text-[var(--md-sys-color-on-surface)]">
+                        Localisation indisponible
+                      </h3>
+
+                      <p className="text-sm text-[var(--md-sys-color-on-surface-variant)] mb-6 leading-relaxed">
+                        Nous n'avons pas pu accéder à votre position. Vérifiez
+                        que la géolocalisation est activée dans les paramètres
+                        de votre appareil.
+                      </p>
+
+                      <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <MD3Button
+                          variant="filled"
+                          onClick={onRetryGeolocation}
+                          icon={<MapPin size={20} />}
+                          fullWidth
+                          size="large"
+                        >
+                          Réessayer
+                        </MD3Button>
+                      </motion.div>
+
+                      <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] mt-4 opacity-70">
+                        Votre position permet à vos amis de vous retrouver
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      {/* État de chargement */}
+                      <motion.div
+                        className="w-20 h-20 mx-auto mb-6 rounded-full bg-[var(--md-sys-color-primary-container)] flex items-center justify-center relative"
+                        animate={{ scale: [1, 1.05, 1] }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: 'easeInOut',
+                        }}
+                      >
+                        {/* Cercle de chargement */}
+                        <motion.div
+                          className="absolute inset-0 rounded-full border-4 border-[var(--md-sys-color-primary)] border-t-transparent"
+                          animate={{ rotate: 360 }}
+                          transition={{
+                            duration: 1.5,
+                            repeat: Infinity,
+                            ease: 'linear',
+                          }}
+                        />
+                        <motion.div
+                          animate={{ y: [0, -3, 0] }}
+                          transition={{
+                            duration: 1.5,
+                            repeat: Infinity,
+                            ease: 'easeInOut',
+                          }}
+                        >
+                          <MapPin
+                            size={32}
+                            className="text-[var(--md-sys-color-on-primary-container)]"
+                          />
+                        </motion.div>
+                      </motion.div>
+
+                      <h3 className="text-xl font-bold mb-2 text-[var(--md-sys-color-on-surface)]">
+                        Localisation en cours
+                      </h3>
+
+                      <p className="text-sm text-[var(--md-sys-color-on-surface-variant)] mb-4 leading-relaxed">
+                        Nous déterminons votre position pour afficher vos amis
+                        proches sur la carte.
+                      </p>
+
+                      {/* Indicateur de progression animé */}
+                      <div className="flex justify-center gap-1.5 mb-4">
+                        {[0, 1, 2].map(i => (
+                          <motion.div
+                            key={i}
+                            className="w-2 h-2 rounded-full bg-[var(--md-sys-color-primary)]"
+                            animate={{
+                              opacity: [0.3, 1, 0.3],
+                              scale: [0.8, 1.2, 0.8],
+                            }}
+                            transition={{
+                              duration: 1.2,
+                              repeat: Infinity,
+                              delay: i * 0.2,
+                              ease: 'easeInOut',
+                            }}
+                          />
+                        ))}
+                      </div>
+
+                      <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] opacity-70">
+                        Cela ne prend que quelques secondes
+                      </p>
+                    </>
+                  )}
+                </motion.div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Footer MD3 Expressive */}
       <footer
-        className="px-6 sm:px-8 py-10 mt-8"
+        className="px-6 sm:px-8 py-8"
         style={{
           background: 'linear-gradient(135deg, #111827 0%, #7c3aed 100%)',
         }}
@@ -445,32 +598,18 @@ const HomeScreen = ({
               <h3 className="font-bold text-white mb-4 flex items-center justify-center gap-2 text-base">
                 <HelpCircle size={18} /> À PROPOS
               </h3>
-              <ul className="space-y-3">
-                <li>
-                  <a
-                    href="#"
-                    className="text-white/80 hover:text-white transition-colors font-medium"
-                  >
-                    Centre d'aide
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="text-white/80 hover:text-white transition-colors font-medium"
-                  >
-                    Guide d'utilisation
-                  </a>
-                </li>
-              </ul>
+              <p className="text-white/70 mb-4 leading-relaxed">
+                Découvrez comment nous simplifions vos rencontres spontanées
+                entre amis.
+              </p>
             </div>
 
-            {/* LEGAL */}
+            {/* LÉGAL */}
             <div className="text-center">
               <h3 className="font-bold text-white mb-4 flex items-center justify-center gap-2 text-base">
                 <Shield size={18} /> LÉGAL
               </h3>
-              <ul className="space-y-3">
+              <ul className="space-y-2">
                 <li>
                   <a
                     href="#"
