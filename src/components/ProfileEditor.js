@@ -1,4 +1,3 @@
-import React from 'react';
 import AvatarUploader from './profile/AvatarUploader';
 import ProfileForm from './profile/ProfileForm';
 import { useProfileEditor } from './profile/useProfileEditor';
@@ -33,12 +32,8 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
   } = useProfileEditor(user, onProfileUpdate);
 
   return (
-    <div
-      className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
-    >
-      <h3
-        className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
-      >
+    <div className="bg-[var(--md-sys-color-surface-container)] rounded-lg p-6 shadow mb-4">
+      <h3 className="text-lg font-semibold mb-4 text-[var(--md-sys-color-on-surface)]">
         Mon Profil
       </h3>
 

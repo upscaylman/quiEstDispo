@@ -104,33 +104,8 @@ export class FriendsStatusService {
       debugLog(`🔍 [FriendsStatusService] Calcul statut pour ${friendId}`);
 
       // 1. Obtenir le statut événement de l'ami
-      let friendEventStatus =
+      const friendEventStatus =
         await EventStatusService.getUserEventStatus(friendId);
-
-      // 🐛 DEBUG CRITIQUE: Voir la valeur exacte qui cause le problème
-      console.log(
-        `🚨 [DEBUG] friendId=${friendId}, eventStatus récupéré="${friendEventStatus}"`
-      );
-
-      if (friendEventStatus === 'en_partage') {
-        console.log(
-          `🚨 [DEBUG CRUCIAL] ${friendId} a eventStatus="en_partage" en base !`
-        );
-
-        // 🔧 CORRECTION IMMÉDIATE: Vérifier si vraiment en partage
-        const isReallySharing = await this._verifyRealSharingStatus(friendId);
-        if (!isReallySharing) {
-          console.log(
-            `🔧 [CORRECTION] ${friendId} n'est pas vraiment en partage → Reset vers LIBRE`
-          );
-          // Corriger immédiatement le statut obsolète
-          await EventStatusService.setUserEventStatus(
-            friendId,
-            UserEventStatus.LIBRE
-          );
-          friendEventStatus = UserEventStatus.LIBRE; // Mettre à jour la variable locale
-        }
-      }
 
       // 2. Vérifier la relation entre l'utilisateur actuel et cet ami
       const relationship = await RelationshipService.hasActiveRelationship(
@@ -399,9 +374,6 @@ export class FriendsStatusService {
    * @private
    */
   static _getEventStatus(eventStatus) {
-    // 🐛 DEBUG SIMPLE: Voir quel statut cause le problème
-    console.log(`🔍 [DEBUG STATUT] eventStatus reçu: "${eventStatus}"`);
-
     switch (eventStatus) {
       case UserEventStatus.LIBRE:
         return {
@@ -431,10 +403,6 @@ export class FriendsStatusService {
         };
 
       case UserEventStatus.EN_PARTAGE:
-        // 🐛 DEBUG CRITIQUE: Ceci cause le message "En partage de localisation"
-        console.log(
-          `🚨 [DEBUG CRITIQUE] Utilisateur considéré EN_PARTAGE ! eventStatus="${eventStatus}"`
-        );
         return {
           status: UserEventStatus.EN_PARTAGE,
           message: 'En partage de localisation',
@@ -444,9 +412,6 @@ export class FriendsStatusService {
         };
 
       default:
-        console.log(
-          `🔍 [DEBUG STATUT] eventStatus inconnu: "${eventStatus}" → Disponible par défaut`
-        );
         return {
           status: UserEventStatus.LIBRE,
           message: 'Disponible',
@@ -454,42 +419,6 @@ export class FriendsStatusService {
           available: true,
           details: { eventStatus },
         };
-    }
-  }
-
-  /**
-   * Vérifie si un utilisateur est vraiment en partage de localisation
-   * @private
-   */
-  static async _verifyRealSharingStatus(userId) {
-    try {
-      // Utiliser ValidationService pour vérifier le partage réel
-      const availability = await ValidationService.checkUserAvailability(
-        userId,
-        'system'
-      );
-
-      console.log(`🔍 [VERIFY] ${userId} availability check:`, availability);
-
-      // Si disponible selon ValidationService, alors pas vraiment en partage
-      if (availability.available) {
-        console.log(`🔍 [VERIFY] ${userId} est disponible → pas en partage`);
-        return false;
-      }
-
-      // Si indisponible pour partage de localisation, alors vraiment en partage
-      const isReallySharing =
-        availability.reason?.includes('partage') ||
-        availability.reason?.includes('localisation') ||
-        availability.reason?.includes('sharing');
-
-      console.log(
-        `🔍 [VERIFY] ${userId} vraiment en partage: ${isReallySharing}`
-      );
-      return isReallySharing;
-    } catch (error) {
-      console.error(`❌ [VERIFY] Erreur vérification ${userId}:`, error);
-      return false; // En cas d'erreur, on considère qu'il n'est pas en partage
     }
   }
 }

@@ -1,17 +1,22 @@
-// Écran d'accueil avec gestion des disponibilités
-import { motion } from 'framer-motion';
+// Écran d'accueil avec gestion des disponibilités - MD3 Expressive
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Clock as ClockIcon,
   Facebook,
   HelpCircle,
   Instagram,
   Linkedin,
+  MapPin,
   Shield,
+  Sparkles,
   UserPlus,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import AvailabilityButtons from '../AvailabilityButtons';
+import MD3Button from '../common/MD3Button';
+import MD3Card from '../common/MD3Card';
+import MD3IconButton from '../common/MD3IconButton';
 import { MapView } from '../map';
 import MapboxMapView from '../map/MapboxMapView';
 
@@ -35,6 +40,7 @@ const HomeScreen = ({
   onSetAvailability,
   onStopAvailability,
   onTerminateActivity,
+  onCancelInvitations,
   onRetryGeolocation,
   onRequestLocationPermission,
   onInviteFriends,
@@ -150,11 +156,25 @@ const HomeScreen = ({
 
   const homeNotifications = getHomeNotifications();
 
+  // Animation variants for staggered children
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 },
+  };
+
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-[var(--md-sys-color-surface)]">
       <div className="flex-1">
         {/* Boutons de disponibilité */}
-        <div className="px-responsive py-4">
+        <div className="px-4 sm:px-6 py-6">
           <AvailabilityButtons
             isAvailable={isAvailable}
             currentActivity={currentActivity}
@@ -168,162 +188,166 @@ const HomeScreen = ({
             user={user}
             onStartAvailability={onSetAvailability}
             onStopAvailability={onStopAvailability}
+            onCancelInvitations={onCancelInvitations}
             onInviteMoreFriends={onInviteFriends}
           />
 
-          {/* Section Notifications */}
-          {homeNotifications.length > 0 && (
-            <motion.div
-              className="mt-4"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <div className="space-y-3">
-                {homeNotifications.map(notification => (
-                  <motion.div
-                    key={notification.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-lg p-4 shadow-sm`}
-                  >
-                    <p
-                      className={`font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+          {/* Section Notifications - MD3 Style */}
+          <AnimatePresence>
+            {homeNotifications.length > 0 && (
+              <motion.div
+                className="mt-6"
+                initial="hidden"
+                animate="visible"
+                variants={containerVariants}
+              >
+                <div className="space-y-4">
+                  {homeNotifications.map(notification => (
+                    <MD3Card
+                      key={notification.id}
+                      variant="filled"
+                      padding="default"
+                      className="border-l-4 border-l-[var(--md-sys-color-primary)]"
                     >
-                      {notification.message}
-                    </p>
-                    <p
-                      className={`text-sm mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                    >
-                      {notification.createdAt
-                        ?.toDate?.()
-                        ?.toLocaleTimeString() || 'Maintenant'}
-                    </p>
+                      <p className="font-semibold mb-2 text-[var(--md-sys-color-on-surface)]">
+                        {notification.message}
+                      </p>
+                      <p className="text-sm mb-4 text-[var(--md-sys-color-on-surface-variant)]">
+                        {notification.createdAt
+                          ?.toDate?.()
+                          ?.toLocaleTimeString() || 'Maintenant'}
+                      </p>
 
-                    {/* Boutons d'action pour les invitations d'amitié */}
-                    {notification.type === 'friend_invitation' &&
-                      notification.data?.actions && (
-                        <div className="flex space-x-2">
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() =>
-                              onFriendInvitationResponse?.(
-                                notification.data.invitationId,
-                                'accepted',
-                                notification.id
-                              )
-                            }
-                            className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
-                          >
-                            ✅ Accepter
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() =>
-                              onFriendInvitationResponse?.(
-                                notification.data.invitationId,
-                                'declined',
-                                notification.id
-                              )
-                            }
-                            className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
-                          >
-                            ❌ Refuser
-                          </motion.button>
-                        </div>
-                      )}
+                      {/* Boutons d'action pour les invitations d'amitié */}
+                      {notification.type === 'friend_invitation' &&
+                        notification.data?.actions && (
+                          <div className="flex gap-3">
+                            <MD3Button
+                              variant="filled"
+                              onClick={() =>
+                                onFriendInvitationResponse?.(
+                                  notification.data.invitationId,
+                                  'accepted',
+                                  notification.id
+                                )
+                              }
+                              className="flex-1 bg-[var(--md-sys-color-success)]"
+                              icon={<span>✅</span>}
+                            >
+                              Accepter
+                            </MD3Button>
+                            <MD3Button
+                              variant="outlined"
+                              onClick={() =>
+                                onFriendInvitationResponse?.(
+                                  notification.data.invitationId,
+                                  'declined',
+                                  notification.id
+                                )
+                              }
+                              className="flex-1"
+                            >
+                              Refuser
+                            </MD3Button>
+                          </div>
+                        )}
 
-                    {/* Boutons d'action pour les invitations d'événements */}
-                    {(notification.type === 'invitation' ||
-                      notification.type === 'invitation_sent') &&
-                      notification.data?.actions && (
-                        <div className="flex space-x-2">
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() =>
-                              onActivityInvitationResponse?.(
-                                notification,
-                                'accepted'
-                              )
-                            }
-                            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
-                          >
-                            🎉 Rejoindre
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() =>
-                              onActivityInvitationResponse?.(
-                                notification,
-                                'declined'
-                              )
-                            }
-                            className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
-                          >
-                            ⏭️ Ignorer
-                          </motion.button>
-                        </div>
-                      )}
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
-          )}
+                      {/* Boutons d'action pour les invitations d'événements */}
+                      {(notification.type === 'invitation' ||
+                        notification.type === 'invitation_sent') &&
+                        notification.data?.actions && (
+                          <div className="flex gap-3">
+                            <MD3Button
+                              variant="filled"
+                              onClick={() =>
+                                onActivityInvitationResponse?.(
+                                  notification,
+                                  'accepted'
+                                )
+                              }
+                              className="flex-1"
+                              icon={<span>🎉</span>}
+                            >
+                              Rejoindre
+                            </MD3Button>
+                            <MD3Button
+                              variant="tonal"
+                              onClick={() =>
+                                onActivityInvitationResponse?.(
+                                  notification,
+                                  'declined'
+                                )
+                              }
+                              className="flex-1"
+                            >
+                              Ignorer
+                            </MD3Button>
+                          </div>
+                        )}
+                    </MD3Card>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {/* Section Inviter des amis */}
+          {/* Section Inviter des amis - MD3 Expressive */}
           <motion.div
-            className="mt-4"
-            initial={{ opacity: 0, y: 10 }}
+            className="mt-6"
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+            transition={{ delay: 0.2, duration: 0.4 }}
           >
-            <div
-              className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg`}
-            >
-              <h3
-                className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
-              >
-                🚀 Élargis ton cercle
-              </h3>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+            <MD3Card variant="elevated" padding="large">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--md-sys-color-primary)] to-[var(--md-sys-color-tertiary)] flex items-center justify-center">
+                  <Sparkles size={20} className="text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-[var(--md-sys-color-on-surface)]">
+                  Élargis ton cercle
+                </h3>
+              </div>
+              <p className="text-[var(--md-sys-color-on-surface-variant)] mb-5">
+                Invite tes amis pour partager vos disponibilités en temps réel !
+              </p>
+              <MD3Button
+                variant="filled"
                 onClick={onAddFriend}
-                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-3 px-4 rounded-xl font-medium flex items-center justify-center transition-all shadow-lg"
+                fullWidth
+                size="large"
+                icon={<UserPlus size={20} />}
+                className="bg-gradient-to-r from-[var(--md-sys-color-primary)] to-[var(--md-sys-color-tertiary)]"
               >
-                <UserPlus size={20} className="mr-2" />
-                <span>Inviter des amis 🎉</span>
-              </motion.button>
+                Inviter des amis 🎉
+              </MD3Button>
 
               {/* Boutons de test en mode développement */}
               {process.env.NODE_ENV === 'development' && (
-                <div className="mt-4 space-y-2">
-                  <button
+                <div className="mt-5 flex gap-3">
+                  <MD3Button
+                    variant="tonal"
                     onClick={onCreateTestFriendships}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg text-sm font-medium"
+                    size="small"
+                    className="flex-1"
                   >
-                    🧪 Créer des amitiés de test
-                  </button>
-                  <button
+                    🧪 Test amitiés
+                  </MD3Button>
+                  <MD3Button
+                    variant="outlined"
                     onClick={onLoadMockData}
-                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg text-sm font-medium"
+                    size="small"
+                    className="flex-1"
                   >
-                    🎭 Charger des données de démo
-                  </button>
+                    🎭 Démo
+                  </MD3Button>
                 </div>
               )}
-            </div>
+            </MD3Card>
           </motion.div>
         </div>
 
-        {/* Section des amis disponibles SUPPRIMÉE - plus de cartes avec boutons Rejoindre/Décliner */}
-
-        {/* Carte */}
-        <div className="flex-1 relative">
+        {/* Section Carte - MD3 Style */}
+        <div className="flex-1 relative min-h-[300px] mx-4 sm:mx-6 mb-6 rounded-[28px] overflow-hidden shadow-[var(--md-sys-elevation-level2)]">
           {location ? (
             <SafeMapComponent
               availableFriends={availableFriends}
@@ -337,48 +361,36 @@ const HomeScreen = ({
               onRequestLocationPermission={onRequestLocationPermission}
             />
           ) : (
-            <div
-              className={`h-full flex items-center justify-center ${
-                darkMode ? 'bg-gray-800' : 'bg-gray-50'
-              }`}
-            >
-              <div className="text-center p-responsive">
-                <ClockIcon
-                  size={48}
-                  className={`mx-auto mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+            <div className="h-full flex items-center justify-center bg-[var(--md-sys-color-surface-container)]">
+              <div className="text-center p-8">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                  className="mx-auto mb-4 w-12 h-12 rounded-full border-4 border-[var(--md-sys-color-primary)] border-t-transparent"
                 />
-                <h3
-                  className={`text-lg font-semibold mb-2 ${
-                    darkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}
-                >
+                <h3 className="text-lg font-semibold mb-2 text-[var(--md-sys-color-on-surface)]">
                   Localisation en cours...
                 </h3>
-                <p
-                  className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                >
+                <p className="text-sm mb-2 text-[var(--md-sys-color-on-surface-variant)]">
                   {locationError
                     ? 'Erreur de géolocalisation. Vérifiez vos permissions.'
                     : 'Nous déterminons votre position pour afficher vos amis.'}
                 </p>
                 {locationError && (
-                  <p
-                    className={`text-xs mb-4 ${darkMode ? 'text-gray-500' : 'text-gray-600'} leading-relaxed`}
-                  >
+                  <p className="text-xs mb-4 text-[var(--md-sys-color-on-surface-variant)] leading-relaxed">
                     L'application a besoin de votre position GPS pour vous
                     localiser sur la carte et permettre à vos amis de vous
                     retrouver facilement.
                   </p>
                 )}
                 {locationError && (
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  <MD3Button
+                    variant="filled"
                     onClick={onRetryGeolocation}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                    icon={<MapPin size={18} />}
                   >
                     Réessayer
-                  </motion.button>
+                  </MD3Button>
                 )}
               </div>
             </div>
@@ -386,57 +398,58 @@ const HomeScreen = ({
         </div>
       </div>
 
-      {/* Footer avec dégradé */}
-      <footer className="bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 px-responsive-lg py-8 border-t border-gray-200 mt-16">
+      {/* Footer MD3 Expressive */}
+      <footer
+        className="px-6 sm:px-8 py-10 mt-8"
+        style={{
+          background: 'linear-gradient(135deg, #111827 0%, #7c3aed 100%)',
+        }}
+      >
         <div className="max-w-4xl mx-auto">
           {/* Réseaux sociaux */}
-          <div className="flex justify-center space-x-6 mb-8">
-            <a
-              href="https://facebook.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-all duration-300 hover:scale-110"
-            >
-              <Facebook size={20} />
-            </a>
-            <a
-              href="https://instagram.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-all duration-300 hover:scale-110"
-            >
-              <Instagram size={20} />
-            </a>
-            <a
-              href="https://x.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-all duration-300 hover:scale-110"
-            >
-              <X size={20} />
-            </a>
-            <a
-              href="https://linkedin.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-all duration-300 hover:scale-110"
-            >
-              <Linkedin size={20} />
-            </a>
+          <div className="flex justify-center gap-4 mb-8">
+            <MD3IconButton
+              variant="standard"
+              icon={<Facebook size={20} />}
+              onClick={() => window.open('https://facebook.com', '_blank')}
+              ariaLabel="Facebook"
+              className="text-white/80 hover:text-white hover:bg-white/20"
+            />
+            <MD3IconButton
+              variant="standard"
+              icon={<Instagram size={20} />}
+              onClick={() => window.open('https://instagram.com', '_blank')}
+              ariaLabel="Instagram"
+              className="text-white/80 hover:text-white hover:bg-white/20"
+            />
+            <MD3IconButton
+              variant="standard"
+              icon={<X size={20} />}
+              onClick={() => window.open('https://x.com', '_blank')}
+              ariaLabel="X"
+              className="text-white/80 hover:text-white hover:bg-white/20"
+            />
+            <MD3IconButton
+              variant="standard"
+              icon={<Linkedin size={20} />}
+              onClick={() => window.open('https://linkedin.com', '_blank')}
+              ariaLabel="LinkedIn"
+              className="text-white/80 hover:text-white hover:bg-white/20"
+            />
           </div>
 
-          {/* Sections du footer */}
+          {/* Sections du footer - MD3 Style */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-sm">
             {/* À PROPOS */}
             <div className="text-center">
-              <h3 className="font-semibold text-white mb-4 flex items-center justify-center">
-                <HelpCircle size={16} className="mr-2" />À PROPOS
+              <h3 className="font-bold text-white mb-4 flex items-center justify-center gap-2 text-base">
+                <HelpCircle size={18} /> À PROPOS
               </h3>
-              <ul className="space-y-2">
+              <ul className="space-y-3">
                 <li>
                   <a
                     href="#"
-                    className="text-white/70 hover:text-white transition-colors"
+                    className="text-white/80 hover:text-white transition-colors font-medium"
                   >
                     Centre d'aide
                   </a>
@@ -444,7 +457,7 @@ const HomeScreen = ({
                 <li>
                   <a
                     href="#"
-                    className="text-white/70 hover:text-white transition-colors"
+                    className="text-white/80 hover:text-white transition-colors font-medium"
                   >
                     Guide d'utilisation
                   </a>
@@ -454,15 +467,14 @@ const HomeScreen = ({
 
             {/* LEGAL */}
             <div className="text-center">
-              <h3 className="font-semibold text-white mb-4 flex items-center justify-center">
-                <Shield size={16} className="mr-2" />
-                LÉGAL
+              <h3 className="font-bold text-white mb-4 flex items-center justify-center gap-2 text-base">
+                <Shield size={18} /> LÉGAL
               </h3>
-              <ul className="space-y-2">
+              <ul className="space-y-3">
                 <li>
                   <a
                     href="#"
-                    className="text-white/70 hover:text-white transition-colors"
+                    className="text-white/80 hover:text-white transition-colors font-medium"
                   >
                     CGU Qui est dispo
                   </a>
@@ -470,7 +482,7 @@ const HomeScreen = ({
                 <li>
                   <a
                     href="#"
-                    className="text-white/70 hover:text-white transition-colors"
+                    className="text-white/80 hover:text-white transition-colors font-medium"
                   >
                     Mentions légales
                   </a>
@@ -478,7 +490,7 @@ const HomeScreen = ({
                 <li>
                   <a
                     href="#"
-                    className="text-white/70 hover:text-white transition-colors"
+                    className="text-white/80 hover:text-white transition-colors font-medium"
                   >
                     Données personnelles
                   </a>
@@ -486,7 +498,7 @@ const HomeScreen = ({
                 <li>
                   <a
                     href="#"
-                    className="text-white/70 hover:text-white transition-colors"
+                    className="text-white/80 hover:text-white transition-colors font-medium"
                   >
                     Cookies
                   </a>
@@ -496,16 +508,19 @@ const HomeScreen = ({
 
             {/* SERVICE CLIENT */}
             <div className="text-center">
-              <h3 className="font-semibold text-white mb-4 flex items-center justify-center">
-                <ClockIcon size={16} className="mr-2" />
-                SERVICE CLIENT
+              <h3 className="font-bold text-white mb-4 flex items-center justify-center gap-2 text-base">
+                <ClockIcon size={18} /> SERVICE CLIENT
               </h3>
               <div className="space-y-2">
-                <p className="text-white/70">Du lundi au vendredi</p>
-                <p className="text-white/70">de 10h à 18h (Heure de Paris)</p>
+                <p className="text-white/80 font-medium">
+                  Du lundi au vendredi
+                </p>
+                <p className="text-white/80 font-medium">
+                  de 10h à 18h (Heure de Paris)
+                </p>
                 <a
                   href="mailto:contact@qui-est-dispo.com"
-                  className="text-white hover:text-white/80 transition-colors inline-block mt-3"
+                  className="inline-block mt-4 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full text-white font-semibold transition-all"
                 >
                   Nous contacter
                 </a>
@@ -514,9 +529,9 @@ const HomeScreen = ({
           </div>
 
           {/* Copyright */}
-          <div className="border-t border-white/20 mt-8 pt-6 text-center">
-            <p className="text-white/60 text-xs">
-              © 2025 Qui est dispo. Tous droits réservés.
+          <div className="border-t border-white/20 mt-10 pt-6 text-center">
+            <p className="text-white/70 text-sm font-medium">
+              © 2026 Qui est dispo. Tous droits réservés.
             </p>
           </div>
         </div>

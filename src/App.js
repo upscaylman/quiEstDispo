@@ -1,5 +1,5 @@
 // Application refactorisée avec AppShell et components modulaires
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 
 import AppShell from './components/AppShell';
 import CookieConsent from './components/CookieConsent';
@@ -8,6 +8,7 @@ import LoginScreen from './components/LoginScreen';
 import PhoneRequiredModal from './components/PhoneRequiredModal';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import UpdateNotification from './components/UpdateNotification';
+import { useToast } from './contexts/ToastContext';
 import { useAuth } from './hooks/useAuth';
 import { useGeolocation } from './hooks/useGeolocation';
 import { CookieService } from './services/cookieService';
@@ -19,6 +20,7 @@ import {
   InvitationService,
   NotificationService,
 } from './services/firebaseService';
+import { PresenceService } from './services/presenceService';
 import './styles/responsive.css';
 import { UserEventStatus } from './types/eventTypes';
 import { debugLog, prodError } from './utils/logger';
@@ -50,6 +52,12 @@ function App() {
     retryGeolocation,
     requestLocationPermission,
   } = useGeolocation();
+
+  // 🍞 Hook pour les toasts
+  const toast = useToast();
+
+  // Ref pour l'annulation des invitations (pour éviter les problèmes de closure)
+  const cancelInvitationsRef = useRef(null);
 
   // Hook pour les notifications GPS (temporairement désactivé)
   // const { gpsStatus } = useGPSNotifications();
@@ -419,7 +427,7 @@ function App() {
   // Handler pour envoyer des invitations
   const handleSendInvitations = async (activity, friendIds) => {
     try {
-      console.log(`🔥 [APP] handleSendInvitations appelé !`, {
+      debugLog(`🔥 [APP] handleSendInvitations appelé !`, {
         activity,
         friendIds,
         userUid: user?.uid,
@@ -429,11 +437,7 @@ function App() {
         throw new Error('Utilisateur ou localisation manquant');
       }
 
-      console.log(
-        `📨 Envoi d'invitations ${activity} à ${friendIds.length} amis`
-      );
-
-      console.log(`🔥 [APP] Appel InvitationService.sendInvitations...`);
+      debugLog(`📨 Envoi d'invitations ${activity} à ${friendIds.length} amis`);
 
       // Envoyer les invitations avec vérification anti-duplication
       const result = await InvitationService.sendInvitations(
@@ -443,9 +447,9 @@ function App() {
         location
       );
 
-      console.log(`🔥 [APP] Résultat de sendInvitations:`, result);
+      debugLog(`🔥 [APP] Résultat de sendInvitations:`, result);
 
-      // 🎯 NOUVEAU: Définir l'état d'invitation en attente
+      // 🎯 Définir l'état d'invitation en attente
       if (result.count > 0) {
         // Récupérer les noms des amis invités
         const invitedFriends = friends.filter(friend =>
@@ -455,38 +459,77 @@ function App() {
           friend => friend.name || friend.displayName || 'Ami'
         );
 
-        setPendingInvitation({
+        const pendingData = {
           activity,
           sentAt: new Date().getTime(),
           friendIds,
-          friendNames, // 🎯 NOUVEAU: Noms des amis
+          friendNames,
           count: result.count,
+        };
+
+        setPendingInvitation(pendingData);
+
+        // Sauvegarder dans localStorage
+        localStorage.setItem('pendingInvitation', JSON.stringify(pendingData));
+
+        // 🍞 Afficher un toast de succès avec bouton Annuler
+        const friendsText =
+          result.count === 1 ? friendNames[0] : `${result.count} amis`;
+        toast.success(`Invitation envoyée à ${friendsText}`, {
+          icon: '📨',
+          duration: 5000,
+          action: 'Annuler',
+          onAction: () => {
+            // Utiliser la ref pour appeler la dernière version de handleCancelInvitations
+            cancelInvitationsRef.current?.();
+          },
         });
-
-        // 🎯 NOUVEAU: Sauvegarder dans localStorage
-        localStorage.setItem(
-          'pendingInvitation',
-          JSON.stringify({
-            activity,
-            sentAt: new Date().getTime(),
-            friendIds,
-            friendNames,
-            count: result.count,
-          })
-        );
-
-        console.log(
-          `✅ ${result.count} invitation${result.count > 1 ? 's' : ''} envoyée${result.count > 1 ? 's' : ''} pour ${activity}! En attente d'acceptation...`
-        );
       } else {
-        console.log('Aucune invitation envoyée.');
+        toast.info('Aucune invitation envoyée', { duration: 3000 });
       }
     } catch (error) {
-      console.error('❌ Erreur envoi invitations:', error);
-      // Garder l'alert seulement pour les erreurs critiques
-      alert(`Erreur lors de l'envoi des invitations: ${error.message}`);
+      prodError('❌ Erreur envoi invitations:', error);
+      // 🍞 Afficher un toast d'erreur au lieu d'une alert
+      toast.error(`Erreur: ${error.message}`);
     }
   };
+
+  // 🚫 Handler pour annuler les invitations en attente
+  const handleCancelInvitations = async () => {
+    if (!pendingInvitation || !user) return;
+
+    try {
+      const { activity, friendIds } = pendingInvitation;
+
+      const result = await InvitationService.cancelSentInvitations(
+        user.uid,
+        activity,
+        friendIds
+      );
+
+      // Nettoyer l'état
+      setPendingInvitation(null);
+      localStorage.removeItem('pendingInvitation');
+
+      if (result.cancelled > 0) {
+        toast.success(
+          `${result.cancelled} invitation${result.cancelled > 1 ? 's' : ''} annulée${result.cancelled > 1 ? 's' : ''}`,
+          {
+            icon: '🚫',
+            duration: 3000,
+          }
+        );
+      } else {
+        toast.info('Invitations déjà traitées', { duration: 3000 });
+      }
+    } catch (error) {
+      prodError('❌ Erreur annulation invitations:', error);
+      toast.error(`Erreur: ${error.message}`);
+    }
+  };
+
+  // Mettre à jour la ref pour le callback du toast
+  cancelInvitationsRef.current = handleCancelInvitations;
 
   // Rejoindre l'activité d'un ami
   const handleJoinFriendActivity = async friendAvailability => {
@@ -1449,8 +1492,13 @@ function App() {
     if (!user) {
       // Si l'utilisateur se déconnecte, réinitialiser l'écran à l'accueil
       setCurrentScreen('home');
+      // Arrêter le heartbeat de présence
+      PresenceService.stopPresenceHeartbeat();
       return;
     }
+
+    // Démarrer le heartbeat de présence
+    PresenceService.startPresenceHeartbeat(user.uid);
 
     let unsubscribeAvailable;
     let unsubscribeNotifications;
@@ -1515,6 +1563,8 @@ function App() {
       if (unsubscribeNotifications) {
         unsubscribeNotifications();
       }
+      // Arrêter le heartbeat de présence
+      PresenceService.stopPresenceHeartbeat();
     };
   }, [user]);
 
@@ -1871,6 +1921,7 @@ function App() {
         setShowInviteFriendsModal={setShowInviteFriendsModal}
         selectedInviteActivity={selectedInviteActivity}
         onSendInvitations={handleSendInvitations}
+        onCancelInvitations={handleCancelInvitations}
         onInviteFriends={handleActivityClick}
         onOpenInviteFriendsModal={handleOpenInviteFriendsModal}
         onOpenActivitySelector={handleOpenActivitySelector}

@@ -1,6 +1,8 @@
-// Écran de carte en plein écran
-import { Clock as ClockIcon } from 'lucide-react';
-import React from 'react';
+// Écran de carte en plein écran - MD3 Expressive
+import { motion } from 'framer-motion';
+import { MapPin, Navigation } from 'lucide-react';
+import { MD3Card } from '../common';
+import MD3Button from '../common/MD3Button';
 import { MapView } from '../map';
 import MapboxMapView from '../map/MapboxMapView';
 
@@ -14,6 +16,7 @@ const MapScreen = ({
   darkMode,
   isAvailable,
   currentActivity,
+  currentUser,
 
   // Props de fonctions
   onInviteFriends,
@@ -24,7 +27,7 @@ const MapScreen = ({
   const MapComponent = useMapbox ? MapboxMapView : MapView;
 
   return (
-    <div className="h-full">
+    <div className="h-full relative overflow-hidden">
       {location ? (
         <MapComponent
           friends={friends}
@@ -34,54 +37,133 @@ const MapScreen = ({
           darkMode={darkMode}
           isAvailable={isAvailable}
           selectedActivity={currentActivity}
-          currentUser={null}
+          currentUser={currentUser}
           showControls={true}
           onRetryGeolocation={onRetryGeolocation}
           onRequestLocationPermission={onRequestLocationPermission}
         />
       ) : (
-        <div
-          className={`h-full flex items-center justify-center ${
-            darkMode ? 'bg-gray-800' : 'bg-gray-50'
-          }`}
-        >
-          <div className="text-center p-6">
-            <ClockIcon
-              size={48}
-              className={`mx-auto mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+        <div className="h-full flex items-center justify-center bg-gradient-to-br from-[var(--md-sys-color-surface)] via-[var(--md-sys-color-surface-container-low)] to-[var(--md-sys-color-surface-container)]">
+          {/* Animated background shapes */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <motion.div
+              className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-[var(--md-sys-color-primary)]/5"
+              animate={{
+                scale: [1, 1.2, 1],
+                opacity: [0.3, 0.5, 0.3],
+              }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
             />
-            <h3
-              className={`text-lg font-semibold mb-2 ${
-                darkMode ? 'text-gray-300' : 'text-gray-700'
-              }`}
-            >
-              Localisation en cours...
-            </h3>
-            <p
-              className={`text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-            >
-              {locationError
-                ? 'Erreur de géolocalisation. Vérifiez vos permissions.'
-                : 'Nous déterminons votre position pour afficher vos amis.'}
-            </p>
-            {locationError && (
-              <p
-                className={`text-xs mb-4 ${darkMode ? 'text-gray-500' : 'text-gray-600'} leading-relaxed`}
-              >
-                L'application a besoin de votre position GPS pour vous localiser
-                sur la carte et permettre à vos amis de vous retrouver
-                facilement.
-              </p>
-            )}
-            {locationError && (
-              <button
-                onClick={onRetryGeolocation}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                Activer la localisation
-              </button>
-            )}
+            <motion.div
+              className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full bg-[var(--md-sys-color-tertiary)]/5"
+              animate={{
+                scale: [1.2, 1, 1.2],
+                opacity: [0.3, 0.5, 0.3],
+              }}
+              transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+            />
           </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="relative z-10"
+          >
+            <MD3Card
+              variant="elevated"
+              className="p-8 max-w-sm mx-4 text-center"
+            >
+              {/* Icon container with animation */}
+              <motion.div
+                className="w-20 h-20 mx-auto mb-6 rounded-[var(--md-sys-shape-corner-extra-large)] bg-[var(--md-sys-color-primary-container)] flex items-center justify-center"
+                animate={
+                  locationError
+                    ? {}
+                    : {
+                        scale: [1, 1.05, 1],
+                      }
+                }
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+              >
+                {locationError ? (
+                  <MapPin
+                    size={36}
+                    className="text-[var(--md-sys-color-error)]"
+                  />
+                ) : (
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      duration: 3,
+                      repeat: Infinity,
+                      ease: 'linear',
+                    }}
+                  >
+                    <Navigation
+                      size={36}
+                      className="text-[var(--md-sys-color-on-primary-container)]"
+                    />
+                  </motion.div>
+                )}
+              </motion.div>
+
+              <h3 className="text-headline-small font-semibold text-[var(--md-sys-color-on-surface)] mb-3">
+                {locationError
+                  ? 'Localisation désactivée'
+                  : 'Localisation en cours...'}
+              </h3>
+
+              <p className="text-body-medium text-[var(--md-sys-color-on-surface-variant)] mb-4">
+                {locationError
+                  ? 'Activez la géolocalisation pour voir vos amis sur la carte.'
+                  : 'Nous déterminons votre position pour afficher vos amis.'}
+              </p>
+
+              {locationError && (
+                <>
+                  <p className="text-body-small text-[var(--md-sys-color-on-surface-variant)]/70 mb-6 leading-relaxed">
+                    L'application a besoin de votre position GPS pour vous
+                    localiser sur la carte et permettre à vos amis de vous
+                    retrouver.
+                  </p>
+
+                  <MD3Button
+                    onClick={onRetryGeolocation}
+                    fullWidth
+                    size="large"
+                    icon={<MapPin size={20} />}
+                  >
+                    Activer la localisation
+                  </MD3Button>
+                </>
+              )}
+
+              {!locationError && (
+                <div className="flex justify-center gap-1 mt-2">
+                  {[0, 1, 2].map(i => (
+                    <motion.div
+                      key={i}
+                      className="w-2 h-2 rounded-full bg-[var(--md-sys-color-primary)]"
+                      animate={{
+                        scale: [1, 1.5, 1],
+                        opacity: [0.3, 1, 0.3],
+                      }}
+                      transition={{
+                        duration: 1,
+                        repeat: Infinity,
+                        delay: i * 0.2,
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </MD3Card>
+          </motion.div>
         </div>
       )}
     </div>

@@ -1,7 +1,19 @@
-// Écran des paramètres
+// Écran des paramètres - MD3 Expressive
 import { motion } from 'framer-motion';
-import { Bell, Moon, Palette, Smartphone, Sun } from 'lucide-react';
+import {
+  Bell,
+  LogOut,
+  Moon,
+  Palette,
+  Shield,
+  Smartphone,
+  Sun,
+  Trash2,
+} from 'lucide-react';
 import ProfileEditor from '../ProfileEditor';
+import MD3Button from '../common/MD3Button';
+import MD3Card from '../common/MD3Card';
+import MD3Switch from '../common/MD3Switch';
 
 const SettingsScreen = ({
   // Props de state
@@ -25,347 +37,266 @@ const SettingsScreen = ({
 }) => {
   // Écran de debug des notifications supprimé
 
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 },
+  };
+
   return (
-    <div className="px-responsive py-4">
-      {/* Section Profil */}
-      <ProfileEditor
-        user={user}
-        onProfileUpdate={onProfileUpdate}
-        darkMode={darkMode}
-      />
-
-      {/* Section Apparence */}
-      <div
-        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
+    <motion.div
+      className="px-4 sm:px-6 py-6 bg-[var(--md-sys-color-surface)] min-h-full"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      {/* Header */}
+      <motion.h2
+        className="text-2xl font-bold text-[var(--md-sys-color-on-surface)] mb-6"
+        variants={itemVariants}
       >
-        <h3
-          className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
-        >
-          🎨 Apparence
-        </h3>
+        Paramètres
+      </motion.h2>
 
-        {/* Toggle Thème Clair/Sombre */}
-        <div
-          className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} pt-4`}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center">
+      {/* Section Profil */}
+      <motion.div variants={itemVariants}>
+        <ProfileEditor
+          user={user}
+          onProfileUpdate={onProfileUpdate}
+          darkMode={darkMode}
+        />
+      </motion.div>
+
+      {/* Section Apparence - MD3 Style */}
+      <motion.div variants={itemVariants}>
+        <MD3Card variant="elevated" className="mb-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-full bg-[var(--md-sys-color-tertiary-container)] flex items-center justify-center">
               <Palette
-                size={18}
-                className={`mr-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                size={20}
+                className="text-[var(--md-sys-color-on-tertiary-container)]"
               />
-              <div>
-                <h5
-                  className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                >
-                  Thème
-                </h5>
-                <p
-                  className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                >
-                  {themeMode === 'auto'
-                    ? 'Géré automatiquement par votre appareil'
-                    : themeMode === 'dark'
-                      ? 'Interface sombre activée'
-                      : 'Interface claire activée'}
-                </p>
-              </div>
             </div>
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() =>
-                themeMode !== 'auto' &&
-                onThemeChange(themeMode === 'dark' ? 'light' : 'dark')
-              }
-              disabled={themeMode === 'auto'}
-              className={`w-14 h-8 rounded-full p-1 transition-colors ${
-                themeMode === 'auto'
-                  ? darkMode
-                    ? 'bg-gray-600 opacity-50'
-                    : 'bg-gray-300 opacity-50'
-                  : themeMode === 'dark'
-                    ? 'bg-blue-500'
-                    : darkMode
-                      ? 'bg-gray-600'
-                      : 'bg-gray-300'
-              }`}
-            >
-              <div
-                className={`w-6 h-6 rounded-full transition-transform flex items-center justify-center ${
-                  themeMode === 'auto'
-                    ? 'bg-gray-400 translate-x-3'
-                    : themeMode === 'dark'
-                      ? 'bg-white translate-x-6'
-                      : 'bg-white translate-x-0'
-                }`}
-              >
-                {themeMode === 'auto' ? (
-                  <Smartphone size={12} className="text-gray-600" />
-                ) : themeMode === 'dark' ? (
-                  <Moon size={12} className="text-gray-600" />
+            <h3 className="text-xl font-bold text-[var(--md-sys-color-on-surface)]">
+              Apparence
+            </h3>
+          </div>
+
+          {/* Toggle Thème Clair/Sombre */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between py-3 border-b border-[var(--md-sys-color-outline-variant)]">
+              <div className="flex items-center gap-3">
+                {themeMode === 'dark' ? (
+                  <Moon
+                    size={20}
+                    className="text-[var(--md-sys-color-primary)]"
+                  />
                 ) : (
-                  <Sun size={12} className="text-gray-600" />
+                  <Sun
+                    size={20}
+                    className="text-[var(--md-sys-color-primary)]"
+                  />
                 )}
-              </div>
-            </motion.button>
-          </div>
-        </div>
-
-        {/* Toggle Thème Automatique */}
-        <div
-          className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} pt-4 mt-4`}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center">
-              <Smartphone
-                size={18}
-                className={`mr-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
-              />
-              <div>
-                <h5
-                  className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                >
-                  Thème automatique
-                </h5>
-                <p
-                  className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                >
-                  {themeMode === 'auto'
-                    ? 'Suit automatiquement votre appareil'
-                    : 'Désactivé - thème manuel'}
-                </p>
-              </div>
-            </div>
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() =>
-                onThemeChange(themeMode === 'auto' ? 'light' : 'auto')
-              }
-              className={`w-14 h-8 rounded-full p-1 transition-colors ${
-                themeMode === 'auto'
-                  ? 'bg-purple-500'
-                  : darkMode
-                    ? 'bg-gray-600'
-                    : 'bg-gray-300'
-              }`}
-            >
-              <div
-                className={`w-6 h-6 rounded-full bg-white transition-transform ${
-                  themeMode === 'auto' ? 'translate-x-6' : 'translate-x-0'
-                }`}
-              />
-            </motion.button>
-          </div>
-        </div>
-      </div>
-
-      {/* Section Notifications Push (dev seulement) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div
-          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
-        >
-          <h3
-            className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
-          >
-            📱 Notifications Push (dev)
-          </h3>
-
-          <div
-            className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} pt-4`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center">
-                <Bell
-                  size={18}
-                  className={`mr-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
-                />
                 <div>
-                  <h5
-                    className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                  >
-                    Notifications Push
-                  </h5>
-                  <p
-                    className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                  >
-                    {pushNotificationStatus.subscribed
-                      ? 'Activées et fonctionnelles'
-                      : pushNotificationStatus.permission === 'granted'
-                        ? 'Autorisées mais non configurées'
-                        : pushNotificationStatus.permission === 'denied'
-                          ? 'Refusées par le navigateur'
-                          : 'Non configurées'}
+                  <p className="font-medium text-[var(--md-sys-color-on-surface)]">
+                    Mode sombre
+                  </p>
+                  <p className="text-sm text-[var(--md-sys-color-on-surface-variant)]">
+                    {themeMode === 'auto'
+                      ? 'Géré par votre appareil'
+                      : themeMode === 'dark'
+                        ? 'Activé'
+                        : 'Désactivé'}
                   </p>
                 </div>
               </div>
+              <MD3Switch
+                checked={themeMode === 'dark'}
+                onChange={() =>
+                  themeMode !== 'auto' &&
+                  onThemeChange(themeMode === 'dark' ? 'light' : 'dark')
+                }
+                disabled={themeMode === 'auto'}
+                checkedIcon={<Moon size={12} />}
+                icon={<Sun size={12} />}
+              />
             </div>
 
-            <div className="flex flex-wrap gap-2 mt-3">
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={onEnablePushNotifications}
-                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded"
-              >
-                🔔 Activer
-              </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={onCheckPushStatus}
-                className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded"
-              >
-                🔍 Statut
-              </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={onTestPushNotification}
-                className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded"
-              >
-                🧪 Tester
-              </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={onOpenDebugNotifications}
-                className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded"
-              >
-                🐛 Debug
-              </motion.button>
+            {/* Toggle Thème Automatique */}
+            <div className="flex items-center justify-between py-3">
+              <div className="flex items-center gap-3">
+                <Smartphone
+                  size={20}
+                  className="text-[var(--md-sys-color-secondary)]"
+                />
+                <div>
+                  <p className="font-medium text-[var(--md-sys-color-on-surface)]">
+                    Thème automatique
+                  </p>
+                  <p className="text-sm text-[var(--md-sys-color-on-surface-variant)]">
+                    Suit les préférences système
+                  </p>
+                </div>
+              </div>
+              <MD3Switch
+                checked={themeMode === 'auto'}
+                onChange={() =>
+                  onThemeChange(themeMode === 'auto' ? 'light' : 'auto')
+                }
+              />
             </div>
           </div>
-        </div>
+        </MD3Card>
+      </motion.div>
+
+      {/* Section Notifications Push (dev seulement) - MD3 Style */}
+      {process.env.NODE_ENV === 'development' && (
+        <motion.div variants={itemVariants}>
+          <MD3Card variant="outlined" className="mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-[var(--md-sys-color-secondary-container)] flex items-center justify-center">
+                <Bell
+                  size={20}
+                  className="text-[var(--md-sys-color-on-secondary-container)]"
+                />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-[var(--md-sys-color-on-surface)]">
+                  Notifications Push
+                </h3>
+                <p className="text-sm text-[var(--md-sys-color-on-surface-variant)]">
+                  {pushNotificationStatus.subscribed
+                    ? 'Activées et fonctionnelles'
+                    : pushNotificationStatus.permission === 'granted'
+                      ? 'Autorisées mais non configurées'
+                      : pushNotificationStatus.permission === 'denied'
+                        ? 'Refusées par le navigateur'
+                        : 'Non configurées'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <MD3Button
+                variant="filled"
+                size="small"
+                onClick={onEnablePushNotifications}
+              >
+                🔔 Activer
+              </MD3Button>
+              <MD3Button
+                variant="tonal"
+                size="small"
+                onClick={onCheckPushStatus}
+              >
+                🔍 Statut
+              </MD3Button>
+              <MD3Button
+                variant="tonal"
+                size="small"
+                onClick={onTestPushNotification}
+              >
+                🧪 Tester
+              </MD3Button>
+              <MD3Button
+                variant="outlined"
+                size="small"
+                onClick={onOpenDebugNotifications}
+              >
+                🐛 Debug
+              </MD3Button>
+            </div>
+          </MD3Card>
+        </motion.div>
       )}
 
-      {/* Section Test des Notifications Firestore supprimée */}
-
-      {/* Section Debug Notifications (dev) */}
+      {/* Section Provider de Cartes (dev) - MD3 Style */}
       {process.env.NODE_ENV === 'development' && (
-        <div
-          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
-        >
-          <h3
-            className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
-          >
-            🔧 Debug Notifications (dev)
-          </h3>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onOpenDebugNotifications}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
-          >
-            🔍 Ouvrir le diagnostic
-          </motion.button>
-        </div>
-      )}
-
-      {/* Section Provider de Cartes (dev) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div
-          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow mb-4`}
-        >
-          <h3
-            className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
-          >
-            🗺️ Provider de Cartes (dev)
-          </h3>
-
-          <div
-            className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} pt-4`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className={`mr-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
-                >
-                  <path d="M14.828 14.828a4 4 0 0 1-5.656 0M9 10h.01M15 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                </svg>
+        <motion.div variants={itemVariants}>
+          <MD3Card variant="outlined" className="mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[var(--md-sys-color-primary-container)] flex items-center justify-center">
+                  🗺️
+                </div>
                 <div>
-                  <h5
-                    className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                  >
+                  <p className="font-medium text-[var(--md-sys-color-on-surface)]">
                     Utiliser Mapbox
-                  </h5>
-                  <p
-                    className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                  >
+                  </p>
+                  <p className="text-sm text-[var(--md-sys-color-on-surface-variant)]">
                     {useMapbox
                       ? 'Cartes Mapbox activées'
                       : 'Cartes CSS par défaut'}
                   </p>
                 </div>
               </div>
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() =>
+              <MD3Switch
+                checked={useMapbox}
+                onChange={() =>
                   onMapProviderChange(useMapbox ? 'default' : 'mapbox')
                 }
-                className={`w-14 h-8 rounded-full p-1 transition-colors ${
-                  useMapbox
-                    ? 'bg-blue-500'
-                    : darkMode
-                      ? 'bg-gray-600'
-                      : 'bg-gray-300'
-                }`}
-              >
-                <div
-                  className={`w-6 h-6 rounded-full bg-white transition-transform ${
-                    useMapbox ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-                />
-              </motion.button>
+              />
             </div>
-          </div>
-        </div>
+          </MD3Card>
+        </motion.div>
       )}
 
-      {/* Zone dangereuse */}
-      <div
-        className={`${
-          darkMode ? 'bg-red-900/20 border-red-700' : 'bg-red-50 border-red-200'
-        } border rounded-lg p-6 shadow mb-4`}
-      >
-        <h3
-          className={`text-lg font-semibold mb-4 ${
-            darkMode ? 'text-red-300' : 'text-red-700'
-          } flex items-center`}
+      {/* Zone dangereuse - MD3 Style */}
+      <motion.div variants={itemVariants}>
+        <MD3Card
+          variant="outlined"
+          className="mb-6 border-[var(--md-sys-color-error)] bg-[var(--md-sys-color-error-container)]/20"
         >
-          ⚠️ Zone dangereuse
-        </h3>
-        <p
-          className={`text-sm mb-4 ${darkMode ? 'text-red-200' : 'text-red-600'}`}
-        >
-          Cette action est irréversible. Toutes vos données seront
-          définitivement supprimées.
-        </p>
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={onShowDeleteAccount}
-          className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors"
-        >
-          🗑️ Supprimer mon compte
-        </motion.button>
-      </div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-[var(--md-sys-color-error)] flex items-center justify-center">
+              <Shield
+                size={20}
+                className="text-[var(--md-sys-color-on-error)]"
+              />
+            </div>
+            <h3 className="text-lg font-bold text-[var(--md-sys-color-error)]">
+              Zone dangereuse
+            </h3>
+          </div>
+          <p className="text-sm text-[var(--md-sys-color-on-surface-variant)] mb-5">
+            Cette action est irréversible. Toutes vos données seront
+            définitivement supprimées.
+          </p>
+          <MD3Button
+            variant="filled"
+            onClick={onShowDeleteAccount}
+            fullWidth
+            icon={<Trash2 size={18} />}
+            className="bg-[var(--md-sys-color-error)] hover:bg-[var(--md-sys-color-error)]/90"
+          >
+            Supprimer mon compte
+          </MD3Button>
+        </MD3Card>
+      </motion.div>
 
-      {/* Section Déconnexion */}
-      <div
-        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 shadow`}
-      >
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={onSignOut}
-          className="w-full bg-red-500 hover:bg-red-600 text-white py-3 rounded-lg font-medium transition-colors"
-        >
-          Se déconnecter
-        </motion.button>
-      </div>
-    </div>
+      {/* Section Déconnexion - MD3 Style */}
+      <motion.div variants={itemVariants}>
+        <MD3Card variant="elevated" className="mb-20">
+          <MD3Button
+            variant="tonal"
+            onClick={onSignOut}
+            fullWidth
+            size="large"
+            icon={<LogOut size={20} />}
+          >
+            Se déconnecter
+          </MD3Button>
+        </MD3Card>
+      </motion.div>
+    </motion.div>
   );
 };
 

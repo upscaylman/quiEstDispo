@@ -21,17 +21,25 @@ export class GoogleSignInService {
           window.google.accounts.id
         ) {
           try {
+            // Vérifier que le callback est une fonction
+            if (!options.callback || typeof options.callback !== 'function') {
+              console.error(
+                '❌ Google Sign-In: callback doit être une fonction'
+              );
+              reject(new Error('callback doit être une fonction'));
+              return;
+            }
+
             // Configuration par défaut selon la documentation
             const config = {
               client_id: clientId,
-              callback: options.callback || 'handleGoogleSignIn',
+              callback: options.callback,
               auto_prompt: options.auto_prompt || false,
               cancel_on_tap_outside: options.cancel_on_tap_outside !== false,
               context: options.context || 'signin',
               ux_mode: options.ux_mode || 'popup',
               itp_support: options.itp_support !== false,
               use_fedcm_for_prompt: options.use_fedcm_for_prompt !== false,
-              ...options,
             };
 
             // Initialiser Google Identity Services

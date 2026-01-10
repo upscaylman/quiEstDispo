@@ -219,27 +219,25 @@ export const createUserMarkerElement = (user, hasLocationPermission = true) => {
         <!-- Animations GPS (cercles verts pulsants) -->
         <div style="
           position: absolute;
-          top: 0px;
-          left: 0px;
+          top: 5px;
+          left: 5px;
           width: 50px;
           height: 50px;
           border: 2px solid #10b981;
           border-radius: 50%;
           animation: gps-pulse 2s infinite;
           opacity: 0.6;
-          margin: 5px auto 0;
         "></div>
         <div style="
           position: absolute;
-          top: -5px;
-          left: -5px;
+          top: 0px;
+          left: 0px;
           width: 60px;
           height: 60px;
           border: 2px solid #10b981;
           border-radius: 50%;
           animation: gps-pulse 2s infinite 0.7s;
           opacity: 0.4;
-          margin: 5px auto 0;
         "></div>
       `
           : ''

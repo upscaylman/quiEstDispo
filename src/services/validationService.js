@@ -1,7 +1,6 @@
 // Service de validation avancée pour invitations - Phase 5
 import { UserEventStatus } from '../types/eventTypes';
 import { EventStatusService } from './eventStatusService';
-import { FriendsStatusService } from './friendsStatusService';
 import { RelationshipService } from './relationshipService';
 
 export class ValidationService {
@@ -14,7 +13,8 @@ export class ValidationService {
   static async checkUserAvailability(userId, invitingUserId) {
     try {
       // 🚨 MODE DÉVELOPPEMENT : Contourner les vérifications strictes temporairement
-      if (process.env.NODE_ENV === 'development') {
+      // TEMPORAIREMENT DÉSACTIVÉ pour debug statuts
+      if (false && process.env.NODE_ENV === 'development') {
         console.log(`🔧 [DEV MODE] Contournement validation pour ${userId}`);
         return {
           available: true,
@@ -42,18 +42,23 @@ export class ValidationService {
         };
       }
 
-      // 2. Vérifier statut détaillé via FriendsStatusService
-      const statusCheck = await FriendsStatusService.getFriendDetailedStatus(
-        userId,
-        invitingUserId
-      );
-      if (!statusCheck.available) {
+      // 2. Vérifier statut événement directement (évite dépendance circulaire avec FriendsStatusService)
+      const eventStatus = await EventStatusService.getUserEventStatus(userId);
+
+      // Si l'utilisateur est en partage ou occupé, il n'est pas disponible
+      if (
+        eventStatus === UserEventStatus.EN_PARTAGE ||
+        eventStatus === UserEventStatus.OCCUPE
+      ) {
         return {
           available: false,
           reason: 'status_busy',
-          statusType: statusCheck.status,
-          details: statusCheck.details,
-          friendlyMessage: statusCheck.message,
+          statusType: eventStatus,
+          details: { eventStatus },
+          friendlyMessage:
+            eventStatus === UserEventStatus.EN_PARTAGE
+              ? 'Déjà en partage de localisation'
+              : 'Actuellement occupé',
         };
       }
 

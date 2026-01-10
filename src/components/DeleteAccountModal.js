@@ -1,5 +1,7 @@
-import { motion } from 'framer-motion';
-import React, { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { AlertTriangle, X } from 'lucide-react';
+import { useState } from 'react';
+import MD3Button from './common/MD3Button';
 
 const DeleteAccountModal = ({ isOpen, onClose, onConfirm, darkMode }) => {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -21,94 +23,86 @@ const DeleteAccountModal = ({ isOpen, onClose, onConfirm, darkMode }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-xl p-6 w-full max-w-md border shadow-xl`}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        onClick={handleClose}
       >
-        <div className="text-center mb-6">
-          <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              className="text-red-600"
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.9, y: 20 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+          onClick={e => e.stopPropagation()}
+          className="bg-[var(--md-sys-color-surface-container-high)] rounded-[var(--md-sys-shape-corner-extra-large)] p-6 w-full max-w-md shadow-[var(--md-sys-elevation-level3)]"
+        >
+          <div className="text-center mb-6">
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 400, delay: 0.1 }}
+              className="mx-auto w-20 h-20 bg-[var(--md-sys-color-error-container)] rounded-[var(--md-sys-shape-corner-extra-large)] flex items-center justify-center mb-4"
             >
-              <path
-                d="M6 6l12 12M6 18L18 6"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
+              <AlertTriangle
+                size={40}
+                className="text-[var(--md-sys-color-error)]"
               />
-            </svg>
+            </motion.div>
+            <h3 className="text-headline-small font-semibold text-[var(--md-sys-color-on-surface)] mb-2">
+              Supprimer votre compte
+            </h3>
+            <p className="text-body-medium text-[var(--md-sys-color-on-surface-variant)] mb-4">
+              Cette action est{' '}
+              <strong className="text-[var(--md-sys-color-error)]">
+                irréversible
+              </strong>
+              . Toutes vos données, amis, disponibilités et notifications seront
+              définitivement supprimées.
+            </p>
           </div>
-          <h3
-            className={`text-xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}
-          >
-            Supprimer votre compte
-          </h3>
-          <p
-            className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-4`}
-          >
-            Cette action est <strong>irréversible</strong>. Toutes vos données,
-            amis, disponibilités et notifications seront définitivement
-            supprimées.
-          </p>
-        </div>
 
-        <div className="mb-6">
-          <label
-            className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
-          >
-            Pour confirmer, tapez{' '}
-            <span className="font-mono bg-gray-100 px-1 rounded text-red-600">
-              DELETE
-            </span>
-          </label>
-          <input
-            type="text"
-            value={deleteConfirmText}
-            onChange={e => setDeleteConfirmText(e.target.value)}
-            placeholder="Tapez DELETE ici..."
-            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-              darkMode
-                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-            }`}
-          />
-        </div>
+          <div className="mb-6">
+            <label className="block text-label-large font-medium mb-3 text-[var(--md-sys-color-on-surface)]">
+              Pour confirmer, tapez{' '}
+              <span className="font-mono px-2 py-0.5 rounded-[var(--md-sys-shape-corner-small)] bg-[var(--md-sys-color-error-container)] text-[var(--md-sys-color-error)]">
+                DELETE
+              </span>
+            </label>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={e => setDeleteConfirmText(e.target.value)}
+              placeholder="Tapez DELETE ici..."
+              className="w-full px-4 py-3 border-2 rounded-[var(--md-sys-shape-corner-medium)] 
+                bg-[var(--md-sys-color-surface)] 
+                border-[var(--md-sys-color-outline)] 
+                text-[var(--md-sys-color-on-surface)] 
+                placeholder-[var(--md-sys-color-on-surface-variant)]/50
+                focus:border-[var(--md-sys-color-error)] focus:ring-2 focus:ring-[var(--md-sys-color-error)]/20 focus:outline-none
+                transition-all duration-200"
+            />
+          </div>
 
-        <div className="flex space-x-3">
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleClose}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
-              darkMode
-                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-            }`}
-          >
-            Annuler
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleConfirm}
-            disabled={deleteConfirmText !== 'DELETE'}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
-              deleteConfirmText === 'DELETE'
-                ? 'bg-red-600 hover:bg-red-700 text-white'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            Supprimer définitivement
-          </motion.button>
-        </div>
+          <div className="flex gap-3">
+            <MD3Button variant="tonal" onClick={handleClose} fullWidth>
+              Annuler
+            </MD3Button>
+            <MD3Button
+              variant="error"
+              onClick={handleConfirm}
+              disabled={deleteConfirmText !== 'DELETE'}
+              fullWidth
+              icon={<X size={18} />}
+            >
+              Supprimer
+            </MD3Button>
+          </div>
+        </motion.div>
       </motion.div>
-    </div>
+    </AnimatePresence>
   );
 };
 

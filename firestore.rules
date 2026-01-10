@@ -1,18 +1,61 @@
-rules_version='2'
+rules_version='2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Règles pour les utilisateurs
+    match /users/{userId} {
+      // Lecture: utilisateur authentifié peut lire son propre profil et ceux des autres
+      allow read: if request.auth != null;
+      // Écriture: seulement le propriétaire peut modifier son profil
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Règles pour les notifications
+    // ⚠️ CORRECTION: Pour les requêtes avec where('to', '==', userId), 
+    // Firestore vérifie la contrainte de la requête, pas les données réelles.
+    // On doit permettre la lecture si l'utilisateur est authentifié ET
+    // la requête contient une contrainte where('to', '==', request.auth.uid)
+    match /notifications/{notificationId} {
+      // Lecture: utilisateur peut lire ses propres notifications
+      // La requête DOIT avoir un filtre where('to', '==', userId) correspondant à l'auth
+      allow read: if request.auth != null && 
+                    (resource == null || resource.data.to == request.auth.uid);
+      // Création: utilisateur authentifié peut créer des notifications
+      allow create: if request.auth != null;
+      // Mise à jour: destinataire peut marquer comme lu
+      allow update: if request.auth != null && resource.data.to == request.auth.uid;
+      // Suppression: destinataire peut supprimer
+      allow delete: if request.auth != null && resource.data.to == request.auth.uid;
+    }
+
+    // Règles pour les invitations
+    match /invitations/{invitationId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // Règles pour les relations d'amis
+    match /friends/{friendId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // Règles pour les activités
+    match /activities/{activityId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // Règles pour les positions (géolocalisation)
+    match /positions/{positionId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // Règle fallback temporaire pour le développement
+    // TODO: Affiner ces règles pour la production
     match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2025, 7, 7);
+      allow read, write: if request.auth != null;
     }
   }
 }

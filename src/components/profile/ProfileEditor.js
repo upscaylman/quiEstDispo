@@ -1,5 +1,4 @@
 import { motion } from 'framer-motion';
-import React from 'react';
 import AvatarUploader from './AvatarUploader';
 import ProfileForm from './ProfileForm';
 import { useProfileEditor } from './useProfileEditor';
@@ -34,14 +33,8 @@ const ProfileEditor = ({ user, onProfileUpdate, darkMode = false }) => {
   } = useProfileEditor(user, onProfileUpdate);
 
   return (
-    <div
-      className={`p-6 rounded-xl shadow-lg ${
-        darkMode ? 'bg-gray-800' : 'bg-white'
-      } w-full max-w-md mx-auto`}
-    >
-      <h3
-        className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
-      >
+    <div className="p-6 rounded-xl shadow-lg bg-[var(--md-sys-color-surface-container)] w-full max-w-md mx-auto">
+      <h3 className="text-lg font-semibold mb-4 text-[var(--md-sys-color-on-surface)]">
         Mon Profil
       </h3>
 

@@ -10,6 +10,7 @@ import {
   Wine,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import ActivityCard from './common/ActivityCard';
 
 /**
  * AVAILABILITY BUTTONS SIMPLIFIÉ - TASK 1.4/1.5
@@ -28,6 +29,7 @@ const AvailabilityButtons = ({
   user,
   onStartAvailability,
   onStopAvailability,
+  onCancelInvitations,
   onInviteMoreFriends,
 }) => {
   const [timeLeft, setTimeLeft] = useState(0);
@@ -146,76 +148,80 @@ const AvailabilityButtons = ({
 
   return (
     <div className="space-y-4">
-      {pendingInvitation && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className={`${darkMode ? 'bg-orange-900/20 border-orange-700' : 'bg-orange-50 border-orange-200'} border rounded-xl p-6`}
-        >
-          <h3
-            className={`font-semibold ${darkMode ? 'text-orange-300' : 'text-orange-700'}`}
-          >
-            Invitation envoyée pour {pendingInvitation.activity}
-          </h3>
-          <p
-            className={`text-sm ${darkMode ? 'text-orange-400' : 'text-orange-600'}`}
-          >
-            En attente de réponses ({pendingInvitation.count || 0} ami
-            {pendingInvitation.count > 1 ? 's' : ''} invité
-            {pendingInvitation.count > 1 ? 's' : ''})
-          </p>
-          {pendingInvitation.friendNames && (
-            <p
-              className={`text-xs ${darkMode ? 'text-orange-200' : 'text-orange-600'} mt-2`}
-            >
-              👥 {pendingInvitation.friendNames.join(', ')}
-            </p>
-          )}
-        </motion.div>
-      )}
-
       {isAvailable && currentActivity ? (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg`}
+          className={`rounded-[28px] p-6 shadow-md ${darkMode ? 'bg-surface-variant text-on-surface' : 'bg-surface text-on-surface'}`}
+          style={{
+            backgroundColor: darkMode
+              ? 'var(--md-sys-color-surface-container-high)'
+              : 'var(--md-sys-color-surface)',
+            boxShadow: 'var(--md-sys-elevation-2)',
+          }}
         >
           <h3
-            className={`font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+            className="font-headline-small mb-4"
+            style={{
+              fontFamily: 'Roboto, sans-serif',
+              fontSize: '1.5rem',
+              fontWeight: 500,
+            }}
           >
             Tu es disponible pour {currentActivity}
           </h3>
-          <div className="flex items-center space-x-2 mb-4">
+          <div className="flex items-center space-x-3 mb-6 bg-surface-variant/50 p-4 rounded-[16px]">
             <Clock
-              size={16}
-              className={timeLeft <= 300 ? 'text-red-500' : 'text-green-500'}
+              size={24}
+              className={timeLeft <= 300 ? 'text-error' : 'text-primary'}
+              style={{
+                color:
+                  timeLeft <= 300
+                    ? 'var(--md-sys-color-error)'
+                    : 'var(--md-sys-color-primary)',
+              }}
             />
             <span
-              className={`font-mono text-lg font-semibold ${timeLeft <= 300 ? 'text-red-500' : darkMode ? 'text-green-400' : 'text-green-600'}`}
+              className={`font-mono text-3xl font-bold ${timeLeft <= 300 ? 'text-error' : 'text-primary'}`}
+              style={{
+                color:
+                  timeLeft <= 300
+                    ? 'var(--md-sys-color-error)'
+                    : 'var(--md-sys-color-primary)',
+              }}
             >
               {Math.floor(timeLeft / 60)}:
               {(timeLeft % 60).toString().padStart(2, '0')}
             </span>
             {timeLeft <= 300 && (
-              <span className="text-xs text-red-500 font-medium">
+              <span className="text-sm font-medium text-error px-2 py-1 rounded-md bg-error-container text-on-error-container">
                 bientôt expiré
               </span>
             )}
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={onInviteMoreFriends}
-              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium"
+              className="flex-1 py-3 px-6 rounded-full font-medium transition-colors flex items-center justify-center gap-2"
+              style={{
+                backgroundColor: 'var(--md-sys-color-primary)',
+                color: 'var(--md-sys-color-on-primary)',
+              }}
             >
-              Inviter d'autres amis
+              <Users size={18} />
+              Inviter
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={onStopAvailability}
-              className={`${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'} py-3 px-4 rounded-lg font-medium`}
+              className="py-3 px-6 rounded-full font-medium transition-colors flex items-center justify-center gap-2"
+              style={{
+                backgroundColor: 'var(--md-sys-color-surface-variant)',
+                color: 'var(--md-sys-color-on-surface-variant)',
+              }}
             >
               Arrêter
             </motion.button>
@@ -225,36 +231,26 @@ const AvailabilityButtons = ({
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg`}
+          className="rounded-3xl"
         >
           <h3
-            className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+            className={`text-xl font-normal mb-6 pl-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+            style={{ fontFamily: 'Roboto, sans-serif' }}
           >
-            🚀 Que veux-tu faire ?
+            Que veux-tu faire ?
           </h3>
-          <div className="grid grid-cols-3 gap-4">
-            {activities.map((activity, index) => {
-              const Icon = activity.icon;
-              return (
-                <motion.button
-                  key={activity.id}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.05 }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => onStartAvailability(activity.id)}
-                  className={`${activity.color} ${activity.hoverColor} text-white p-4 rounded-xl font-medium transition-all shadow-lg hover:shadow-xl cursor-pointer aspect-square flex items-center justify-center group`}
-                >
-                  <div className="flex flex-col items-center space-y-2">
-                    <Icon size={24} />
-                    <span className="text-sm group-hover:font-semibold transition-all">
-                      {activity.label}
-                    </span>
-                  </div>
-                </motion.button>
-              );
-            })}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {activities.map((activity, index) => (
+              <ActivityCard
+                key={activity.id}
+                id={activity.id}
+                label={activity.label}
+                icon={activity.icon}
+                index={index}
+                darkMode={darkMode}
+                onClick={() => onStartAvailability(activity.id)}
+              />
+            ))}
           </div>
         </motion.div>
       )}

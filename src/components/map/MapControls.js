@@ -1,6 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Crosshair, Filter, Minus, Plus } from 'lucide-react';
-import React from 'react';
 
 const MapControls = ({
   // Props d'état
@@ -29,18 +28,14 @@ const MapControls = ({
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={onZoomIn}
-          className={`w-10 h-10 ${
-            darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-700'
-          } rounded-lg shadow-lg flex items-center justify-center`}
+          className="w-10 h-10 bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface)] rounded-lg shadow-lg flex items-center justify-center"
         >
           <Plus size={20} />
         </motion.button>
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={onZoomOut}
-          className={`w-10 h-10 ${
-            darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-700'
-          } rounded-lg shadow-lg flex items-center justify-center`}
+          className="w-10 h-10 bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface)] rounded-lg shadow-lg flex items-center justify-center"
         >
           <Minus size={20} />
         </motion.button>
@@ -53,10 +48,8 @@ const MapControls = ({
           onClick={onCenterUser}
           className={`absolute bottom-20 right-4 z-40 w-12 h-12 ${
             isFollowingUser
-              ? 'bg-blue-500 text-white'
-              : darkMode
-                ? 'bg-gray-800 text-white'
-                : 'bg-white text-gray-700'
+              ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)]'
+              : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface)]'
           } rounded-full shadow-lg flex items-center justify-center`}
         >
           <Crosshair size={20} />
@@ -69,10 +62,8 @@ const MapControls = ({
         onClick={onToggleFilters}
         className={`absolute top-4 left-4 z-40 w-10 h-10 ${
           showFilters
-            ? 'bg-blue-500 text-white'
-            : darkMode
-              ? 'bg-gray-800 text-white'
-              : 'bg-white text-gray-700'
+            ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)]'
+            : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface)]'
         } rounded-lg shadow-lg flex items-center justify-center`}
       >
         <Filter size={20} />
@@ -85,13 +76,9 @@ const MapControls = ({
             initial={{ x: -300, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -300, opacity: 0 }}
-            className={`absolute top-16 left-4 z-40 ${
-              darkMode ? 'bg-gray-800' : 'bg-white'
-            } rounded-lg shadow-xl p-4 min-w-48`}
+            className="absolute top-16 left-4 z-40 bg-[var(--md-sys-color-surface-container)] rounded-lg shadow-xl p-4 min-w-48"
           >
-            <h3
-              className={`font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}
-            >
+            <h3 className="font-semibold mb-3 text-[var(--md-sys-color-on-surface)]">
               Filtres
             </h3>
             <div className="space-y-2">
@@ -157,10 +144,8 @@ export const MapboxControls = ({
         onClick={onToggleFilters}
         className={`absolute top-4 right-4 z-40 w-10 h-10 ${
           showFilters
-            ? 'bg-blue-500 text-white'
-            : darkMode
-              ? 'bg-gray-800 text-white'
-              : 'bg-white text-gray-700'
+            ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)]'
+            : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface)]'
         } rounded-lg shadow-lg flex items-center justify-center`}
       >
         <Filter size={20} />
@@ -173,10 +158,8 @@ export const MapboxControls = ({
           onClick={onCenterUser}
           className={`absolute top-16 right-4 z-40 w-10 h-10 ${
             isFollowingUser
-              ? 'bg-blue-500 text-white'
-              : darkMode
-                ? 'bg-gray-800 text-white'
-                : 'bg-white text-gray-700'
+              ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)]'
+              : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface)]'
           } rounded-lg shadow-lg flex items-center justify-center`}
         >
           <Crosshair size={20} />
@@ -190,13 +173,9 @@ export const MapboxControls = ({
             initial={{ x: 300, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 300, opacity: 0 }}
-            className={`absolute top-16 right-4 z-40 ${
-              darkMode ? 'bg-gray-800' : 'bg-white'
-            } rounded-lg shadow-xl p-4 min-w-48`}
+            className="absolute top-16 right-4 z-40 bg-[var(--md-sys-color-surface-container)] rounded-lg shadow-xl p-4 min-w-48"
           >
-            <h3
-              className={`font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}
-            >
+            <h3 className="font-semibold mb-3 text-[var(--md-sys-color-on-surface)]">
               Filtres
             </h3>
             <div className="space-y-2">
@@ -204,10 +183,8 @@ export const MapboxControls = ({
                 onClick={() => onFilterChange('all')}
                 className={`w-full text-left px-3 py-2 rounded ${
                   activityFilter === 'all'
-                    ? 'bg-blue-500 text-white'
-                    : darkMode
-                      ? 'text-gray-300 hover:bg-gray-700'
-                      : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)]'
+                    : 'text-[var(--md-sys-color-on-surface)] hover:bg-[var(--md-sys-color-surface-container-highest)]'
                 }`}
               >
                 Toutes les activités
@@ -218,10 +195,8 @@ export const MapboxControls = ({
                   onClick={() => onFilterChange(activity.id)}
                   className={`w-full text-left px-3 py-2 rounded flex items-center ${
                     activityFilter === activity.id
-                      ? 'bg-blue-500 text-white'
-                      : darkMode
-                        ? 'text-gray-300 hover:bg-gray-700'
-                        : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)]'
+                      : 'text-[var(--md-sys-color-on-surface)] hover:bg-[var(--md-sys-color-surface-container-highest)]'
                   }`}
                 >
                   <activity.icon size={16} className="mr-2" />

@@ -15,6 +15,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { db, isOnline, retryWithBackoff } from './firebaseUtils';
+import { PresenceService } from './presenceService';
 
 export class FriendsService {
   // Normaliser un numéro de téléphone
@@ -397,9 +398,16 @@ export class FriendsService {
             const friendSnap = await getDoc(friendRef);
 
             if (friendSnap.exists()) {
+              const friendData = friendSnap.data();
+              // Calculer le statut en ligne basé sur lastActive
+              const isOnlineStatus = PresenceService.isUserOnline(
+                friendData.lastActive
+              );
+
               friendsData.push({
                 id: friendSnap.id,
-                ...friendSnap.data(),
+                ...friendData,
+                isOnline: isOnlineStatus,
               });
             }
           } catch (error) {

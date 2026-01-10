@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
 import { Check, Edit2, Phone, Save, X } from 'lucide-react';
-import React from 'react';
 import { AuthService } from '../../services/firebaseService';
 
 const ProfileForm = ({
@@ -33,9 +32,7 @@ const ProfileForm = ({
       <>
         {/* Section nom avec édition */}
         <div className="flex items-center justify-between mb-1">
-          <h4
-            className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}
-          >
+          <h4 className="text-lg font-semibold text-[var(--md-sys-color-on-surface)]">
             {userName || user.name || 'Utilisateur'}
           </h4>
           {!isEditingName && (
@@ -43,18 +40,18 @@ const ProfileForm = ({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setIsEditingName(true)}
-              className={`p-2 rounded-full ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
+              className="p-2 rounded-full bg-[var(--md-sys-color-surface-container-highest)] hover:opacity-80 transition-colors"
               title="Modifier le nom"
             >
               <Edit2
                 size={16}
-                className={darkMode ? 'text-gray-300' : 'text-gray-600'}
+                className="text-[var(--md-sys-color-on-surface-variant)]"
               />
             </motion.button>
           )}
         </div>
         <p
-          className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} truncate`}
+          className="text-xs text-[var(--md-sys-color-on-surface-variant)] truncate"
           title={user.email}
         >
           {user.email}
@@ -73,11 +70,7 @@ const ProfileForm = ({
             value={userName}
             onChange={e => setUserName(e.target.value)}
             placeholder="Votre nom"
-            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-              darkMode
-                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-            }`}
+            className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[var(--md-sys-color-primary)] focus:border-transparent bg-[var(--md-sys-color-surface-container-highest)] border-[var(--md-sys-color-outline-variant)] text-[var(--md-sys-color-on-surface)] placeholder-[var(--md-sys-color-on-surface-variant)]"
             disabled={isLoading}
           />
           <p
@@ -93,10 +86,10 @@ const ProfileForm = ({
             whileTap={{ scale: 0.98 }}
             onClick={onSaveName}
             disabled={isLoading}
-            className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center"
+            className="flex-1 bg-[var(--md-sys-color-primary)] hover:opacity-90 disabled:opacity-50 text-[var(--md-sys-color-on-primary)] py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center"
           >
             {isLoading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
             ) : (
               <>
                 <Save size={16} className="mr-2" />
@@ -110,11 +103,7 @@ const ProfileForm = ({
             whileTap={{ scale: 0.98 }}
             onClick={onCancelName}
             disabled={isLoading}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center ${
-              darkMode
-                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-            }`}
+            className="px-4 py-2 rounded-lg font-medium transition-colors flex items-center bg-[var(--md-sys-color-surface-container-highest)] hover:opacity-80 text-[var(--md-sys-color-on-surface)]"
           >
             <X size={16} />
           </motion.button>
@@ -126,18 +115,14 @@ const ProfileForm = ({
   // Si on veut seulement la section téléphone
   if (showOnlyPhoneSection) {
     return (
-      <div
-        className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} pt-4`}
-      >
+      <div className="border-t border-[var(--md-sys-color-outline-variant)] pt-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center">
             <Phone
               size={18}
-              className={`mr-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+              className="mr-2 text-[var(--md-sys-color-on-surface-variant)]"
             />
-            <h5
-              className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
-            >
+            <h5 className="font-medium text-[var(--md-sys-color-on-surface)]">
               Numéro de téléphone
             </h5>
           </div>
@@ -148,7 +133,7 @@ const ProfileForm = ({
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setIsEditing(true)}
-                className={`p-2 rounded-full ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
+                className="p-2 rounded-full bg-[var(--md-sys-color-surface-container-highest)] hover:opacity-80 transition-colors"
                 title={
                   phoneNumber || user.phone
                     ? 'Modifier le numéro'
@@ -157,7 +142,7 @@ const ProfileForm = ({
               >
                 <Edit2
                   size={16}
-                  className={darkMode ? 'text-gray-300' : 'text-gray-600'}
+                  className="text-[var(--md-sys-color-on-surface-variant)]"
                 />
               </motion.button>
 
@@ -197,11 +182,7 @@ const ProfileForm = ({
                 value={phoneNumber}
                 onChange={e => setPhoneNumber(e.target.value)}
                 placeholder="06 12 34 56 78"
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  darkMode
-                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                }`}
+                className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[var(--md-sys-color-primary)] focus:border-transparent bg-[var(--md-sys-color-surface-container-highest)] border-[var(--md-sys-color-outline-variant)] text-[var(--md-sys-color-on-surface)] placeholder-[var(--md-sys-color-on-surface-variant)]"
                 disabled={isLoading}
               />
               <p
@@ -217,10 +198,10 @@ const ProfileForm = ({
                 whileTap={{ scale: 0.98 }}
                 onClick={onSavePhone}
                 disabled={isLoading}
-                className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center"
+                className="flex-1 bg-[var(--md-sys-color-primary)] hover:opacity-90 disabled:opacity-50 text-[var(--md-sys-color-on-primary)] py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center"
               >
                 {isLoading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
                 ) : (
                   <>
                     <Save size={16} className="mr-2" />
@@ -234,44 +215,35 @@ const ProfileForm = ({
                 whileTap={{ scale: 0.98 }}
                 onClick={onCancel}
                 disabled={isLoading}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center ${
-                  darkMode
-                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                }`}
+                className="px-4 py-2 rounded-lg font-medium transition-colors flex items-center bg-[var(--md-sys-color-surface-container-highest)] hover:opacity-80 text-[var(--md-sys-color-on-surface)]"
               >
                 <X size={16} />
               </motion.button>
             </div>
           </div>
         ) : (
-          <div
-            className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}
-          >
+          <div className="p-3 rounded-lg bg-[var(--md-sys-color-surface-container-highest)]">
             {phoneNumber || user.phone ? (
               <div className="flex items-center">
-                <Check size={16} className="text-green-500 mr-2" />
-                <span
-                  className={`font-mono ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}
-                >
+                <Check
+                  size={16}
+                  className="text-[var(--md-sys-color-success)] mr-2"
+                />
+                <span className="font-mono text-[var(--md-sys-color-on-surface)]">
                   {phoneNumber || user.phone}
                 </span>
-                <span
-                  className={`ml-2 text-xs ${darkMode ? 'text-green-400' : 'text-green-600'}`}
-                >
+                <span className="ml-2 text-xs text-[var(--md-sys-color-success)]">
                   ✓ Vos amis peuvent vous trouver
                 </span>
               </div>
             ) : (
               <div className="flex items-center">
-                <div
-                  className={`w-4 h-4 rounded-full bg-orange-500 mr-2 flex items-center justify-center`}
-                >
-                  <span className="text-white text-xs">!</span>
+                <div className="w-4 h-4 rounded-full bg-[var(--md-sys-color-warning)] mr-2 flex items-center justify-center">
+                  <span className="text-[var(--md-sys-color-on-warning)] text-xs">
+                    !
+                  </span>
                 </div>
-                <span
-                  className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}
-                >
+                <span className="text-[var(--md-sys-color-on-surface-variant)]">
                   Aucun numéro de téléphone
                 </span>
                 <span

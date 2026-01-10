@@ -109,8 +109,9 @@ describe('FriendsScreen - PHASE 3 - UI Complexe', () => {
 
       expect(screen.getByText('Alice Martin')).toBeInTheDocument();
       expect(screen.getByText('Bob Dupont')).toBeInTheDocument();
-      expect(screen.getByText('🟢 En ligne')).toBeInTheDocument();
-      expect(screen.getByText('⚫ Hors ligne')).toBeInTheDocument();
+      // Les pastilles de statut sont maintenant des éléments visuels sans texte emoji
+      expect(screen.getByText('En ligne')).toBeInTheDocument();
+      expect(screen.getByText('Hors ligne')).toBeInTheDocument();
     });
 
     test('doit afficher les avatars correctement', () => {

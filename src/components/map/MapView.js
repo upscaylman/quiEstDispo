@@ -1,4 +1,3 @@
-import React from 'react';
 import MapControls from './MapControls';
 import MapMarkers from './MapMarkers';
 import useMapLogic from './useMapLogic';
@@ -10,6 +9,7 @@ const MapView = ({
   selectedActivity,
   isAvailable = false,
   showControls = true,
+  currentUser,
   onRetryGeolocation,
   onRequestLocationPermission,
 }) => {
@@ -119,6 +119,7 @@ const MapView = ({
           darkMode={darkMode}
           isAvailable={isAvailable}
           selectedActivity={selectedActivity}
+          currentUser={currentUser}
           latLngToPixel={latLngToPixel}
           calculateDistance={calculateDistance}
           formatDistance={formatDistance}

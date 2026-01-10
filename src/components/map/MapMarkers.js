@@ -1,8 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Clock, MapPin as MapPinIcon, X } from 'lucide-react';
-import React from 'react';
 
-// Composant Pin pour les amis
+// Composant Pin pour les amis (avec avatar réel)
 const FriendPin = ({
   friend,
   onClick,
@@ -14,6 +13,20 @@ const FriendPin = ({
   formatDistance,
   darkMode,
 }) => {
+  // Récupérer l'avatar de l'ami
+  const avatarUrl =
+    friend.avatar ||
+    friend.photoURL ||
+    friend.profilePicture ||
+    friend.friend?.avatar ||
+    friend.friend?.photoURL ||
+    friend.friend?.profilePicture;
+  const hasValidAvatar =
+    avatarUrl &&
+    (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:'));
+  const friendName =
+    friend.name || friend.displayName || friend.friend?.name || 'Ami';
+
   return (
     <motion.div
       initial={{ scale: 0, opacity: 0 }}
@@ -45,14 +58,30 @@ const FriendPin = ({
           />
         )}
 
-        {/* Avatar avec couleur d'activité */}
+        {/* Avatar avec image réelle ou initiales */}
         <div
-          className={`w-10 h-10 rounded-full border-3 border-white shadow-lg flex items-center justify-center text-white font-bold text-sm ${
+          className={`w-10 h-10 rounded-full border-3 border-white shadow-lg flex items-center justify-center overflow-hidden ${
             isSelected ? 'ring-2 ring-blue-400' : ''
           }`}
           style={{ backgroundColor: getActivityColor(activity) }}
         >
-          {friend.avatar && friend.avatar.length === 1 ? friend.avatar : '👤'}
+          {hasValidAvatar ? (
+            <img
+              src={avatarUrl}
+              alt={friendName}
+              className="w-full h-full object-cover"
+              onError={e => {
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'flex';
+              }}
+            />
+          ) : null}
+          <span
+            className="text-white font-bold text-sm"
+            style={{ display: hasValidAvatar ? 'none' : 'flex' }}
+          >
+            {friendName.substring(0, 2).toUpperCase()}
+          </span>
         </div>
 
         {/* Bulle d'info compacte */}
@@ -60,20 +89,14 @@ const FriendPin = ({
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`absolute -top-16 left-1/2 transform -translate-x-1/2 ${
-              darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-            } px-3 py-2 rounded-lg shadow-lg border text-xs whitespace-nowrap`}
+            className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface)] px-3 py-2 rounded-lg shadow-lg border border-[var(--md-sys-color-outline-variant)] text-xs whitespace-nowrap"
           >
-            <div className="font-semibold">{friend.name}</div>
+            <div className="font-semibold">{friendName}</div>
             <div className="text-xs opacity-75">
               {activity} • {formatDistance(distance)}
             </div>
             {/* Flèche */}
-            <div
-              className={`absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent ${
-                darkMode ? 'border-t-gray-800' : 'border-t-white'
-              }`}
-            />
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[var(--md-sys-color-surface-container)]" />
           </motion.div>
         )}
       </div>
@@ -81,13 +104,14 @@ const FriendPin = ({
   );
 };
 
-// Composant Pin pour l'utilisateur (style GPS préservé exactement)
+// Composant Pin pour l'utilisateur (avec avatar réel)
 const UserPin = ({
   userLocation,
   isAvailable,
   selectedActivity,
   position,
   getActivityColor,
+  currentUser,
 }) => {
   if (!userLocation) {
     if (process.env.NODE_ENV === 'development') {
@@ -95,6 +119,14 @@ const UserPin = ({
     }
     return null;
   }
+
+  // Récupérer l'avatar de l'utilisateur
+  const avatarUrl =
+    currentUser?.avatar || currentUser?.photoURL || currentUser?.profilePicture;
+  const hasValidAvatar =
+    avatarUrl &&
+    (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:'));
+  const userName = currentUser?.name || currentUser?.displayName || 'Moi';
 
   return (
     <motion.div
@@ -111,31 +143,48 @@ const UserPin = ({
         {/* Pulse animation si disponible - EXACTEMENT comme dans l'original */}
         {isAvailable && (
           <motion.div
-            className="absolute inset-0 rounded-full border-2 border-blue-400"
+            className="absolute rounded-full border-2 border-blue-400"
             style={{
               width: '60px',
               height: '60px',
-              left: '-10px',
-              top: '-10px',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
             }}
             animate={{ scale: [1, 1.8, 1], opacity: [0.8, 0, 0.8] }}
             transition={{ duration: 2, repeat: Infinity }}
           />
         )}
 
-        {/* Avatar utilisateur - EXACTEMENT comme dans l'original */}
+        {/* Avatar utilisateur avec image réelle */}
         <div
-          className={`w-12 h-12 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white font-bold ring-2 ring-blue-400`}
+          className={`w-12 h-12 rounded-full border-4 border-white shadow-xl flex items-center justify-center overflow-hidden ring-2 ring-blue-400`}
           style={{
             backgroundColor: isAvailable
               ? getActivityColor(selectedActivity)
-              : '#3b82f6', // Bleu utilisateur au lieu de gris
+              : '#3b82f6',
           }}
         >
-          😊
+          {hasValidAvatar ? (
+            <img
+              src={avatarUrl}
+              alt={userName}
+              className="w-full h-full object-cover"
+              onError={e => {
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'flex';
+              }}
+            />
+          ) : null}
+          <span
+            className="text-white font-bold text-lg"
+            style={{ display: hasValidAvatar ? 'none' : 'flex' }}
+          >
+            {userName.substring(0, 2).toUpperCase()}
+          </span>
         </div>
 
-        {/* Indicateur de statut - EXACTEMENT comme dans l'original */}
+        {/* Indicateur de statut */}
         <div
           className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
             isAvailable ? 'bg-green-400' : 'bg-gray-400'
@@ -158,41 +207,60 @@ const FriendDetails = ({
 }) => {
   if (!selectedFriend) return null;
 
+  // Récupérer l'avatar de l'ami
+  const avatarUrl =
+    selectedFriend.avatar ||
+    selectedFriend.photoURL ||
+    selectedFriend.profilePicture ||
+    selectedFriend.friend?.avatar ||
+    selectedFriend.friend?.photoURL ||
+    selectedFriend.friend?.profilePicture;
+  const hasValidAvatar =
+    avatarUrl &&
+    (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:'));
+  const friendName =
+    selectedFriend.name ||
+    selectedFriend.displayName ||
+    selectedFriend.friend?.name ||
+    'Ami';
+
   return (
     <AnimatePresence>
       <motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}
-        className={`absolute bottom-20 left-4 right-4 z-40 ${
-          darkMode ? 'bg-gray-800' : 'bg-white'
-        } rounded-lg shadow-xl p-4`}
+        className="absolute bottom-20 left-4 right-4 z-40 bg-[var(--md-sys-color-surface-container)] rounded-lg shadow-xl p-4"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <div
-              className="w-12 h-12 rounded-full border-2 border-white shadow-lg flex items-center justify-center text-white font-bold mr-3"
+              className="w-12 h-12 rounded-full border-2 border-white shadow-lg flex items-center justify-center overflow-hidden mr-3"
               style={{
                 backgroundColor: getActivityColor(selectedFriend.activity),
               }}
             >
-              {selectedFriend.avatar || '👤'}
+              {hasValidAvatar ? (
+                <img
+                  src={avatarUrl}
+                  alt={friendName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-white font-bold">
+                  {friendName.substring(0, 2).toUpperCase()}
+                </span>
+              )}
             </div>
             <div>
-              <h3
-                className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}
-              >
-                {selectedFriend.name}
+              <h3 className="font-semibold text-[var(--md-sys-color-on-surface)]">
+                {friendName}
               </h3>
-              <p
-                className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
-              >
+              <p className="text-sm text-[var(--md-sys-color-on-surface-variant)]">
                 Dispo pour {selectedFriend.activity}
               </p>
               {userLocation && (
-                <p
-                  className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                >
+                <p className="text-xs text-[var(--md-sys-color-on-surface-variant)]">
                   À{' '}
                   {formatDistance(
                     calculateDistance(
@@ -216,11 +284,7 @@ const FriendDetails = ({
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={onClose}
-              className={`w-8 h-8 ${
-                darkMode
-                  ? 'bg-gray-700 text-gray-300'
-                  : 'bg-gray-100 text-gray-600'
-              } rounded-full flex items-center justify-center`}
+              className="w-8 h-8 bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] rounded-full flex items-center justify-center"
             >
               <X size={16} />
             </motion.button>
@@ -234,12 +298,11 @@ const FriendDetails = ({
 // Message si pas de localisation
 const NoLocationMessage = ({ darkMode, onRequestLocationPermission }) => (
   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-    <div
-      className={`${
-        darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-      } rounded-lg shadow-lg p-6`}
-    >
-      <MapPinIcon size={48} className="mx-auto mb-4 text-yellow-500" />
+    <div className="bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface)] rounded-lg shadow-lg p-6">
+      <MapPinIcon
+        size={48}
+        className="mx-auto mb-4 text-[var(--md-sys-color-warning)]"
+      />
       <h3 className="text-lg font-semibold mb-2">Localisation requise</h3>
       <p className="text-sm opacity-75 mb-2">
         Autorisez la géolocalisation pour voir votre position sur la carte
@@ -257,7 +320,7 @@ const NoLocationMessage = ({ darkMode, onRequestLocationPermission }) => (
             console.warn('onRequestLocationPermission callback not available');
           }
         }}
-        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
+        className="bg-[var(--md-sys-color-primary)] hover:opacity-90 text-[var(--md-sys-color-on-primary)] px-4 py-2 rounded-lg text-sm font-medium"
       >
         Activer la localisation
       </button>
@@ -274,6 +337,7 @@ const MapMarkers = ({
   darkMode,
   isAvailable,
   selectedActivity,
+  currentUser,
 
   // Props de fonctions
   latLngToPixel,
@@ -323,6 +387,7 @@ const MapMarkers = ({
           selectedActivity={selectedActivity}
           position={latLngToPixel(userLocation.lat, userLocation.lng)}
           getActivityColor={getActivityColor}
+          currentUser={currentUser}
         />
       )}
 

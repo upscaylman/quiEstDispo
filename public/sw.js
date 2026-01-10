@@ -1,9 +1,9 @@
 // Service Worker pour "Qui est dispo" - Version améliorée
-const VERSION = '1.4.0'; // Version mise à jour avec GPS amélioré et bannières simplifiées
+const VERSION = '1.5.0'; // Version mise à jour - fix clone Response
 const CACHE_NAME = 'qui-est-dispo-v' + VERSION;
-const STATIC_CACHE = 'qui-est-dispo-static-v3';
-const DYNAMIC_CACHE = 'qui-est-dispo-dynamic-v3';
-const API_CACHE = 'qui-est-dispo-api-v2';
+const STATIC_CACHE = 'qui-est-dispo-static-v4';
+const DYNAMIC_CACHE = 'qui-est-dispo-dynamic-v4';
+const API_CACHE = 'qui-est-dispo-api-v3';
 
 // Ressources critiques à précharger
 const CRITICAL_RESOURCES = [
@@ -279,10 +279,12 @@ async function staleWhileRevalidateStrategy(request, cacheName, maxAge) {
 
   // Toujours essayer de fetch en arrière-plan
   const networkResponsePromise = fetch(request)
-    .then(response => {
+    .then(async response => {
       if (response && response.status === 200) {
-        const cache = caches.open(cacheName);
-        cache.then(c => c.put(request, response.clone()));
+        // Cloner la réponse AVANT de l'utiliser
+        const responseToCache = response.clone();
+        const cache = await caches.open(cacheName);
+        await cache.put(request, responseToCache);
       }
       return response;
     })

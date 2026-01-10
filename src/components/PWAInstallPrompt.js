@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Download, Plus, Share, Smartphone, X } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const PWAInstallPrompt = ({ darkMode }) => {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -230,14 +230,12 @@ const PWAInstallPrompt = ({ darkMode }) => {
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}
-        className={`fixed bottom-4 left-4 right-4 z-50 ${
-          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        } border rounded-xl shadow-lg p-4 max-w-sm mx-auto`}
+        className="fixed bottom-4 left-4 right-4 z-50 bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)] rounded-xl shadow-lg p-4 max-w-sm mx-auto"
       >
         <div className="flex items-start space-x-3">
           {/* Logo de l'app */}
           <div className="flex-shrink-0">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <div className="w-12 h-12 bg-gradient-to-br from-[var(--md-sys-color-primary)] to-[var(--md-sys-color-tertiary)] rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-lg">QD</span>
             </div>
           </div>
@@ -246,14 +244,10 @@ const PWAInstallPrompt = ({ darkMode }) => {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3
-                  className={`font-semibold text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                >
+                <h3 className="font-semibold text-sm text-[var(--md-sys-color-on-surface)]">
                   {installInfo.title}
                 </h3>
-                <p
-                  className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}
-                >
+                <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] mt-1">
                   {installInfo.subtitle}
                 </p>
 
@@ -269,13 +263,9 @@ const PWAInstallPrompt = ({ darkMode }) => {
                         >
                           <Icon
                             size={14}
-                            className={
-                              darkMode ? 'text-gray-400' : 'text-gray-500'
-                            }
+                            className="text-[var(--md-sys-color-on-surface-variant)]"
                           />
-                          <span
-                            className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}
-                          >
+                          <span className="text-xs text-[var(--md-sys-color-on-surface-variant)]">
                             {instruction.text}
                           </span>
                         </div>
@@ -288,11 +278,7 @@ const PWAInstallPrompt = ({ darkMode }) => {
               {/* Bouton fermer */}
               <button
                 onClick={handleDismiss}
-                className={`p-1.5 rounded-lg transition-colors ml-2 ${
-                  darkMode
-                    ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                }`}
+                className="p-1.5 rounded-lg transition-colors ml-2 text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-highest)]"
               >
                 <X size={16} />
               </button>
@@ -303,7 +289,7 @@ const PWAInstallPrompt = ({ darkMode }) => {
               <button
                 onClick={handleInstallClick}
                 disabled={isInstalling}
-                className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-1 transition-colors"
+                className="bg-[var(--md-sys-color-primary)] hover:opacity-90 disabled:opacity-50 text-[var(--md-sys-color-on-primary)] px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-1 transition-colors"
               >
                 <Download size={16} />
                 <span>{installInfo.buttonText}</span>

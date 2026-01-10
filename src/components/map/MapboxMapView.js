@@ -81,14 +81,22 @@ const MapboxMapView = ({
     }
 
     const initializeMap = () => {
+      // Valider les coordonnées avant l'initialisation
+      const hasValidLocation =
+        userLocation &&
+        typeof userLocation.lng === 'number' &&
+        typeof userLocation.lat === 'number' &&
+        !isNaN(userLocation.lng) &&
+        !isNaN(userLocation.lat);
+
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
         style: darkMode
           ? 'mapbox://styles/mapbox/dark-v11'
           : 'mapbox://styles/mapbox/streets-v12',
-        center: userLocation
+        center: hasValidLocation
           ? [userLocation.lng, userLocation.lat]
-          : [2.3522, 48.8566],
+          : [2.3522, 48.8566], // Paris par défaut
         zoom: 13,
       });
 
@@ -138,10 +146,21 @@ const MapboxMapView = ({
     );
   }, [darkMode, mapLoaded]);
 
+  // Helper pour valider les coordonnées
+  const isValidCoordinate = location => {
+    return (
+      location &&
+      typeof location.lng === 'number' &&
+      typeof location.lat === 'number' &&
+      !isNaN(location.lng) &&
+      !isNaN(location.lat)
+    );
+  };
+
   // Centrer sur l'utilisateur seulement au premier chargement
   useEffect(() => {
-    if (!map.current || !mapLoaded || !userLocation || !localIsFollowingUser)
-      return;
+    if (!map.current || !mapLoaded || !localIsFollowingUser) return;
+    if (!isValidCoordinate(userLocation)) return;
 
     // Centrer seulement si on suit l'utilisateur ET que c'est le premier chargement
     map.current.setCenter([userLocation.lng, userLocation.lat]);
@@ -149,7 +168,7 @@ const MapboxMapView = ({
 
   // Fonction de centrage utilisateur intégrée
   const handleMapCenterOnUser = () => {
-    if (map.current && userLocation) {
+    if (map.current && isValidCoordinate(userLocation)) {
       map.current.flyTo({
         center: [userLocation.lng, userLocation.lat],
         zoom: 14,
@@ -161,7 +180,8 @@ const MapboxMapView = ({
 
   // Mettre à jour le marqueur utilisateur
   useEffect(() => {
-    if (!map.current || !mapLoaded || !userLocation) return;
+    if (!map.current || !mapLoaded) return;
+    if (!isValidCoordinate(userLocation)) return;
 
     // Supprimer l'ancien marqueur utilisateur
     if (userMarker.current) {
@@ -171,8 +191,14 @@ const MapboxMapView = ({
     // Créer le marqueur utilisateur avec le même style que MapView
     const userElement = createUserMarkerElement(
       {
-        name: currentUser?.name || 'Vous',
-        avatar: currentUser?.avatar || '👤',
+        name: currentUser?.name || currentUser?.displayName || 'Vous',
+        avatar:
+          currentUser?.avatar ||
+          currentUser?.photoURL ||
+          currentUser?.profilePicture ||
+          '',
+        photoURL: currentUser?.photoURL,
+        profilePicture: currentUser?.profilePicture,
         selectedActivity,
         isAvailable,
       },
@@ -205,10 +231,18 @@ const MapboxMapView = ({
 
     // Ajouter les nouveaux marqueurs d'amis
     filteredFriends.forEach(friend => {
-      const lat = friend.location?.lat || friend.lat;
-      const lng = friend.location?.lng || friend.lng;
+      const lat = friend.location?.lat ?? friend.lat;
+      const lng = friend.location?.lng ?? friend.lng;
 
-      if (!lat || !lng) return;
+      // Validation robuste des coordonnées
+      if (
+        typeof lat !== 'number' ||
+        typeof lng !== 'number' ||
+        isNaN(lat) ||
+        isNaN(lng)
+      ) {
+        return;
+      }
 
       // Créer le marqueur ami avec le même style que MapView
       const friendElement = createFriendMarkerElement(friend, () => {

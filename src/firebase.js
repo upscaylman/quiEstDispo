@@ -151,13 +151,22 @@ if (process.env.NODE_ENV === 'development') {
 */
 
 // Activer la persistance du cache et l'indexation automatique
-try {
-  // @ts-ignore - API Firebase expérimentale, type peut être inexact
-  enablePersistentCacheIndexAutoCreation(db);
-  console.log('✅ Cache persistant Firebase activé');
-} catch (error) {
-  console.warn('⚠️ Cache persistant Firebase non supporté:', error);
-}
+// ⚠️ CORRECTION: Utiliser setTimeout pour s'assurer que Firestore est complètement initialisé
+const initPersistentCache = async () => {
+  try {
+    // Attendre un court délai pour que Firestore soit prêt
+    await new Promise(resolve => setTimeout(resolve, 100));
+    // @ts-ignore - API Firebase expérimentale, type peut être inexact
+    enablePersistentCacheIndexAutoCreation(db);
+    console.log('✅ Cache persistant Firebase activé');
+  } catch (error) {
+    // Cette erreur est non-bloquante, le cache fonctionnera sans indexation automatique
+    console.log('ℹ️ Cache persistant: indexation automatique non disponible (non-bloquant)');
+  }
+};
+
+// Appeler l'initialisation de manière asynchrone
+initPersistentCache();
 
 // Configuration de la persistance d'authentification
 // Par défaut, Firebase maintient l'état d'authentification dans le stockage local

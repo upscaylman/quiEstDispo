@@ -487,29 +487,46 @@ export const useGeolocation = () => {
       };
 
       const handleWatchError = error => {
-        // 🔧 DÉVELOPPEMENT WINDOWS: Fallback automatique vers Paris après timeout
-        if (error.code === 3) {
-          // TIMEOUT
+        // 🔧 DÉVELOPPEMENT WINDOWS: Fallback automatique vers Paris après timeout ou position indisponible
+        if (error.code === 3 || error.code === 2) {
+          // TIMEOUT ou POSITION_UNAVAILABLE
           const now = Date.now();
 
-          // En développement Windows, fallback automatique vers Paris après timeout
-          if (isDev && isWindows && !stableLocationRef.current) {
-            console.warn(
-              '⚠️ Timeout GPS sur Windows - Fallback automatique vers Paris'
-            );
-            const parisLocation = {
-              lat: 48.8566,
-              lng: 2.3522,
-              accuracy: 1000,
-              timestamp: Date.now(),
-              isDefault: true,
-            };
-            setLocation(parisLocation);
-            stableLocationRef.current = parisLocation;
-            setError(null);
-            lastLocationTime.current = Date.now();
-            lastErrorType.current = null;
-            return;
+          // En développement Windows, fallback automatique vers Paris
+          if (isDev && isWindows) {
+            // Log seulement une fois
+            if (
+              !lastTimeoutLog.current ||
+              now - lastTimeoutLog.current > 60000
+            ) {
+              console.warn(
+                '⚠️ GPS indisponible sur Windows dev - Utilisation Paris par défaut'
+              );
+              console.log(
+                '💡 Utilisez window.testLocations.paris() pour tester différents lieux'
+              );
+              lastTimeoutLog.current = now;
+            }
+
+            // Définir Paris si pas de location stable
+            if (
+              !stableLocationRef.current ||
+              stableLocationRef.current.isDefault
+            ) {
+              const parisLocation = {
+                lat: 48.8566,
+                lng: 2.3522,
+                accuracy: 1000,
+                timestamp: Date.now(),
+                isDefault: true,
+              };
+              setLocation(parisLocation);
+              stableLocationRef.current = parisLocation;
+              setError(null);
+              lastLocationTime.current = Date.now();
+              lastErrorType.current = null;
+            }
+            return; // Éviter le spam de logs
           }
 
           // Log timeout seulement toutes les 5 minutes pour éviter le spam
@@ -526,7 +543,14 @@ export const useGeolocation = () => {
           return;
         }
 
-        console.warn('⚠️ Erreur watchPosition:', error.message);
+        // 🔧 Limiter les logs d'erreur watchPosition (1 seul par type d'erreur)
+        if (lastErrorType.current !== `watch_${error.code}`) {
+          console.warn(
+            '⚠️ Erreur watchPosition:',
+            error.message || `Code ${error.code}`
+          );
+          lastErrorType.current = `watch_${error.code}`;
+        }
 
         // Si c'est une erreur de permission, essayer de détecter un changement
         if (error.code === 1) {
@@ -535,9 +559,6 @@ export const useGeolocation = () => {
           }
           lastErrorType.current = 'denied';
           setError('Accès à la localisation refusé');
-        } else if (error.code === 2) {
-          setError('Position indisponible');
-          lastErrorType.current = 'unavailable';
         }
       };
 
@@ -780,6 +801,77 @@ export const useGeolocation = () => {
     lastErrorType.current = null;
   }, []);
 
+  // 🔧 DÉVELOPPEMENT: Force la permission GPS avec popup native
+  const forceGPSPermission = useCallback(() => {
+    console.log('🚨 Force GPS permission - Affichage popup native...');
+
+    if (!navigator.geolocation) {
+      console.error('❌ Géolocalisation non supportée');
+      return Promise.reject(new Error('Géolocalisation non supportée'));
+    }
+
+    return new Promise((resolve, reject) => {
+      // Forcer une nouvelle demande avec maximumAge: 0
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          const newLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: Date.now(),
+            isDefault: false,
+          };
+          console.log('✅ GPS autorisé! Position:', newLocation);
+          setLocation(newLocation);
+          stableLocationRef.current = newLocation;
+          setError(null);
+          setLoading(false);
+          resolve(newLocation);
+        },
+        err => {
+          // GeolocationPositionError n'a pas toujours un message lisible
+          let errorMessage = 'Erreur de géolocalisation';
+          switch (err.code) {
+            case 1:
+              errorMessage = 'Permission refusée';
+              break;
+            case 2:
+              errorMessage = 'Position indisponible';
+              break;
+            case 3:
+              errorMessage = 'Timeout dépassé';
+              break;
+            default:
+              errorMessage = err.message || 'Erreur inconnue';
+          }
+          console.error(
+            '❌ Erreur GPS:',
+            errorMessage,
+            '(code:',
+            err.code,
+            ')'
+          );
+          if (err.code === 1) {
+            console.log(
+              '💡 Conseil: Ouvrez les paramètres du navigateur pour autoriser la localisation'
+            );
+            console.log('💡 Chrome: chrome://settings/content/location');
+            console.log('💡 Firefox: about:preferences#privacy');
+            // Ouvrir automatiquement les paramètres
+            openDeviceLocationSettings();
+          }
+          setError(errorMessage);
+          reject(new Error(errorMessage));
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0, // Force une nouvelle demande
+        }
+      );
+    });
+  }, []);
+
   // 🔧 DÉVELOPPEMENT: Exposer setTestLocation sur window pour tests manuels
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
@@ -790,11 +882,52 @@ export const useGeolocation = () => {
         error: error,
         loading: loading,
       });
+
+      // 🔧 NOUVEAU: Force GPS permission
+      window.forceGPS = forceGPSPermission;
+
+      // 🔧 NOUVEAU: Emplacements de test prédéfinis
+      window.testLocations = {
+        paris: () => setTestLocation(48.8566, 2.3522, 'Paris Centre'),
+        republique: () => setTestLocation(48.8676, 2.3638, 'République'),
+        bastille: () => setTestLocation(48.8531, 2.3693, 'Bastille'),
+        montmartre: () => setTestLocation(48.8867, 2.3431, 'Montmartre'),
+        eiffel: () => setTestLocation(48.8584, 2.2945, 'Tour Eiffel'),
+        lyon: () => setTestLocation(45.764, 4.8357, 'Lyon'),
+        marseille: () => setTestLocation(43.2965, 5.3698, 'Marseille'),
+        custom: (lat, lng, name) => setTestLocation(lat, lng, name || 'Custom'),
+      };
+
+      // 🔧 NOUVEAU: Vérifier l'état des permissions
+      window.checkGPSPermission = async () => {
+        if ('permissions' in navigator) {
+          const result = await navigator.permissions.query({
+            name: 'geolocation',
+          });
+          console.log('🔐 État permission GPS:', result.state);
+          console.log('   - granted: autorisé');
+          console.log(
+            '   - denied: refusé (doit être changé dans les paramètres navigateur)'
+          );
+          console.log('   - prompt: va demander');
+          return result.state;
+        }
+        console.warn('⚠️ API Permissions non disponible');
+        return 'unknown';
+      };
+
+      console.log('🧪 Fonctions test GPS disponibles:');
+      console.log('   - window.setTestLocation(lat, lng, name)');
+      console.log('   - window.forceGPS() - Force popup permission');
       console.log(
-        '🧪 Fonctions test GPS disponibles: window.setTestLocation(lat, lng, name)'
+        '   - window.testLocations.paris() / .republique() / .bastille() etc.'
       );
+      console.log(
+        "   - window.checkGPSPermission() - Vérifie l'état permission"
+      );
+      console.log('   - window.getLocationInfo() - Info localisation actuelle');
     }
-  }, [setTestLocation, location, error, loading]);
+  }, [setTestLocation, forceGPSPermission, location, error, loading]);
 
   return {
     location,
@@ -802,6 +935,8 @@ export const useGeolocation = () => {
     loading,
     retryGeolocation,
     requestLocationPermission,
+    forceGPSPermission:
+      process.env.NODE_ENV === 'development' ? forceGPSPermission : undefined,
     setTestLocation:
       process.env.NODE_ENV === 'development' ? setTestLocation : undefined,
   };

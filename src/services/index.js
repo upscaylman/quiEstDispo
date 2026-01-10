@@ -29,3 +29,6 @@ export { ValidationService } from './validationService';
 
 // 🎯 PHASE 6 - OPTIMISATIONS TEMPS RÉEL
 export { RealTimeOptimizationService } from './realTimeOptimizationService';
+
+// 🎯 PRÉSENCE - Statut en ligne/hors ligne en temps réel
+export { PresenceService } from './presenceService';

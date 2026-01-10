@@ -1,6 +1,7 @@
 // Composant AppShell - Structure principale et navigation
 import { motion } from 'framer-motion';
 import { ArrowLeft, Bell, Coffee, MapPin, Users } from 'lucide-react';
+import NavigationBar from './common/NavigationBar';
 import InviteFriendsModal from './InviteFriendsModal';
 import NotificationBadge from './NotificationBadge';
 import WarningBanner from './WarningBanner';
@@ -67,6 +68,7 @@ const AppShell = ({
   onShowDeleteAccount,
   onSignOut,
   onSendInvitations,
+  onCancelInvitations,
   onOpenInviteFriendsModal,
   onOpenActivitySelector,
   children,
@@ -108,44 +110,11 @@ const AppShell = ({
     ];
 
     return (
-      <nav
-        className={`fixed bottom-0 left-0 right-0 ${
-          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        } border-t px-responsive py-2 z-50`}
-      >
-        <div className="flex justify-around">
-          {tabs.map(tab => {
-            const Icon = tab.icon;
-            const isActive = tab.active;
-
-            return (
-              <button
-                key={tab.id}
-                onClick={() => onScreenChange(tab.id)}
-                className={`flex flex-col items-center py-1 px-2 relative ${
-                  isActive
-                    ? 'text-blue-600'
-                    : darkMode
-                      ? 'text-gray-400'
-                      : 'text-gray-600'
-                }`}
-              >
-                <Icon size={24} />
-                <span className="text-xs mt-1">{tab.label}</span>
-
-                {/* Badge pour les amis - uniquement si pas actif pour éviter la confusion */}
-                {tab.badge && !isActive && (
-                  <span
-                    className={`absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold`}
-                  >
-                    {tab.badge > 99 ? '99+' : tab.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      <NavigationBar
+        tabs={tabs}
+        onTabChange={onScreenChange}
+        darkMode={darkMode}
+      />
     );
   };
 
@@ -155,7 +124,15 @@ const AppShell = ({
     if (currentScreen === 'settings' || currentScreen === 'notifications') {
       return (
         <div
-          className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm px-responsive py-4 sticky top-0 z-50`}
+          className="px-responsive py-4 sticky top-0 z-50 backdrop-blur-xl"
+          style={{
+            background: darkMode
+              ? 'rgba(30, 30, 35, 0.85)'
+              : 'rgba(255, 255, 255, 0.88)',
+            boxShadow: darkMode
+              ? '0 4px 20px rgba(0, 0, 0, 0.3)'
+              : '0 4px 20px rgba(0, 0, 0, 0.08)',
+          }}
         >
           <div className="flex items-center">
             {/* Flèche de retour */}
@@ -213,20 +190,113 @@ const AppShell = ({
     // Header normal pour les autres pages
     return (
       <div
-        className={`${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm px-responsive py-4 sticky top-0 z-50`}
+        className="px-responsive py-4 sticky top-0 z-50 backdrop-blur-xl"
+        style={{
+          background: darkMode
+            ? 'rgba(30, 30, 35, 0.85)'
+            : 'rgba(255, 255, 255, 0.88)',
+          boxShadow: darkMode
+            ? '0 4px 20px rgba(0, 0, 0, 0.3)'
+            : '0 4px 20px rgba(0, 0, 0, 0.08)',
+        }}
       >
         <div className="flex items-center justify-between">
-          {/* Avatar profil à gauche */}
-          <div className="flex items-center">
+          {/* Titres à gauche */}
+          <div className="flex items-center gap-3">
+            {/* Icône pour chaque onglet dans un carré */}
+            {currentScreen === 'home' && (
+              <div
+                className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700/50' : 'bg-gray-100'}`}
+              >
+                <Coffee
+                  size={24}
+                  className={darkMode ? 'text-gray-300' : 'text-gray-600'}
+                />
+              </div>
+            )}
+            {currentScreen === 'map' && (
+              <div
+                className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700/50' : 'bg-gray-100'}`}
+              >
+                <MapPin
+                  size={24}
+                  className={darkMode ? 'text-gray-300' : 'text-gray-600'}
+                />
+              </div>
+            )}
+            {currentScreen === 'friends' && (
+              <div
+                className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700/50' : 'bg-gray-100'}`}
+              >
+                <Users
+                  size={24}
+                  className={darkMode ? 'text-gray-300' : 'text-gray-600'}
+                />
+              </div>
+            )}
+            <div>
+              <h1
+                className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}
+              >
+                {currentScreen === 'home' &&
+                  `Salut ${user.name?.split(' ')[0]}! 👋`}
+                {currentScreen === 'map' && 'Carte'}
+                {currentScreen === 'friends' && 'Mes Amis'}
+                {currentScreen === 'notifications' && 'Notifications'}
+              </h1>
+              <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                {currentScreen === 'home' &&
+                  (isAvailable
+                    ? `Tu es dispo pour ${currentActivity === 'coffee' ? 'Coffee' : currentActivity === 'lunch' ? 'Lunch' : currentActivity === 'drinks' ? 'Drinks' : currentActivity === 'chill' ? 'Chill' : currentActivity === 'clubbing' ? 'Clubbing' : currentActivity === 'cinema' ? 'Cinema' : currentActivity}`
+                    : 'Que veux-tu faire ?')}
+                {currentScreen === 'map' &&
+                  (availableFriends.length > 0
+                    ? `${availableFriends.length} ami${availableFriends.length > 1 ? 's' : ''} disponible${availableFriends.length > 1 ? 's' : ''}`
+                    : 'Explorer autour de vous')}
+                {currentScreen === 'friends' && `${friends.length} amis`}
+                {currentScreen === 'notifications' &&
+                  `${notifications.length} notifications`}
+                {!isOnline && (
+                  <span className="text-orange-500 text-xs ml-2">
+                    • Mode hors ligne
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          {/* Actions à droite */}
+          <div className="flex items-center gap-2">
+            {/* Bouton notifications */}
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => onScreenChange('notifications')}
+              className={`relative p-2 rounded-full transition-colors ${
+                currentScreen === 'notifications'
+                  ? 'bg-blue-500 text-white'
+                  : darkMode
+                    ? 'hover:bg-gray-700/50 text-gray-300'
+                    : 'hover:bg-gray-100 text-gray-600'
+              }`}
+            >
+              <Bell size={20} />
+              {(newNotificationsCount > 0 || pendingInvitation) && (
+                <NotificationBadge
+                  count={newNotificationsCount + (pendingInvitation ? 1 : 0)}
+                />
+              )}
+            </motion.button>
+
+            {/* Avatar profil */}
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => onScreenChange('settings')}
-              className="relative mr-3 cursor-pointer"
+              className="relative cursor-pointer"
               title="Paramètres"
             >
               {/* Contour dégradé circulaire */}
               <div
-                className={`w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-0.5 transition-all ${
+                className={`w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-0.5 transition-all ${
                   currentScreen === 'settings'
                     ? 'shadow-lg shadow-blue-500/25'
                     : 'hover:shadow-lg hover:shadow-purple-500/20'
@@ -247,99 +317,15 @@ const AppShell = ({
                     <img
                       src={user.avatar}
                       alt="Avatar"
-                      className="w-9 h-9 rounded-full object-cover"
+                      className="w-8 h-8 rounded-full object-cover"
                     />
                   ) : (
-                    <span className="text-lg">{user.avatar || '👤'}</span>
+                    <span className="text-sm">{user.avatar || '👤'}</span>
                   )}
                 </div>
               </div>
             </motion.button>
-
-            {/* Titres */}
-            <div className="flex items-center gap-3">
-              {/* Icône pour chaque onglet dans un carré */}
-              {currentScreen === 'home' && (
-                <div
-                  className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}
-                >
-                  <Coffee
-                    size={24}
-                    className={darkMode ? 'text-gray-300' : 'text-gray-600'}
-                  />
-                </div>
-              )}
-              {currentScreen === 'map' && (
-                <div
-                  className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}
-                >
-                  <MapPin
-                    size={24}
-                    className={darkMode ? 'text-gray-300' : 'text-gray-600'}
-                  />
-                </div>
-              )}
-              {currentScreen === 'friends' && (
-                <div
-                  className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}
-                >
-                  <Users
-                    size={24}
-                    className={darkMode ? 'text-gray-300' : 'text-gray-600'}
-                  />
-                </div>
-              )}
-              <div>
-                <h1
-                  className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                >
-                  {currentScreen === 'home' &&
-                    `Salut ${user.name?.split(' ')[0]}! 👋`}
-                  {currentScreen === 'map' && 'Carte'}
-                  {currentScreen === 'friends' && 'Mes Amis'}
-                  {currentScreen === 'notifications' && 'Notifications'}
-                </h1>
-                <p
-                  className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}
-                >
-                  {currentScreen === 'home' &&
-                    (isAvailable
-                      ? `Tu es dispo pour ${currentActivity === 'coffee' ? 'Coffee' : currentActivity === 'lunch' ? 'Lunch' : currentActivity === 'drinks' ? 'Drinks' : currentActivity === 'chill' ? 'Chill' : currentActivity === 'clubbing' ? 'Clubbing' : currentActivity === 'cinema' ? 'Cinema' : currentActivity}`
-                      : 'Que veux-tu faire ?')}
-                  {currentScreen === 'map' &&
-                    (availableFriends.length > 0
-                      ? `${availableFriends.length} ami${availableFriends.length > 1 ? 's' : ''} disponible${availableFriends.length > 1 ? 's' : ''}`
-                      : 'Explorer autour de vous')}
-                  {currentScreen === 'friends' && `${friends.length} amis`}
-                  {currentScreen === 'notifications' &&
-                    `${notifications.length} notifications`}
-                  {!isOnline && (
-                    <span className="text-orange-500 text-xs ml-2">
-                      • Mode hors ligne
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
           </div>
-
-          {/* Bouton notifications à droite */}
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => onScreenChange('notifications')}
-            className={`relative p-2 rounded-full transition-colors ${
-              currentScreen === 'notifications'
-                ? 'bg-blue-500 text-white'
-                : darkMode
-                  ? 'hover:bg-gray-700 text-gray-300'
-                  : 'hover:bg-gray-100 text-gray-600'
-            }`}
-          >
-            <Bell size={20} />
-            {newNotificationsCount > 0 && (
-              <NotificationBadge count={newNotificationsCount} />
-            )}
-          </motion.button>
         </div>
       </div>
     );
@@ -372,6 +358,8 @@ const AppShell = ({
           <NotificationsScreen
             notifications={notifications}
             darkMode={darkMode}
+            pendingInvitation={pendingInvitation}
+            onCancelInvitations={onCancelInvitations}
             onFriendInvitationResponse={onFriendInvitationResponse}
             onActivityInvitationResponse={onActivityInvitationResponse}
             onMarkNotificationAsRead={onMarkNotificationAsRead}
@@ -411,6 +399,7 @@ const AppShell = ({
             darkMode={darkMode}
             isAvailable={isAvailable}
             currentActivity={currentActivity}
+            currentUser={user}
             onInviteFriends={onInviteFriends}
             onRetryGeolocation={onRetryGeolocation}
             onRequestLocationPermission={onRequestLocationPermission}
@@ -457,6 +446,7 @@ const AppShell = ({
             onSetAvailability={onSetAvailability}
             onStopAvailability={onStopAvailability}
             onTerminateActivity={onTerminateActivity}
+            onCancelInvitations={onCancelInvitations}
             onRetryGeolocation={onRetryGeolocation}
             onRequestLocationPermission={onRequestLocationPermission}
             onInviteFriends={onInviteFriends}

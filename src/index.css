@@ -2,7 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+@import './styles/theme.css';
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
 
 /* Custom styles pour l'app */
 * {
@@ -18,13 +20,13 @@ html {
 body {
   margin: 0;
   overflow-x: hidden;
-  background-color: #f9fafb;
+  background-color: var(--md-sys-color-background);
+  color: var(--md-sys-color-on-background);
   touch-action: manipulation;
   pointer-events: auto;
-}
-
-.dark body {
-  background-color: #111827;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 /* Animations personnalisées */

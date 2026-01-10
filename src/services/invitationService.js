@@ -1693,4 +1693,58 @@ export class InvitationService {
       prodError('❌ [STATUT] Erreur transition EN_PARTAGE:', error);
     }
   }
+
+  /**
+   * 🚫 Annuler toutes les invitations PENDING envoyées par un utilisateur pour une activité
+   * @param {string} userId - L'ID de l'utilisateur qui annule
+   * @param {string} activity - L'activité concernée
+   * @param {string[]} friendIds - Les IDs des amis à qui on a envoyé les invitations
+   * @returns {Promise<{cancelled: number}>}
+   */
+  static async cancelSentInvitations(userId, activity, friendIds) {
+    if (!isOnline()) {
+      console.warn('⚠️ Offline mode, cannot cancel invitations');
+      return { cancelled: 0 };
+    }
+
+    try {
+      debugLog(
+        `🚫 [CANCEL] Annulation des invitations de ${userId} pour ${activity}`
+      );
+
+      let cancelledCount = 0;
+      const batch = writeBatch(db);
+
+      // Chercher toutes les invitations PENDING envoyées par cet utilisateur pour cette activité
+      for (const friendId of friendIds) {
+        const invitationsQuery = query(
+          collection(db, 'invitations'),
+          where('fromUserId', '==', userId),
+          where('toUserId', '==', friendId),
+          where('activity', '==', activity),
+          where('status', '==', 'pending')
+        );
+
+        const snapshot = await getDocs(invitationsQuery);
+
+        snapshot.forEach(doc => {
+          batch.update(doc.ref, {
+            status: 'cancelled',
+            cancelledAt: serverTimestamp(),
+          });
+          cancelledCount++;
+        });
+      }
+
+      if (cancelledCount > 0) {
+        await batch.commit();
+        debugLog(`✅ [CANCEL] ${cancelledCount} invitation(s) annulée(s)`);
+      }
+
+      return { cancelled: cancelledCount };
+    } catch (error) {
+      prodError('❌ [CANCEL] Erreur annulation invitations:', error);
+      throw error;
+    }
+  }
 }

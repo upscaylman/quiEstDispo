@@ -1,8 +1,12 @@
-// Écran de gestion des amis
-import { motion } from 'framer-motion';
-import { Check, UserMinus, UserPlus } from 'lucide-react';
+// Écran de gestion des amis - MD3 Expressive
+import { AnimatePresence, motion } from 'framer-motion';
+import { Check, Sparkles, UserPlus, Users } from 'lucide-react';
 import { useFriendsStatus } from '../../hooks/useFriendsStatus';
-import StatusBadge from '../StatusBadge';
+import { EventStatusService } from '../../services/eventStatusService';
+import FriendListItem from '../common/FriendListItem';
+import MD3Button from '../common/MD3Button';
+import MD3Card from '../common/MD3Card';
+import MD3FAB from '../common/MD3FAB';
 
 const FriendsScreen = ({
   // Props de state
@@ -46,284 +50,279 @@ const FriendsScreen = ({
 
   const friendInvitations = getFriendInvitations();
 
+  const handleDebugStatuts = async () => {
+    if (!user) return;
+
+    console.log('🔍 DEBUG: Statut utilisateur actuel');
+
+    try {
+      const userStatus = await EventStatusService.getUserEventStatus(user.uid);
+
+      console.log('👤 Utilisateur actuel:', user.displayName || user.uid);
+      console.log('📊 eventStatus:', userStatus);
+      console.log('🔍 isAvailable:', user.isAvailable);
+      console.log('🎯 currentActivity:', user.currentActivity);
+      console.log('📍 locationShared:', user.locationShared);
+
+      // Nettoyer si incohérent
+      if (
+        userStatus === 'en_partage' &&
+        (!user.isAvailable || !user.currentActivity)
+      ) {
+        console.log('🔧 CORRECTION: Statut incohérent détecté, nettoyage...');
+        await EventStatusService.setUserEventStatus(user.uid, 'libre');
+        alert('Statut nettoyé ! Actualisez la page.');
+      } else {
+        alert(`Statut actuel: ${userStatus}\nVoir console pour détails`);
+      }
+    } catch (error) {
+      console.error('❌ Erreur debug:', error);
+      alert('Erreur debug: ' + error.message);
+    }
+  };
+
   return (
-    <div className="px-responsive py-4 relative min-h-full">
-      {/* Header avec bouton de notifications uniquement */}
-      <div className="flex items-center justify-between mb-4">
-        {/* Bouton "Marquer notifications amis comme lues" */}
-        {newFriendsNotificationsCount > 0 && (
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onMarkAllFriendsNotificationsAsRead}
-            className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-              darkMode
-                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-            }`}
-          >
-            <Check size={16} />
-            Marquer notif. amis lues ({newFriendsNotificationsCount})
-          </motion.button>
-        )}
+    <div className="px-4 sm:px-6 py-6 relative min-h-full bg-[var(--md-sys-color-surface)]">
+      {/* Header avec bouton de notifications */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-[var(--md-sys-color-on-surface)]">
+          Mes amis
+        </h2>
+        <div className="flex items-center gap-3">
+          {/* Bouton "Marquer notifications amis comme lues" */}
+          {newFriendsNotificationsCount > 0 && (
+            <MD3Button
+              variant="tonal"
+              size="small"
+              onClick={onMarkAllFriendsNotificationsAsRead}
+              icon={<Check size={16} />}
+            >
+              {newFriendsNotificationsCount} non lues
+            </MD3Button>
+          )}
 
-        {/* 🎨 [PHASE 4] Indicateur de statut des amis */}
-        {statusLoading && (
-          <div
-            className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-          >
-            🔄 Actualisation statuts...
-          </div>
-        )}
-
-        {/* Spacer */}
-        <div></div>
+          {/* Indicateur de statut des amis */}
+          {statusLoading && (
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+              className="w-5 h-5 border-2 border-[var(--md-sys-color-primary)] border-t-transparent rounded-full"
+            />
+          )}
+        </div>
       </div>
 
-      {/* 🎨 [PHASE 4] Erreur statuts */}
+      {/* Erreur statuts */}
       {statusError && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg">
-          <p className="text-red-700 text-sm">
+        <MD3Card
+          variant="filled"
+          className="mb-4 bg-[var(--md-sys-color-error-container)]"
+        >
+          <p className="text-[var(--md-sys-color-on-error-container)] text-sm">
             ⚠️ Erreur statuts: {statusError}
           </p>
-        </div>
+        </MD3Card>
       )}
 
-      {/* Section Invitations d'amis */}
-      {friendInvitations.length > 0 && (
-        <motion.div
-          className="mb-6"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <h3
-            className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}
+      {/* Section Invitations d'amis - MD3 Style */}
+      <AnimatePresence>
+        {friendInvitations.length > 0 && (
+          <motion.div
+            className="mb-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
           >
-            🤝 Invitations d'amitié
-          </h3>
-          <div className="space-y-3">
-            {friendInvitations.map(notification => (
-              <motion.div
-                key={notification.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-lg p-4 shadow-sm`}
-              >
-                <p
-                  className={`font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}
+            <h3 className="text-lg font-semibold mb-4 text-[var(--md-sys-color-on-surface)] flex items-center gap-2">
+              <Sparkles
+                size={20}
+                className="text-[var(--md-sys-color-primary)]"
+              />
+              Invitations d'amitié
+            </h3>
+            <div className="space-y-4">
+              {friendInvitations.map(notification => (
+                <MD3Card
+                  key={notification.id}
+                  variant="outlined"
+                  className="border-l-4 border-l-[var(--md-sys-color-tertiary)]"
                 >
-                  {notification.message}
-                </p>
-                <p
-                  className={`text-sm mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                >
-                  {notification.createdAt?.toDate?.()?.toLocaleTimeString() ||
-                    'Maintenant'}
-                </p>
+                  <p className="font-semibold mb-2 text-[var(--md-sys-color-on-surface)]">
+                    {notification.message}
+                  </p>
+                  <p className="text-sm mb-4 text-[var(--md-sys-color-on-surface-variant)]">
+                    {notification.createdAt?.toDate?.()?.toLocaleTimeString() ||
+                      'Maintenant'}
+                  </p>
 
-                {/* Boutons d'action pour les invitations d'amitié */}
-                {notification.data?.actions && (
-                  <div className="flex space-x-2">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() =>
-                        onFriendInvitationResponse?.(
-                          notification.data.invitationId,
-                          'accepted',
-                          notification.id
-                        )
-                      }
-                      className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
-                    >
-                      ✅ Accepter
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() =>
-                        onFriendInvitationResponse?.(
-                          notification.data.invitationId,
-                          'declined',
-                          notification.id
-                        )
-                      }
-                      className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
-                    >
-                      ❌ Refuser
-                    </motion.button>
-                  </div>
-                )}
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      )}
+                  {/* Boutons d'action pour les invitations d'amitié */}
+                  {notification.data?.actions && (
+                    <div className="flex gap-3">
+                      <MD3Button
+                        variant="filled"
+                        onClick={() =>
+                          onFriendInvitationResponse?.(
+                            notification.data.invitationId,
+                            'accepted',
+                            notification.id
+                          )
+                        }
+                        className="flex-1 bg-[var(--md-sys-color-success)]"
+                        icon={<span>✅</span>}
+                      >
+                        Accepter
+                      </MD3Button>
+                      <MD3Button
+                        variant="outlined"
+                        onClick={() =>
+                          onFriendInvitationResponse?.(
+                            notification.data.invitationId,
+                            'declined',
+                            notification.id
+                          )
+                        }
+                        className="flex-1"
+                      >
+                        Refuser
+                      </MD3Button>
+                    </div>
+                  )}
+                </MD3Card>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Liste des amis */}
-      <div className="space-y-3">
-        {friends.map(friend => (
-          <div
+      {/* Liste des amis - MD3 Style */}
+      <motion.div
+        className="space-y-3"
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden: { opacity: 0 },
+          visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.05 },
+          },
+        }}
+      >
+        {friends.map((friend, index) => (
+          <motion.div
             key={friend.id}
-            className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-4 flex items-center shadow`}
+            variants={{
+              hidden: { opacity: 0, x: -20 },
+              visible: { opacity: 1, x: 0 },
+            }}
           >
-            {/* Avatar */}
-            <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-              {friend.avatar &&
-              (friend.avatar.startsWith('http') ||
-                friend.avatar.startsWith('data:')) ? (
-                <img
-                  src={friend.avatar}
-                  alt="Avatar"
-                  className="w-12 h-12 rounded-full object-cover"
-                />
-              ) : (
-                <span className="text-2xl">{friend.avatar || '👤'}</span>
-              )}
-            </div>
-
-            {/* Informations de l'ami */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h3
-                  className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                >
-                  {friend.name}
-                </h3>
-                {/* 🎨 TASK 1.5 - Badge de statut temps réel avec couleurs flow */}
-                {getFriendStatus(friend.id) && (
-                  <StatusBadge
-                    status={getFriendStatus(friend.id).status}
-                    message={getFriendStatus(friend.id).message}
-                    color={getFriendStatus(friend.id).color}
-                    size="xs"
-                    showIcon={true}
-                    animate={[
-                      'INVITATION_ENVOYEE',
-                      'INVITATION_RECUE',
-                      'EN_PARTAGE',
-                    ].includes(getFriendStatus(friend.id).status)}
-                    darkMode={darkMode}
-                  />
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <p
-                  className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                >
-                  {friend.isOnline ? '🟢 En ligne' : '⚫ Hors ligne'}
-                </p>
-                {/* 🎨 [PHASE 4] Indicateur de disponibilité pour invitation */}
-                {getFriendStatus(friend.id) && (
-                  <span
-                    className={`text-xs px-1.5 py-0.5 rounded ${
-                      getFriendStatus(friend.id).available
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {getFriendStatus(friend.id).available
-                      ? '✓ Invitable'
-                      : '✗ Occupé'}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Bouton de suppression */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => onRemoveFriend(friend.id, friend.name)}
-              className={`p-2 rounded-full ${
-                darkMode
-                  ? 'bg-red-700 hover:bg-red-600 text-red-300'
-                  : 'bg-red-100 hover:bg-red-200 text-red-600'
-              } transition-colors ml-2`}
-              title={`Supprimer ${friend.name} de vos amis`}
-            >
-              <UserMinus size={16} />
-            </motion.button>
-          </div>
+            <FriendListItem
+              friend={friend}
+              status={getFriendStatus(friend.id)}
+              onRemove={onRemoveFriend}
+              darkMode={darkMode}
+            />
+          </motion.div>
         ))}
 
-        {/* État vide */}
+        {/* État vide - MD3 Style */}
         {friends.length === 0 && (
-          <div className="text-center py-8">
-            <UserPlus
-              size={48}
-              className={`mx-auto mb-4 opacity-50 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-            />
-            <p
-              className={`text-lg mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}
+          <motion.div
+            className="text-center py-16 flex flex-col items-center"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <motion.div
+              className="w-24 h-24 bg-[var(--md-sys-color-primary-container)] rounded-full flex items-center justify-center mb-6"
+              animate={{
+                scale: [1, 1.05, 1],
+                rotate: [0, 5, -5, 0],
+              }}
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                repeatType: 'reverse',
+              }}
             >
+              <Users
+                size={48}
+                className="text-[var(--md-sys-color-on-primary-container)]"
+              />
+            </motion.div>
+            <h3 className="text-xl font-bold text-[var(--md-sys-color-on-surface)] mb-3">
               Aucun ami pour l'instant
+            </h3>
+            <p className="text-base text-[var(--md-sys-color-on-surface-variant)] max-w-[280px] mb-8">
+              Ajoutez vos premiers amis pour commencer à partager vos
+              disponibilités !
             </p>
-            <p
-              className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
+
+            <MD3Button
+              variant="filled"
+              size="large"
+              onClick={onAddFriend}
+              icon={<UserPlus size={20} />}
             >
-              Ajoutez vos premiers amis pour commencer !
-            </p>
+              Ajouter un ami
+            </MD3Button>
 
             {/* Boutons de debug en mode développement */}
             {process.env.NODE_ENV === 'development' && (
-              <div className="space-y-3 mt-6 max-w-sm mx-auto">
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-yellow-800 mb-2">
-                    🛠️ Outils de debug (développement)
-                  </h4>
-                  <p className="text-xs text-yellow-700 mb-3">
-                    Des utilisateurs dans la base mais pas d'amis visibles ?
-                  </p>
-
-                  <div className="space-y-2">
-                    {/* Debug Firebase */}
-                    <button
-                      onClick={onDebugFriends}
-                      className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm py-2 px-3 rounded-lg font-medium transition-colors"
-                      disabled={!isOnline}
-                    >
-                      🔍 Debug Firebase
-                    </button>
-
-                    {/* Créer amitiés de test */}
-                    <button
-                      onClick={onCreateTestFriendships}
-                      className="w-full bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-lg font-medium transition-colors"
-                      disabled={!isOnline}
-                    >
-                      🧪 Créer amitiés Firebase
-                    </button>
-
-                    {/* Charger données fictives */}
-                    <button
-                      onClick={onLoadMockData}
-                      className="w-full bg-purple-500 hover:bg-purple-600 text-white text-sm py-2 px-3 rounded-lg font-medium transition-colors"
-                    >
-                      📊 Charger données fictives
-                    </button>
-                  </div>
+              <MD3Card
+                variant="outlined"
+                className="mt-8 max-w-sm mx-auto bg-[var(--md-sys-color-warning-container)]"
+              >
+                <h4 className="font-semibold text-[var(--md-sys-color-on-warning-container)] mb-3">
+                  🛠️ Outils de debug
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  <MD3Button
+                    variant="tonal"
+                    size="small"
+                    onClick={onDebugFriends}
+                    disabled={!isOnline}
+                  >
+                    🔍 Debug
+                  </MD3Button>
+                  <MD3Button
+                    variant="tonal"
+                    size="small"
+                    onClick={onCreateTestFriendships}
+                    disabled={!isOnline}
+                  >
+                    🧪 Test amitiés
+                  </MD3Button>
+                  <MD3Button
+                    variant="tonal"
+                    size="small"
+                    onClick={onLoadMockData}
+                  >
+                    📊 Données démo
+                  </MD3Button>
                 </div>
-              </div>
+              </MD3Card>
             )}
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
 
-      {/* Bouton flottant d'ajout d'ami */}
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
+      {/* FAB - Ajouter un ami - MD3 Style */}
+      <MD3FAB
+        icon={<UserPlus size={24} />}
         onClick={onAddFriend}
-        className={`fixed bottom-20 right-4 sm:right-6 p-4 rounded-full shadow-lg transition-all duration-300 z-[60] ${
-          darkMode
-            ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30'
-            : 'bg-blue-500 hover:bg-blue-600 shadow-blue-500/30'
-        } text-white`}
-        title="Ajouter un ami"
-      >
-        <UserPlus size={24} />
-      </motion.button>
+        variant="primary"
+        position="bottom-right"
+        className="mb-16"
+      />
+
+      {/* Bouton debug temporaire - MD3 Style */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed bottom-20 left-4 z-50">
+          <MD3Button variant="tonal" size="small" onClick={handleDebugStatuts}>
+            🐛 Debug
+          </MD3Button>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 // Hook pour la gestion des états d'amis en temps réel - Phase 4
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FriendsStatusService } from '../services/friendsStatusService';
 
 /**
@@ -14,10 +14,41 @@ export const useFriendsStatus = (friends, currentUserId) => {
   const [error, setError] = useState(null);
   const lastRefreshRef = useRef(0);
   const intervalRef = useRef(null);
+  const isRefreshingRef = useRef(false);
 
-  // Fonction pour rafraîchir les statuts
+  // Utiliser refs pour éviter les dépendances circulaires
+  const friendsRef = useRef(friends);
+  const currentUserIdRef = useRef(currentUserId);
+
+  // Mettre à jour les refs quand les props changent
+  useEffect(() => {
+    friendsRef.current = friends;
+  }, [friends]);
+
+  useEffect(() => {
+    currentUserIdRef.current = currentUserId;
+  }, [currentUserId]);
+
+  // Créer une clé stable basée sur les IDs des amis pour détecter les vrais changements
+  const friendsKey = useMemo(() => {
+    if (!friends || friends.length === 0) return '';
+    return friends
+      .map(f => f.id)
+      .sort()
+      .join(',');
+  }, [friends]);
+
+  // Fonction pour rafraîchir les statuts - stable, utilise les refs
   const refreshStatuses = useCallback(async () => {
-    if (!friends || friends.length === 0 || !currentUserId) {
+    const currentFriends = friendsRef.current;
+    const userId = currentUserIdRef.current;
+
+    if (!currentFriends || currentFriends.length === 0 || !userId) {
+      return;
+    }
+
+    // Éviter les appels concurrents
+    if (isRefreshingRef.current) {
       return;
     }
 
@@ -28,23 +59,25 @@ export const useFriendsStatus = (friends, currentUserId) => {
     }
 
     try {
+      isRefreshingRef.current = true;
       setIsLoading(true);
       setError(null);
       lastRefreshRef.current = now;
 
       const statusResults = await FriendsStatusService.getAllFriendsStatus(
-        friends,
-        currentUserId
+        currentFriends,
+        userId
       );
 
       setFriendsStatuses(statusResults);
-    } catch (error) {
-      console.error('❌ Erreur refresh statuts:', error);
-      setError(error.message);
+    } catch (err) {
+      console.error('❌ Erreur refresh statuts:', err);
+      setError(err.message);
     } finally {
       setIsLoading(false);
+      isRefreshingRef.current = false;
     }
-  }, [friends, currentUserId]);
+  }, []); // Pas de dépendances - utilise les refs
 
   // Démarrer/arrêter le refresh automatique
   const startAutoRefresh = useCallback(() => {
@@ -62,54 +95,31 @@ export const useFriendsStatus = (friends, currentUserId) => {
     }
   }, []);
 
-  // Refresh manuel avec événement personnalisé
-  const handleFriendsStatusUpdate = useCallback(
-    event => {
-      console.log(
-        '🔄 [DEBUG] Événement friendsStatusUpdate reçu !',
-        new Date().toLocaleTimeString()
-      );
-      refreshStatuses();
-    },
-    [refreshStatuses]
-  );
-
-  // Gestion visibilité page
-  const handleVisibilityChange = useCallback(() => {
-    if (!document.hidden) {
-      // Page redevient visible
+  // Refresh initial et quand les amis ou userId changent vraiment
+  useEffect(() => {
+    if (friendsKey && currentUserId) {
       refreshStatuses();
     }
-  }, [refreshStatuses]);
+  }, [friendsKey, currentUserId, refreshStatuses]);
 
-  // Effects
-  useEffect(() => {
-    // Rafraîchir immédiatement
-    refreshStatuses();
-  }, [refreshStatuses]);
-
-  // 🎯 NOUVEAU: Forcer refresh toutes les 10 secondes pour débugger
-  useEffect(() => {
-    if (!friends?.length || !currentUserId) return;
-
-    const forceInterval = setInterval(() => {
-      console.log(
-        '🔄 [DEBUG] Force refresh statuts amis...',
-        new Date().toLocaleTimeString()
-      );
-      refreshStatuses();
-    }, 10000); // Toutes les 10 secondes pour tester
-
-    return () => clearInterval(forceInterval);
-  }, [friends, currentUserId, refreshStatuses]);
-
+  // Démarrer l'auto-refresh une seule fois
   useEffect(() => {
     startAutoRefresh();
     return () => stopAutoRefresh();
   }, [startAutoRefresh, stopAutoRefresh]);
 
+  // Écouter événements personnalisés - configuration unique
   useEffect(() => {
-    // Écouter événements personnalisés
+    const handleFriendsStatusUpdate = () => {
+      refreshStatuses();
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshStatuses();
+      }
+    };
+
     window.addEventListener('friendsStatusUpdate', handleFriendsStatusUpdate);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -121,7 +131,7 @@ export const useFriendsStatus = (friends, currentUserId) => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       stopAutoRefresh();
     };
-  }, [handleFriendsStatusUpdate, handleVisibilityChange, stopAutoRefresh]);
+  }, [refreshStatuses, stopAutoRefresh]);
 
   return {
     friendsStatuses,
