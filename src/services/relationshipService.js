@@ -355,6 +355,8 @@ export class RelationshipService {
    */
   static async _getUserBusyStatus(userId) {
     try {
+      const now = new Date();
+
       // 1. Vérifier invitations pending envoyées
       const sentInvitationsQuery = query(
         collection(db, 'invitations'),
@@ -396,6 +398,21 @@ export class RelationshipService {
           getDocs(locationSharingQuery),
         ]);
 
+      // Helper pour vérifier si une invitation est encore valide (non expirée)
+      const isNotExpired = doc => {
+        const data = doc.data();
+        if (!data.expiresAt) return true; // Si pas d'expiresAt, considérer comme valide
+        const expiresAt = data.expiresAt.toDate
+          ? data.expiresAt.toDate()
+          : new Date(data.expiresAt);
+        return expiresAt > now;
+      };
+
+      // Filtrer les invitations expirées
+      const validSentInvitations = sentSnap.docs.filter(isNotExpired);
+      const validReceivedInvitations = receivedSnap.docs.filter(isNotExpired);
+      const validMultipleInvitations = multipleSnap.docs.filter(isNotExpired);
+
       // Analyser les résultats par priorité
 
       // Priorité 1: Partage de localisation actif
@@ -411,25 +428,28 @@ export class RelationshipService {
         };
       }
 
-      // Priorité 2: Invitations reçues
-      if (!receivedSnap.empty || !multipleSnap.empty) {
+      // Priorité 2: Invitations reçues (non expirées)
+      if (
+        validReceivedInvitations.length > 0 ||
+        validMultipleInvitations.length > 0
+      ) {
         return {
           isBusy: true,
           type: 'pending_invitations_received',
           details: {
-            receivedCount: receivedSnap.size,
-            multipleCount: multipleSnap.size,
+            receivedCount: validReceivedInvitations.length,
+            multipleCount: validMultipleInvitations.length,
           },
         };
       }
 
-      // Priorité 3: Invitations envoyées (moins bloquant)
-      if (!sentSnap.empty) {
+      // Priorité 3: Invitations envoyées (moins bloquant, non expirées)
+      if (validSentInvitations.length > 0) {
         return {
           isBusy: true,
           type: 'pending_invitations_sent',
           details: {
-            sentCount: sentSnap.size,
+            sentCount: validSentInvitations.length,
           },
         };
       }

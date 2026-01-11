@@ -287,7 +287,7 @@ export class AvailabilityService {
           to: participantId,
           from: userId,
           type: 'friend_stopped_sharing',
-          message: `👋 ${userName} a arrêté le partage de localisation pour ${activity}`,
+          message: `${userName} a arrêté le partage de localisation pour ${activity}`,
           data: {
             activity,
             stoppedBy: userId,

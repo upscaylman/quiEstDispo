@@ -326,12 +326,12 @@ describe('HomeScreen - PHASE 3 - UI Complexe', () => {
   describe('👥 Section inviter des amis', () => {
     test('doit afficher le bouton pour inviter des amis', () => {
       render(<HomeScreen {...defaultProps} />);
-      expect(screen.getByText('Inviter des amis 🎉')).toBeInTheDocument();
+      expect(screen.getByText('Inviter des amis')).toBeInTheDocument();
     });
 
     test('doit appeler onAddFriend quand on clique sur le bouton', () => {
       render(<HomeScreen {...defaultProps} />);
-      const addFriendButton = screen.getByText('Inviter des amis 🎉');
+      const addFriendButton = screen.getByText('Inviter des amis');
       fireEvent.click(addFriendButton);
       expect(defaultProps.onAddFriend).toHaveBeenCalled();
     });

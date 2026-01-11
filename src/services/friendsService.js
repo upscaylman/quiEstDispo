@@ -210,7 +210,7 @@ export class FriendsService {
 
       if (friendships.length > 0) {
         alert(
-          `✅ ${friendships.length} amitié(s) de test créée(s) !\n${friendships.map(f => f.name).join(', ')}`
+          `${friendships.length} amitié(s) de test créée(s) !\n${friendships.map(f => f.name).join(', ')}`
         );
       } else {
         alert('Aucune nouvelle amitié créée (peut-être déjà existantes)');
@@ -559,7 +559,7 @@ export class FriendsService {
           to: toUserId,
           from: fromUserId,
           type: 'friend_invitation',
-          message: `👥 ${fromUserData.name} souhaite vous ajouter en ami`,
+          message: `${fromUserData.name} souhaite vous ajouter en ami`,
           data: {
             invitationId: invitationRef.id,
             fromUserName: fromUserData.name,
@@ -632,7 +632,7 @@ export class FriendsService {
             to: invitationData.fromUserId,
             from: userId,
             type: 'friend_invitation_accepted',
-            message: `✅ ${toUserName} a accepté votre demande d'ami !`,
+            message: `${toUserName} a accepté votre demande d'ami !`,
             data: {
               friendId: userId,
               friendName: toUserName,

@@ -539,7 +539,7 @@ describe('AvailabilityService - FINALISATION COMPLÈTE Foundation Services', () 
           to: 'jack-123',
           from: 'paul-123',
           type: 'friend_stopped_sharing',
-          message: '👋 Paul a arrêté le partage de localisation pour coffee',
+          message: 'Paul a arrêté le partage de localisation pour coffee',
         })
       );
     });

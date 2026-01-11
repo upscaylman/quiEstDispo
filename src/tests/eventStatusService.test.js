@@ -501,7 +501,7 @@ describe('EventTypes - Phase 3 Invitations Multiples', () => {
       };
 
       const message = formatMultipleInvitationMessage(invitation);
-      expect(message).toBe('🎉 Paul vous invite pour coffee');
+      expect(message).toBe('Paul vous invite pour coffee');
     });
 
     test('doit formater les invitations multiples sans acceptation', () => {
@@ -513,7 +513,7 @@ describe('EventTypes - Phase 3 Invitations Multiples', () => {
       };
 
       const message = formatMultipleInvitationMessage(invitation);
-      expect(message).toBe('🎉 Paul vous invite pour lunch (3 invités)');
+      expect(message).toBe('Paul vous invite pour lunch (3 invités)');
     });
 
     test("doit formater avec compteur d'acceptations", () => {
@@ -525,9 +525,7 @@ describe('EventTypes - Phase 3 Invitations Multiples', () => {
       };
 
       const message = formatMultipleInvitationMessage(invitation);
-      expect(message).toBe(
-        '🎉 Marie vous invite pour drinks (2/5 ont accepté)'
-      );
+      expect(message).toBe('Marie vous invite pour drinks (2/5 ont accepté)');
     });
   });
 

@@ -158,7 +158,7 @@ export class NotificationGroupingService {
       // Messages pour invitations d'amitié
       if (group.type === 'grouped_friend_invitation') {
         if (sendersArray.length === 1) {
-          return `👥 ${group.notifications[0].message}`;
+          return group.notifications[0].message;
         } else if (sendersArray.length === 2) {
           const firstSender =
             group.notifications.find(n => n.from === sendersArray[0])?.data
@@ -166,12 +166,12 @@ export class NotificationGroupingService {
           const secondSender =
             group.notifications.find(n => n.from === sendersArray[1])?.data
               ?.fromUserName || 'Un ami';
-          return `👥 ${firstSender} et ${secondSender} veulent devenir vos amis`;
+          return `${firstSender} et ${secondSender} veulent devenir vos amis`;
         } else {
           const firstSender =
             group.notifications[0]?.data?.fromUserName || 'Un ami';
           const otherCount = sendersArray.length - 1;
-          return `👥 ${firstSender} et ${otherCount} autre${otherCount > 1 ? 's' : ''} veulent devenir vos amis`;
+          return `${firstSender} et ${otherCount} autre${otherCount > 1 ? 's' : ''} veulent devenir vos amis`;
         }
       }
 

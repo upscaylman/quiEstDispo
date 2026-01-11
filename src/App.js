@@ -20,6 +20,7 @@ import {
   InvitationService,
   NotificationService,
 } from './services/firebaseService';
+import { InvitationExpirationService } from './services/invitationExpirationService'; // 🎯 Import pour démarrer le timer d'expiration
 import { PresenceService } from './services/presenceService';
 import './styles/responsive.css';
 import { UserEventStatus } from './types/eventTypes';
@@ -131,6 +132,22 @@ function App() {
     console.log(
       '🚀 Qui est dispo v' + APP_VERSION + " - Démarrage de l'application"
     );
+  }, []);
+
+  // 🎯 Démarrage explicite du service d'expiration des invitations
+  useEffect(() => {
+    // Démarrer le timer d'expiration si pas déjà en cours
+    if (!InvitationExpirationService.isRunning) {
+      console.log(
+        "🚀 [EXPIRATION] Démarrage du service d'expiration depuis App.js"
+      );
+      InvitationExpirationService.startExpirationTimer();
+    }
+
+    // Cleanup au démontage
+    return () => {
+      // Ne pas arrêter le timer car d'autres onglets peuvent en avoir besoin
+    };
   }, []);
 
   // 🎯 TASK 1.4 - VALIDATION ÉTATS (un seul état par user)
@@ -451,32 +468,56 @@ function App() {
 
       // 🎯 Définir l'état d'invitation en attente
       if (result.count > 0) {
-        // Récupérer les noms des amis invités
+        // Créer UNE carte par ami invité (pas une carte groupée)
         const invitedFriends = friends.filter(friend =>
           friendIds.includes(friend.id)
         );
-        const friendNames = invitedFriends.map(
-          friend => friend.name || friend.displayName || 'Ami'
-        );
 
-        const pendingData = {
+        // Créer un array de cartes, une par ami
+        const pendingInvitations = invitedFriends.map(friend => ({
           activity,
           sentAt: new Date().getTime(),
-          friendIds,
-          friendNames,
-          count: result.count,
-        };
+          friendId: friend.id,
+          friendName: friend.name || friend.displayName || 'Ami',
+          senderId: user.uid,
+        }));
 
-        setPendingInvitation(pendingData);
+        setPendingInvitation(pendingInvitations);
 
         // Sauvegarder dans localStorage
-        localStorage.setItem('pendingInvitation', JSON.stringify(pendingData));
+        localStorage.setItem(
+          'pendingInvitation',
+          JSON.stringify(pendingInvitations)
+        );
+
+        // 🔔 Créer une notification dans le centre de notifications
+        const friendNames = invitedFriends.map(
+          f => f.name || f.displayName || 'Ami'
+        );
+        const friendsTextNotif =
+          result.count === 1
+            ? friendNames[0]
+            : `${friendNames.slice(0, 2).join(', ')}${result.count > 2 ? ` et ${result.count - 2} autre${result.count > 3 ? 's' : ''}` : ''}`;
+
+        console.log('🔔 [DEBUG] Création notification invitation_sent');
+        await NotificationService.createNotification(
+          user.uid,
+          user.uid,
+          'invitation_sent',
+          `Tu as invité ${friendsTextNotif} pour ${activity}`,
+          {
+            activity,
+            friendIds,
+            friendNames,
+            count: result.count,
+          }
+        );
+        console.log('🔔 [DEBUG] Notification invitation_sent créée');
 
         // 🍞 Afficher un toast de succès avec bouton Annuler
         const friendsText =
           result.count === 1 ? friendNames[0] : `${result.count} amis`;
         toast.success(`Invitation envoyée à ${friendsText}`, {
-          icon: '📨',
           duration: 5000,
           action: 'Annuler',
           onAction: () => {
@@ -515,7 +556,6 @@ function App() {
         toast.success(
           `${result.cancelled} invitation${result.cancelled > 1 ? 's' : ''} annulée${result.cancelled > 1 ? 's' : ''}`,
           {
-            icon: '🚫',
             duration: 3000,
           }
         );
@@ -687,15 +727,13 @@ function App() {
       const userName = user.displayName || user.name || 'Un ami';
       const activityName = friendAvailability.activity;
 
-      let message, type, emoji;
+      let message, type;
       if (responseType === 'joined') {
-        message = `✅ ${userName} a rejoint votre activité ${activityName} !`;
+        message = `${userName} a rejoint votre activité ${activityName} !`;
         type = 'activity_joined';
-        emoji = '✅';
       } else {
-        message = `❌ ${userName} a décliné votre invitation pour ${activityName}`;
+        message = `${userName} a décliné votre invitation pour ${activityName}`;
         type = 'activity_declined';
-        emoji = '❌';
       }
 
       // Enregistrer la réponse dans Firebase
@@ -981,7 +1019,7 @@ function App() {
           notification.data.fromUserId, // À qui (l'expéditeur)
           user.uid, // De qui (celui qui accepte)
           'activity_accepted_start_timer', // Type spécial pour démarrer le décompte
-          `✅ ${userName} a accepté votre invitation pour ${activityName} ! Le partage de localisation commence maintenant.`,
+          `${userName} a accepté votre invitation pour ${activityName} ! Le partage de localisation commence maintenant.`,
           {
             activity: activityName,
             acceptedBy: user.uid,
@@ -1256,7 +1294,7 @@ function App() {
           result.otherUserId,
           user.uid,
           'activity_terminated',
-          `🏁 ${user.displayName || user.name || 'Un ami'} a terminé l'activité ${result.activity}`,
+          `${user.displayName || user.name || 'Un ami'} a terminé l'activité ${result.activity}`,
           {
             activity: result.activity,
             terminatedBy: user.uid,
@@ -1322,6 +1360,13 @@ function App() {
         await handleStopAvailability();
       }
 
+      // 🔧 FIX: Nettoyer les états locaux et localStorage pour éviter confusion entre utilisateurs
+      setPendingInvitation(null);
+      setIsAvailable(false);
+      setCurrentActivity(null);
+      localStorage.removeItem('pendingInvitation');
+      localStorage.removeItem('availabilityState');
+
       // Réinitialiser l'écran à l'accueil pour la prochaine connexion
       setCurrentScreen('home');
 
@@ -1383,6 +1428,70 @@ function App() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // 🎯 Nettoyage automatique des invitations après 2 heures
+  useEffect(() => {
+    if (
+      !pendingInvitation ||
+      !Array.isArray(pendingInvitation) ||
+      pendingInvitation.length === 0
+    )
+      return;
+
+    // Nettoyage automatique après 2 heures pour chaque invitation
+    const maxDuration = 2 * 60 * 60 * 1000; // 2 heures
+    const now = Date.now();
+
+    // Filtrer les invitations trop vieilles (> 2h)
+    const validInvitations = pendingInvitation.filter(inv => {
+      const elapsed = now - inv.sentAt;
+      return elapsed < maxDuration;
+    });
+
+    if (validInvitations.length !== pendingInvitation.length) {
+      console.log(
+        `⏰ [EXPIRATION] Nettoyage ${pendingInvitation.length - validInvitations.length} invitations > 2h`
+      );
+      if (validInvitations.length === 0) {
+        setPendingInvitation(null);
+        localStorage.removeItem('pendingInvitation');
+      } else {
+        setPendingInvitation(validInvitations);
+        localStorage.setItem(
+          'pendingInvitation',
+          JSON.stringify(validInvitations)
+        );
+      }
+      return;
+    }
+
+    // Timer pour nettoyer la plus ancienne invitation après 2h
+    const oldestInvitation = pendingInvitation.reduce((oldest, current) =>
+      current.sentAt < oldest.sentAt ? current : oldest
+    );
+    const elapsed = now - oldestInvitation.sentAt;
+    const remaining = maxDuration - elapsed;
+
+    if (remaining > 0) {
+      const timer = setTimeout(() => {
+        console.log('⏰ [EXPIRATION] Timer 2h atteint, re-vérification');
+        const nowCheck = Date.now();
+        const stillValid = pendingInvitation.filter(inv => {
+          const elapsedCheck = nowCheck - inv.sentAt;
+          return elapsedCheck < maxDuration;
+        });
+        if (stillValid.length === 0) {
+          setPendingInvitation(null);
+          localStorage.removeItem('pendingInvitation');
+        } else {
+          setPendingInvitation(stillValid);
+          localStorage.setItem('pendingInvitation', JSON.stringify(stillValid));
+        }
+      }, remaining);
+
+      return () => clearTimeout(timer);
+    }
+  }, [pendingInvitation]);
 
   // Gérer le thème automatique
   useEffect(() => {
@@ -1457,25 +1566,47 @@ function App() {
     }
   };
 
-  // 🎯 NOUVEAU: Restaurer pendingInvitation depuis localStorage
+  // 🎯 Restaurer pendingInvitation depuis localStorage
   const restorePendingInvitation = () => {
     try {
       const saved = localStorage.getItem('pendingInvitation');
       if (saved) {
-        const invitation = JSON.parse(saved);
-        console.log(
-          '🔄 [REFRESH] Restauration invitation en attente:',
-          invitation
-        );
+        const data = JSON.parse(saved);
+        console.log('🔄 [REFRESH] Restauration invitations en attente:', data);
 
-        // Vérifier que l'invitation n'est pas trop ancienne (plus de 2h)
+        // Gérer ancien format (objet unique) et nouveau format (array)
+        const invitations = Array.isArray(data) ? data : [data];
+
+        // 🔧 FIX: Vérifier que les invitations appartiennent à l'utilisateur actuel
+        const userInvitations = invitations.filter(inv => {
+          if (inv.senderId && inv.senderId !== user.uid) {
+            console.log(
+              '⚠️ Invitation appartient à un autre utilisateur, ignorée'
+            );
+            return false;
+          }
+          return true;
+        });
+
+        if (userInvitations.length === 0) {
+          localStorage.removeItem('pendingInvitation');
+          return;
+        }
+
+        // Vérifier que les invitations ne sont pas trop anciennes (plus de 2h)
         const now = Date.now();
-        const elapsed = now - invitation.sentAt;
         const maxDuration = 2 * 60 * 60 * 1000; // 2 heures
 
-        if (elapsed < maxDuration) {
-          setPendingInvitation(invitation);
-          console.log('✅ Invitation en attente restaurée');
+        const validInvitations = userInvitations.filter(inv => {
+          const elapsed = now - inv.sentAt;
+          return elapsed < maxDuration;
+        });
+
+        if (validInvitations.length > 0) {
+          setPendingInvitation(validInvitations);
+          console.log(
+            `✅ ${validInvitations.length} invitations en attente restaurées`
+          );
         } else {
           console.log('⏰ Invitation expirée, nettoyage localStorage');
           localStorage.removeItem('pendingInvitation');
@@ -1492,6 +1623,8 @@ function App() {
     if (!user) {
       // Si l'utilisateur se déconnecte, réinitialiser l'écran à l'accueil
       setCurrentScreen('home');
+      // 🔧 FIX: Réinitialiser aussi pendingInvitation pour éviter qu'un autre utilisateur la voie
+      setPendingInvitation(null);
       // Arrêter le heartbeat de présence
       PresenceService.stopPresenceHeartbeat();
       return;
@@ -1867,6 +2000,7 @@ function App() {
     );
   }
 
+  // Rendu normal pour les autres écrans
   return (
     <>
       <AppShell

@@ -21,7 +21,7 @@ export const MOCK_INVITATIONS = [
     distance: '350m',
   },
 
-  // CAS 2: Invitation envoyée, en attente
+  // CAS 2: Invitation envoyée, en attente (pour InvitationListItem)
   {
     id: 'mock-invitation-2',
     type: 'invitation_sent',
@@ -32,7 +32,7 @@ export const MOCK_INVITATIONS = [
     },
     activity: 'lunch',
     createdAt: 'Il y a 1 min',
-    expiresIn: '9 min',
+    expiresIn: '4 min',
   },
 
   // CAS 3: Rendez-vous en cours
@@ -100,7 +100,7 @@ export const MOCK_INVITATIONS = [
     createdAt: 'Il y a 5 min',
   },
 
-  // CAS 8: Invitation expirée
+  // CAS 8: Invitation expirée (côté expéditeur)
   {
     id: 'mock-invitation-8',
     type: 'expired',
@@ -109,6 +109,21 @@ export const MOCK_INVITATIONS = [
       displayName: 'Clara',
       photoURL: null,
     },
+    activity: 'coffee',
+    createdAt: 'Il y a 8 min',
+  },
+
+  // CAS 9: Invitation expirée (côté destinataire)
+  {
+    id: 'mock-invitation-9',
+    type: 'expired',
+    user: {
+      uid: 'mock-user-10',
+      displayName: 'Thomas',
+      photoURL: null,
+    },
+    activity: 'lunch',
+    createdAt: 'Il y a 12 min',
   },
 ];
 

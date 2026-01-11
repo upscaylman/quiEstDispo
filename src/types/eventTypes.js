@@ -438,14 +438,14 @@ export const formatMultipleInvitationMessage = invitation => {
   const acceptedCount = acceptedByUserIds.length;
 
   if (totalRecipients === 1) {
-    return `🎉 ${fromUserName} vous invite pour ${activity}`;
+    return `${fromUserName} vous invite pour ${activity}`;
   }
 
   if (acceptedCount === 0) {
-    return `🎉 ${fromUserName} vous invite pour ${activity} (${totalRecipients} invités)`;
+    return `${fromUserName} vous invite pour ${activity} (${totalRecipients} invités)`;
   }
 
-  return `🎉 ${fromUserName} vous invite pour ${activity} (${acceptedCount}/${totalRecipients} ont accepté)`;
+  return `${fromUserName} vous invite pour ${activity} (${acceptedCount}/${totalRecipients} ont accepté)`;
 };
 
 /**

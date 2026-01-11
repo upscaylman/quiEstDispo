@@ -544,42 +544,11 @@ export class ValidationService {
    */
   static async canUserInviteUser(invitingUserId, userId) {
     try {
-      // [CONTOURNEMENT DEV MODE - Phase 1]
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`🔧 [DEV MODE] Contournement validation pour ${userId}`);
-        return {
-          canInvite: true,
-          reason: 'dev_mode_bypass',
-          details: { devMode: true },
-        };
-      }
-
-      // Vérifier si l'utilisateur a déjà des invitations pending
-      const pendingInvitations =
-        await this._checkUserPendingInvitations(userId);
-      if (pendingInvitations.length > 0) {
-        return {
-          canInvite: false,
-          reason: `A déjà ${pendingInvitations.length} invitation(s) en attente`,
-          details: { pendingInvitations },
-        };
-      }
-
-      // Vérifier si l'utilisateur partage déjà sa localisation
-      const isSharing = await this._checkUserLocationSharing(userId);
-      if (isSharing.isSharing) {
-        return {
-          canInvite: false,
-          reason: `Partage déjà sa localisation pour ${isSharing.activity}`,
-          details: isSharing,
-        };
-      }
-
-      return {
-        canInvite: true,
-        reason: 'user_available',
-        details: {},
-      };
+      // Utiliser RelationshipService qui a déjà la logique complète avec filtrage d'expiration
+      return await RelationshipService.canUserInviteUser(
+        invitingUserId,
+        userId
+      );
     } catch (error) {
       console.error('❌ Erreur validation utilisateur:', error);
       return {

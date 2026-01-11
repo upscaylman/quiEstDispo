@@ -115,15 +115,30 @@ export class InvitationService {
         )
       );
 
-      const totalPending = pendingQuery1.size + pendingQuery2.size;
+      // Filtrer les invitations pending non expirées (expiresAt > now)
+      const now = new Date();
+      const isNotExpired = doc => {
+        const data = doc.data();
+        if (!data.expiresAt) return true; // Si pas d'expiresAt, considérer comme valide
+        const expiresAt = data.expiresAt.toDate
+          ? data.expiresAt.toDate()
+          : new Date(data.expiresAt);
+        return expiresAt > now;
+      };
+
+      const validPending1 = pendingQuery1.docs.filter(isNotExpired);
+      const validPending2 = pendingQuery2.docs.filter(isNotExpired);
+      const totalPending = validPending1.length + validPending2.length;
       const totalAccepted = acceptedQuery1.size + acceptedQuery2.size;
 
       console.log(
-        `🔍 [DEBUG] Après nettoyage: ${totalPending} pending, ${totalAccepted} accepted`
+        `🔍 [DEBUG] Après nettoyage: ${totalPending} pending valides (${pendingQuery1.size + pendingQuery2.size} total), ${totalAccepted} accepted`
       );
 
       if (totalPending > 0) {
-        console.log(`🔍 [DEBUG] ⚠️ BLOCKED: invitation PENDING existe déjà`);
+        console.log(
+          `🔍 [DEBUG] ⚠️ BLOCKED: invitation PENDING valide existe déjà`
+        );
         return true; // true = invitation active = BLOQUER
       } else if (totalAccepted > 0) {
         console.log(
@@ -415,7 +430,7 @@ export class InvitationService {
           location,
           status: 'pending', // pending, accepted, declined, expired
           createdAt: serverTimestamp(),
-          expiresAt: new Date(invitationTime.getTime() + 45 * 60 * 1000), // 45 minutes (cohérent avec availabilities)
+          expiresAt: new Date(invitationTime.getTime() + 5 * 60 * 1000), // 5 minutes (expiration rapide)
         };
 
         // Ajouter l'invitation à la collection et récupérer l'ID
@@ -884,8 +899,8 @@ export class InvitationService {
 
       const activityLabel = activities[activity] || activity;
       const message = accepted
-        ? `✅ ${fromUserName} a accepté votre invitation pour ${activityLabel} !`
-        : `❌ ${fromUserName} a décliné votre invitation pour ${activityLabel}`;
+        ? `${fromUserName} a accepté votre invitation pour ${activityLabel} !`
+        : `${fromUserName} a décliné votre invitation pour ${activityLabel}`;
 
       const notification = {
         to: toUserId,
@@ -1339,11 +1354,33 @@ export class InvitationService {
     options
   ) {
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes
+    const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes
+
+    // Récupérer le nom de l'expéditeur
+    const fromUserDoc = await getDoc(doc(db, 'users', fromUserId));
+    const fromUserName = fromUserDoc.exists()
+      ? fromUserDoc.data().name || fromUserDoc.data().displayName
+      : 'Un ami';
+
+    // Récupérer les noms des destinataires
+    const recipientNames = await Promise.all(
+      validRecipients.map(async recipientId => {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', recipientId));
+          return userDoc.exists()
+            ? userDoc.data().name || userDoc.data().displayName || 'Un ami'
+            : 'Un ami';
+        } catch {
+          return 'Un ami';
+        }
+      })
+    );
 
     return {
       fromUserId,
+      fromUserName, // Stocker le nom de l'expéditeur
       toUserIds: validRecipients,
+      toUserNames: recipientNames, // Stocker les noms des destinataires
       activity,
       status: 'pending',
       createdAt: serverTimestamp(),
@@ -1398,8 +1435,8 @@ export class InvitationService {
     const notificationPromises = validRecipients.map(async recipientId => {
       const message =
         validRecipients.length > 1
-          ? `🎉 ${fromUserName} vous invite pour ${activityLabel} (${validRecipients.length} invités)`
-          : `🎉 ${fromUserName} vous invite pour ${activityLabel}`;
+          ? `${fromUserName} vous invite pour ${activityLabel} (${validRecipients.length} invités)`
+          : `${fromUserName} vous invite pour ${activityLabel}`;
 
       return NotificationService.createNotification(
         recipientId,
@@ -1580,15 +1617,15 @@ export class InvitationService {
       let message;
       if (totalRecipients > 1) {
         if (response === 'accepted') {
-          message = `✅ ${respondingUserName} a accepté votre invitation pour ${activityLabel} (${acceptedCount}/${totalRecipients} ont accepté)`;
+          message = `${respondingUserName} a accepté votre invitation pour ${activityLabel} (${acceptedCount}/${totalRecipients} ont accepté)`;
         } else {
-          message = `❌ ${respondingUserName} a décliné votre invitation pour ${activityLabel}`;
+          message = `${respondingUserName} a décliné votre invitation pour ${activityLabel}`;
         }
       } else {
         message =
           response === 'accepted'
-            ? `✅ ${respondingUserName} a accepté votre invitation pour ${activityLabel} !`
-            : `❌ ${respondingUserName} a décliné votre invitation pour ${activityLabel}`;
+            ? `${respondingUserName} a accepté votre invitation pour ${activityLabel} !`
+            : `${respondingUserName} a décliné votre invitation pour ${activityLabel}`;
       }
 
       await NotificationService.createNotification(

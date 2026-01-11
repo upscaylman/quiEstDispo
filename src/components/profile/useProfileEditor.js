@@ -66,7 +66,7 @@ export const useProfileEditor = (user, onProfileUpdate) => {
       // Vérifier que le numéro n'est pas déjà utilisé par un autre utilisateur
       await AuthService.updateUserPhone(user.uid, normalizedPhone);
 
-      setSuccess('Numéro de téléphone ajouté avec succès ! 🎉');
+      setSuccess('Numéro de téléphone ajouté avec succès !');
       setIsEditing(false);
 
       // Mettre à jour immédiatement l'état local
@@ -107,7 +107,7 @@ export const useProfileEditor = (user, onProfileUpdate) => {
       console.log('🗑️ Suppression du numéro de téléphone...');
       await AuthService.removeUserPhone(user.uid);
 
-      setSuccess('✅ Numéro de téléphone supprimé !');
+      setSuccess('Numéro de téléphone supprimé !');
       setIsEditing(false);
 
       // Mettre à jour immédiatement l'état local AVANT refreshUserData
@@ -161,7 +161,7 @@ export const useProfileEditor = (user, onProfileUpdate) => {
     try {
       await AuthService.updateUserName(user.uid, userName.trim());
 
-      setSuccess('Nom mis à jour avec succès ! 🎉');
+      setSuccess('Nom mis à jour avec succès !');
       setIsEditingName(false);
 
       // Mettre à jour immédiatement l'état local
@@ -233,7 +233,7 @@ export const useProfileEditor = (user, onProfileUpdate) => {
       setLocalAvatar(photoURL);
       setForceRefresh(prev => prev + 1);
 
-      setSuccess('Photo de profil mise à jour ! 🎉');
+      setSuccess('Photo de profil mise à jour !');
       setTimeout(() => setSuccess(''), 3000);
 
       if (onProfileUpdate) {

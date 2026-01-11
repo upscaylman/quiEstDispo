@@ -228,7 +228,7 @@ export class PushNotificationService {
 
       // Envoyer une notification de test locale
       await this.showTestNotification(
-        '🎉 Qui est dispo',
+        'Qui est dispo',
         'Test de notification - tout fonctionne !',
         {
           tag: 'test-notification',

@@ -177,7 +177,7 @@ const FriendsScreen = ({
                           )
                         }
                         className="flex-1 bg-[var(--md-sys-color-success)]"
-                        icon={<span>✅</span>}
+                        icon={<Check size={18} />}
                       >
                         Accepter
                       </MD3Button>

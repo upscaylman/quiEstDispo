@@ -1,6 +1,7 @@
 // Écran d'accueil avec gestion des disponibilités - MD3 Expressive
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  Check,
   Clock as ClockIcon,
   Coffee,
   Facebook,
@@ -9,6 +10,8 @@ import {
   Instagram,
   Linkedin,
   MapPin,
+  PartyPopper,
+  RotateCcw,
   Shield,
   Sparkles,
   UserPlus,
@@ -53,6 +56,8 @@ const HomeScreen = ({
   onCreateTestFriendships,
   onFriendInvitationResponse,
   onActivityInvitationResponse,
+  onReinvite,
+  onReinviteOther,
 }) => {
   // State pour forcer le re-render et mettre à jour les temps
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -60,14 +65,90 @@ const HomeScreen = ({
   // State pour afficher/cacher les mocks d'invitations (admin only)
   const [showInvitationMocks, setShowInvitationMocks] = useState(false);
 
-  // Timer pour mettre à jour l'affichage du temps restant
+  // State pour afficher toutes les cartes mocks ou seulement les 5 premières
+  const [showAllMocks, setShowAllMocks] = useState(false);
+
+  // Timer pour mettre à jour l'affichage du temps restant (toutes les secondes si invitation en cours)
   useEffect(() => {
+    // Forcer une mise à jour immédiate quand pendingInvitation change
+    setCurrentTime(Date.now());
+
+    const interval = pendingInvitation ? 1000 : 10000; // 1s si invitation en cours, sinon 10s
+    console.log(
+      '⏱️ Timer interval set to:',
+      interval,
+      'ms, pendingInvitation:',
+      !!pendingInvitation
+    );
+
     const timer = setInterval(() => {
       setCurrentTime(Date.now());
-    }, 30000); // Mise à jour toutes les 30 secondes
+    }, interval);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [pendingInvitation]);
+
+  // Fonction pour formater le temps relatif (il y a X)
+  const formatRelativeTime = timestamp => {
+    if (!timestamp) return '';
+
+    let date;
+    if (timestamp?.toDate) {
+      date = timestamp.toDate();
+    } else if (timestamp instanceof Date) {
+      date = timestamp;
+    } else if (typeof timestamp === 'string') {
+      date = new Date(timestamp);
+    } else {
+      return '';
+    }
+
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffSec < 10) return "À l'instant";
+    if (diffSec < 60) return `il y a ${diffSec}s`;
+    if (diffMin < 60) return `il y a ${diffMin}min`;
+    if (diffHour < 24) return `il y a ${diffHour}h`;
+    return `il y a ${diffDay}j`;
+  };
+
+  // Fonction pour obtenir le label d'activité
+  const getActivityLabel = activity => {
+    const labels = {
+      coffee: 'Coffee',
+      lunch: 'Lunch',
+      drinks: 'Drinks',
+      chill: 'Chill',
+      clubbing: 'Clubbing',
+      cinema: 'Cinema',
+    };
+    return labels[activity] || activity || '';
+  };
+
+  // Fonction pour obtenir l'icône d'activité
+  const getActivityIcon = activity => {
+    switch (activity) {
+      case 'coffee':
+        return <Coffee size={16} className="text-amber-500" />;
+      case 'lunch':
+        return <span className="text-green-500">🍽️</span>;
+      case 'drinks':
+        return <span className="text-purple-500">🍻</span>;
+      case 'chill':
+        return <span className="text-blue-500">😎</span>;
+      case 'clubbing':
+        return <span className="text-pink-500">🎉</span>;
+      case 'cinema':
+        return <span className="text-indigo-500">🎬</span>;
+      default:
+        return <Sparkles size={16} className="text-gray-500" />;
+    }
+  };
 
   // Calculer le temps restant pour la disponibilité
   const getTimeLeft = () => {
@@ -147,17 +228,25 @@ const HomeScreen = ({
     if (!notifications) return [];
 
     return notifications.filter(notification => {
-      // Afficher SEULEMENT les invitations qui nécessitent une action
-      // Exclure les notifications de déclinaison/réponses
-      return (
+      // Afficher les invitations qui nécessitent une action ET les notifications d'expiration récentes
+      const isActionable =
         !notification.read &&
         [
           'friend_invitation',
           'invitation',
-          // 'invitation_sent', // Retirer - ce sont les invitations qu'on a envoyées
-          // 'activity_accepted_start_timer', // Retirer - notification de démarrage
-        ].includes(notification.type)
-      );
+          'invitation_expired', // Ajout des notifications d'expiration
+        ].includes(notification.type);
+
+      // Pour les notifications expirées, ne les afficher que pendant 1 heure
+      if (notification.type === 'invitation_expired') {
+        const createdAt =
+          notification.createdAt?.toDate?.() ||
+          new Date(notification.createdAt);
+        const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        return createdAt > hourAgo && !notification.read;
+      }
+
+      return isActionable;
     });
   };
 
@@ -209,90 +298,155 @@ const HomeScreen = ({
                 variants={containerVariants}
               >
                 <div className="space-y-4">
-                  {homeNotifications.map(notification => (
-                    <MD3Card
-                      key={notification.id}
-                      variant="filled"
-                      padding="default"
-                      className="border-l-4 border-l-[var(--md-sys-color-primary)]"
-                    >
-                      <p className="font-semibold mb-2 text-[var(--md-sys-color-on-surface)]">
-                        {notification.message}
-                      </p>
-                      <p className="text-sm mb-4 text-[var(--md-sys-color-on-surface-variant)]">
-                        {notification.createdAt
-                          ?.toDate?.()
-                          ?.toLocaleTimeString() || 'Maintenant'}
-                      </p>
+                  {homeNotifications.map(notification => {
+                    const activity = notification.data?.activity;
+                    const activityLabel = getActivityLabel(activity);
+                    const relativeTime = formatRelativeTime(
+                      notification.createdAt
+                    );
+                    const isExpired =
+                      notification.type === 'invitation_expired';
 
-                      {/* Boutons d'action pour les invitations d'amitié */}
-                      {notification.type === 'friend_invitation' &&
-                        notification.data?.actions && (
+                    return (
+                      <MD3Card
+                        key={notification.id}
+                        variant="filled"
+                        padding="default"
+                        className={`border-l-4 ${
+                          isExpired
+                            ? 'border-l-[var(--md-sys-color-outline)] opacity-75'
+                            : 'border-l-[var(--md-sys-color-primary)]'
+                        }`}
+                      >
+                        {/* En-tête avec activité et temps */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            {activity && (
+                              <>
+                                {getActivityIcon(activity)}
+                                <span className="text-sm font-medium text-[var(--md-sys-color-primary)]">
+                                  {activityLabel}
+                                </span>
+                              </>
+                            )}
+                            {isExpired && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--md-sys-color-surface-variant)] text-[var(--md-sys-color-on-surface-variant)]">
+                                Expiré
+                              </span>
+                            )}
+                          </div>
+                          {relativeTime && (
+                            <span className="text-xs text-[var(--md-sys-color-on-surface-variant)] flex items-center gap-1">
+                              <ClockIcon size={12} />
+                              {relativeTime}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Message */}
+                        <p
+                          className={`font-semibold mb-3 ${
+                            isExpired
+                              ? 'text-[var(--md-sys-color-on-surface-variant)]'
+                              : 'text-[var(--md-sys-color-on-surface)]'
+                          }`}
+                        >
+                          {notification.message}
+                        </p>
+
+                        {/* Boutons d'action pour les invitations d'amitié */}
+                        {notification.type === 'friend_invitation' &&
+                          notification.data?.actions && (
+                            <div className="flex gap-3">
+                              <MD3Button
+                                variant="filled"
+                                onClick={() =>
+                                  onFriendInvitationResponse?.(
+                                    notification.data.invitationId,
+                                    'accepted',
+                                    notification.id
+                                  )
+                                }
+                                className="flex-1 bg-[var(--md-sys-color-success)]"
+                                icon={<Check size={18} />}
+                              >
+                                Accepter
+                              </MD3Button>
+                              <MD3Button
+                                variant="outlined"
+                                onClick={() =>
+                                  onFriendInvitationResponse?.(
+                                    notification.data.invitationId,
+                                    'declined',
+                                    notification.id
+                                  )
+                                }
+                                className="flex-1"
+                              >
+                                Refuser
+                              </MD3Button>
+                            </div>
+                          )}
+
+                        {/* Boutons d'action pour les invitations d'événements */}
+                        {(notification.type === 'invitation' ||
+                          notification.type === 'invitation_sent') &&
+                          notification.data?.actions && (
+                            <div className="flex gap-3">
+                              <MD3Button
+                                variant="filled"
+                                onClick={() =>
+                                  onActivityInvitationResponse?.(
+                                    notification,
+                                    'accepted'
+                                  )
+                                }
+                                className="flex-1"
+                                icon={<PartyPopper size={18} />}
+                              >
+                                Rejoindre
+                              </MD3Button>
+                              <MD3Button
+                                variant="tonal"
+                                onClick={() =>
+                                  onActivityInvitationResponse?.(
+                                    notification,
+                                    'declined'
+                                  )
+                                }
+                                className="flex-1"
+                              >
+                                Ignorer
+                              </MD3Button>
+                            </div>
+                          )}
+
+                        {/* Boutons d'action pour les invitations expirées */}
+                        {notification.type === 'invitation_expired' && (
                           <div className="flex gap-3">
                             <MD3Button
-                              variant="filled"
-                              onClick={() =>
-                                onFriendInvitationResponse?.(
-                                  notification.data.invitationId,
-                                  'accepted',
-                                  notification.id
-                                )
-                              }
-                              className="flex-1 bg-[var(--md-sys-color-success)]"
-                              icon={<span>✅</span>}
+                              variant="tonal"
+                              onClick={() => onReinvite?.(notification)}
+                              className="flex-1"
+                              icon={<RotateCcw size={18} />}
                             >
-                              Accepter
+                              Réinviter
                             </MD3Button>
                             <MD3Button
                               variant="outlined"
                               onClick={() =>
-                                onFriendInvitationResponse?.(
-                                  notification.data.invitationId,
-                                  'declined',
-                                  notification.id
-                                )
+                                onReinviteOther?.(notification.data?.activity)
                               }
                               className="flex-1"
+                              icon={<UserPlus size={18} />}
                             >
-                              Refuser
+                              Autre ami
                             </MD3Button>
                           </div>
                         )}
-
-                      {/* Boutons d'action pour les invitations d'événements */}
-                      {(notification.type === 'invitation' ||
-                        notification.type === 'invitation_sent') &&
-                        notification.data?.actions && (
-                          <div className="flex gap-3">
-                            <MD3Button
-                              variant="filled"
-                              onClick={() =>
-                                onActivityInvitationResponse?.(
-                                  notification,
-                                  'accepted'
-                                )
-                              }
-                              className="flex-1"
-                              icon={<span>🎉</span>}
-                            >
-                              Rejoindre
-                            </MD3Button>
-                            <MD3Button
-                              variant="tonal"
-                              onClick={() =>
-                                onActivityInvitationResponse?.(
-                                  notification,
-                                  'declined'
-                                )
-                              }
-                              className="flex-1"
-                            >
-                              Ignorer
-                            </MD3Button>
-                          </div>
-                        )}
-                    </MD3Card>
-                  ))}
+                      </MD3Card>
+                    );
+                  })}
                 </div>
               </motion.div>
             )}
@@ -325,7 +479,7 @@ const HomeScreen = ({
                 icon={<UserPlus size={20} />}
                 className="bg-gradient-to-r from-[var(--md-sys-color-primary)] to-[var(--md-sys-color-tertiary)]"
               >
-                Inviter des amis 🎉
+                Inviter des amis
               </MD3Button>
 
               {/* Bouton de test en mode développement */}
@@ -355,6 +509,62 @@ const HomeScreen = ({
             </MD3Card>
           </motion.div>
 
+          {/* 🎯 Cartes d'invitation envoyées - UNE carte PAR ami */}
+          <AnimatePresence>
+            {pendingInvitation &&
+              Array.isArray(pendingInvitation) &&
+              pendingInvitation.length > 0 && (
+                <motion.div
+                  className="mt-6 space-y-3"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  {pendingInvitation.map((invitation, index) => {
+                    // Calculer le temps écoulé depuis l'envoi
+                    const sentTime = invitation.sentAt || Date.now();
+                    const elapsedMs = currentTime - sentTime;
+                    const elapsedSec = Math.floor(elapsedMs / 1000);
+                    const totalDuration = 5 * 60; // 5 minutes en secondes (300s)
+                    const remaining = Math.max(0, totalDuration - elapsedSec);
+                    const mins = Math.floor(remaining / 60);
+                    const secs = remaining % 60;
+                    const isExpired = remaining <= 0;
+
+                    return (
+                      <InvitationListItem
+                        key={`pending-invitation-${invitation.friendId}-${index}`}
+                        id={`pending-invitation-${invitation.friendId}`}
+                        type={
+                          isExpired ? 'invitation_expired' : 'invitation_sent'
+                        }
+                        user={{
+                          displayName: invitation.friendName,
+                        }}
+                        activity={invitation.activity?.toLowerCase()}
+                        expiresIn={
+                          isExpired
+                            ? 'Expiré'
+                            : `${mins}:${secs.toString().padStart(2, '0')}`
+                        }
+                        onCancel={isExpired ? undefined : onCancelInvitations}
+                        onReinvite={
+                          isExpired
+                            ? () => onInviteFriends?.(invitation.activity)
+                            : undefined
+                        }
+                        onReinviteOther={
+                          isExpired
+                            ? () => onInviteFriends?.(invitation.activity)
+                            : undefined
+                        }
+                      />
+                    );
+                  })}
+                </motion.div>
+              )}
+          </AnimatePresence>
+
           {/* ========== SECTION MOCKS INVITATIONS (Admin only) ========== */}
           {showDevTools(user) && showInvitationMocks && (
             <motion.div
@@ -378,7 +588,10 @@ const HomeScreen = ({
               </div>
 
               {/* Rendu en liste compacte avec expansion */}
-              {MOCK_INVITATIONS.map(invitation => (
+              {(showAllMocks
+                ? MOCK_INVITATIONS
+                : MOCK_INVITATIONS.slice(0, 5)
+              ).map(invitation => (
                 <InvitationListItem
                   key={invitation.id}
                   {...invitation}
@@ -395,8 +608,43 @@ const HomeScreen = ({
                   onInviteOther={() =>
                     console.log('Invite other:', invitation.id)
                   }
+                  onReinvite={() =>
+                    console.log('Reinvite:', invitation.id, invitation.activity)
+                  }
+                  onReinviteOther={() =>
+                    console.log(
+                      'Reinvite other for activity:',
+                      invitation.activity
+                    )
+                  }
                 />
               ))}
+
+              {/* Bouton Afficher plus/moins si plus de 5 cartes */}
+              {MOCK_INVITATIONS.length > 5 && (
+                <motion.button
+                  onClick={() => setShowAllMocks(!showAllMocks)}
+                  className="w-full py-3 px-4 rounded-xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                >
+                  {showAllMocks ? (
+                    <>
+                      <span>Afficher moins</span>
+                      <span className="text-xs opacity-70">
+                        ({MOCK_INVITATIONS.length - 5} masquées)
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Afficher plus</span>
+                      <span className="text-xs opacity-70">
+                        (+{MOCK_INVITATIONS.length - 5} autres)
+                      </span>
+                    </>
+                  )}
+                </motion.button>
+              )}
             </motion.div>
           )}
           {/* ========== FIN SECTION MOCKS INVITATIONS ========== */}

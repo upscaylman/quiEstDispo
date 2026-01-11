@@ -7,7 +7,10 @@ import {
   CheckCheck,
   Clock,
   Coffee,
+  Flag,
   MapPin,
+  PartyPopper,
+  Send,
   Sparkles,
   Trash2,
   Users,
@@ -34,6 +37,14 @@ const NOTIFICATION_CONFIG = {
     iconColor: 'text-green-500',
     label: 'Invitation',
   },
+  invitation_sent: {
+    icon: Send,
+    color: 'blue',
+    bgLight: 'bg-blue-50',
+    bgDark: 'bg-blue-900/20',
+    iconColor: 'text-blue-500',
+    label: 'Invitation envoyée',
+  },
   friend_invitation_accepted: {
     icon: CheckCheck,
     color: 'cyan',
@@ -58,6 +69,22 @@ const NOTIFICATION_CONFIG = {
     iconColor: 'text-emerald-500',
     label: 'Accepté',
   },
+  activity_accepted_start_timer: {
+    icon: PartyPopper,
+    color: 'emerald',
+    bgLight: 'bg-emerald-50',
+    bgDark: 'bg-emerald-900/20',
+    iconColor: 'text-emerald-500',
+    label: 'Activité démarrée',
+  },
+  activity_joined: {
+    icon: PartyPopper,
+    color: 'emerald',
+    bgLight: 'bg-emerald-50',
+    bgDark: 'bg-emerald-900/20',
+    iconColor: 'text-emerald-500',
+    label: 'Rejoint',
+  },
   activity_declined: {
     icon: X,
     color: 'red',
@@ -65,6 +92,30 @@ const NOTIFICATION_CONFIG = {
     bgDark: 'bg-red-900/20',
     iconColor: 'text-red-400',
     label: 'Décliné',
+  },
+  activity_cancelled: {
+    icon: X,
+    color: 'red',
+    bgLight: 'bg-red-50',
+    bgDark: 'bg-red-900/20',
+    iconColor: 'text-red-400',
+    label: 'Annulé',
+  },
+  activity_terminated: {
+    icon: Flag,
+    color: 'orange',
+    bgLight: 'bg-orange-50',
+    bgDark: 'bg-orange-900/20',
+    iconColor: 'text-orange-500',
+    label: 'Terminé',
+  },
+  invitation_expired: {
+    icon: Clock,
+    color: 'gray',
+    bgLight: 'bg-gray-50',
+    bgDark: 'bg-gray-800',
+    iconColor: 'text-gray-400',
+    label: 'Expiré',
   },
   invitation_response: {
     icon: Check,
@@ -101,6 +152,7 @@ const NotificationsScreen = ({
   onActivityInvitationResponse,
   onMarkNotificationAsRead,
   onMarkAllNotificationsAsRead,
+  onNavigateToHome, // Pour naviguer vers l'accueil quand on clique sur une invitation_sent
 }) => {
   const [processingIds, setProcessingIds] = useState(new Set());
   const [deletingIds, setDeletingIds] = useState(new Set());
@@ -221,7 +273,9 @@ const NotificationsScreen = ({
   const filteredNotifications = (notifications || []).filter(n => {
     if (filter === 'unread') return !n.read;
     if (filter === 'invitations')
-      return ['friend_invitation', 'invitation'].includes(n.type);
+      return ['friend_invitation', 'invitation', 'invitation_sent'].includes(
+        n.type
+      );
     return true;
   });
 
@@ -250,6 +304,14 @@ const NotificationsScreen = ({
     const isProcessing = processingIds.has(notification.id);
     const isDeleting = deletingIds.has(notification.id);
     const isRead = notification.read;
+    const isInvitationSent = notification.type === 'invitation_sent';
+
+    // Gestionnaire de clic pour les notifications invitation_sent
+    const handleNotificationClick = () => {
+      if (isInvitationSent && onNavigateToHome) {
+        onNavigateToHome();
+      }
+    };
 
     return (
       <motion.div
@@ -264,8 +326,10 @@ const NotificationsScreen = ({
         }}
         exit={{ opacity: 0, x: -100, scale: 0.9 }}
         transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+        onClick={handleNotificationClick}
         className={`
           relative overflow-hidden rounded-2xl mb-3
+          ${isInvitationSent ? 'cursor-pointer hover:scale-[1.01] transition-transform' : ''}
           ${
             isPending
               ? darkMode
@@ -507,91 +571,6 @@ const NotificationsScreen = ({
       {/* Contenu */}
       <div className="px-4 pt-4">
         <AnimatePresence mode="popLayout">
-          {/* Section Invitations envoyées (par moi) */}
-          {pendingInvitation && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="mb-6"
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-base">📨</span>
-                <h3
-                  className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}
-                >
-                  Invitation envoyée
-                </h3>
-              </div>
-
-              <motion.div
-                className="rounded-2xl p-4 shadow-sm"
-                style={{
-                  background: darkMode
-                    ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%)'
-                    : 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%)',
-                  border: `1px solid ${darkMode ? 'rgba(139, 92, 246, 0.3)' : 'rgba(139, 92, 246, 0.2)'}`,
-                }}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <p
-                      className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}
-                    >
-                      {pendingInvitation.activity}
-                    </p>
-                    <p
-                      className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} mt-1`}
-                    >
-                      {pendingInvitation.count || 0} ami
-                      {pendingInvitation.count > 1 ? 's' : ''} invité
-                      {pendingInvitation.count > 1 ? 's' : ''}
-                    </p>
-                    {pendingInvitation.friendNames && (
-                      <p
-                        className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1 flex items-center gap-1`}
-                      >
-                        <Users size={12} />
-                        {pendingInvitation.friendNames.slice(0, 3).join(', ')}
-                        {pendingInvitation.friendNames.length > 3 &&
-                          ` +${pendingInvitation.friendNames.length - 3}`}
-                      </p>
-                    )}
-                    {pendingInvitation.sentAt && (
-                      <p
-                        className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'} mt-2 flex items-center gap-1`}
-                      >
-                        <Clock size={12} />
-                        Il y a{' '}
-                        {Math.round(
-                          (Date.now() - pendingInvitation.sentAt) / 60000
-                        )}{' '}
-                        min
-                      </p>
-                    )}
-                  </div>
-
-                  {onCancelInvitations && (
-                    <motion.button
-                      onClick={onCancelInvitations}
-                      className="px-3 py-1.5 rounded-full text-sm font-medium"
-                      style={{
-                        backgroundColor: darkMode
-                          ? 'rgba(239, 68, 68, 0.2)'
-                          : 'rgba(239, 68, 68, 0.1)',
-                        color: '#ef4444',
-                      }}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      Annuler
-                    </motion.button>
-                  )}
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-
           {/* Section Invitations en attente (reçues) */}
           {pendingInvitations.length > 0 && (
             <motion.div

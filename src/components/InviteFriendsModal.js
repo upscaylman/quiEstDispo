@@ -277,7 +277,7 @@ const InviteFriendsModal = ({
     // 🎯 PHASE 5: Vérifications renforcées
     if (!userActionValid.valid) {
       alert(
-        `❌ ${userActionValid.userMessage || 'Action non autorisée dans votre état actuel'}`
+        `${userActionValid.userMessage || 'Action non autorisée dans votre état actuel'}`
       );
       return;
     }

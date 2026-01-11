@@ -28,21 +28,25 @@ export class InvitationExpirationService {
     intervalMinutes = EVENT_CONSTANTS.EXPIRATION_CHECK_INTERVAL_MINUTES
   ) {
     if (this.isRunning) {
-      debugLog("⏰ [PHASE 3] Timer d'expiration déjà en cours");
+      console.log("⏰ [EXPIRATION] Timer d'expiration déjà en cours");
       return;
     }
 
     const intervalMs = intervalMinutes * 60 * 1000; // Convertir en millisecondes
 
-    debugLog(`🚀 [PHASE 3] Démarrage timer expiration (${intervalMinutes}min)`);
+    console.log(
+      `🚀 [EXPIRATION] Démarrage timer expiration (${intervalMinutes}min) - Intervalle: ${intervalMs}ms`
+    );
 
     this.isRunning = true;
 
     // Première vérification immédiate
+    console.log('🔍 [EXPIRATION] Première vérification immédiate...');
     this.checkAndExpireInvitations();
 
     // Puis vérifications périodiques
     this.intervalId = setInterval(() => {
+      console.log('🔄 [EXPIRATION] Vérification périodique...');
       this.checkAndExpireInvitations();
     }, intervalMs);
   }
@@ -74,14 +78,15 @@ export class InvitationExpirationService {
    */
   static async checkAndExpireInvitations() {
     if (!isOnline()) {
-      debugLog('⚠️ [PHASE 3] Mode offline, skip vérification expiration');
+      console.log('⚠️ [EXPIRATION] Mode offline, skip vérification expiration');
       return 0;
     }
 
     try {
-      debugLog('🔍 [PHASE 3] Vérification invitations expirées...');
+      console.log('🔍 [EXPIRATION] Vérification invitations expirées...');
 
       const now = new Date();
+      console.log('🕐 [EXPIRATION] Date actuelle:', now.toISOString());
 
       // Rechercher toutes les invitations pending qui ont expiré
       const expiredQuery = query(
@@ -91,6 +96,10 @@ export class InvitationExpirationService {
       );
 
       const snapshot = await getDocs(expiredQuery);
+      console.log(
+        `📊 [EXPIRATION] Trouvé ${snapshot.size} invitations expirées à traiter`
+      );
+
       let expiredCount = 0;
       const notificationPromises = [];
 
@@ -382,6 +391,14 @@ export class InvitationExpirationService {
    */
   static async _notifyExpirationToSender(invitationId, invitationData) {
     try {
+      console.log(
+        `📧 [EXPIRATION] Notification expéditeur pour ${invitationId}`,
+        {
+          fromUserId: invitationData.fromUserId,
+          activity: invitationData.activity,
+        }
+      );
+
       const activities = {
         coffee: 'Coffee',
         lunch: 'Lunch',
@@ -396,15 +413,31 @@ export class InvitationExpirationService {
       const acceptedCount = invitationData.acceptedByUserIds?.length || 0;
       const totalRecipients = invitationData.totalRecipients || 1;
 
+      // Récupérer les noms des destinataires qui n'ont pas répondu
+      const pendingRecipients = (invitationData.toUserIds || []).filter(
+        userId =>
+          !(invitationData.acceptedByUserIds || []).includes(userId) &&
+          !(invitationData.declinedByUserIds || []).includes(userId)
+      );
+
+      // Utiliser les noms stockés dans l'invitation si disponibles
+      const recipientNames = invitationData.toUserNames || [];
+      const pendingNames = pendingRecipients.map(
+        (id, idx) => recipientNames[idx] || 'Un ami'
+      );
+
       let message;
       if (invitationData.isMultipleInvitation) {
         if (acceptedCount > 0) {
-          message = `⏰ Votre invitation pour ${activityLabel} a expiré (${acceptedCount}/${totalRecipients} avaient accepté)`;
+          message = `Votre invitation ${activityLabel} a expiré (${acceptedCount}/${totalRecipients} avaient accepté)`;
+        } else if (pendingNames.length === 1) {
+          message = `${pendingNames[0]} n'a pas répondu à votre invitation ${activityLabel}`;
         } else {
-          message = `⏰ Votre invitation pour ${activityLabel} a expiré (${totalRecipients} destinataires)`;
+          message = `${pendingNames.length} ami(s) n'ont pas répondu à votre invitation ${activityLabel}`;
         }
       } else {
-        message = `⏰ Votre invitation pour ${activityLabel} a expiré`;
+        const recipientName = pendingNames[0] || 'Votre ami';
+        message = `${recipientName} n'a pas répondu à votre invitation ${activityLabel}`;
       }
 
       await NotificationService.createNotification(
@@ -444,14 +477,31 @@ export class InvitationExpirationService {
    */
   static async _notifyExpirationToRecipients(invitationId, invitationData) {
     try {
+      console.log(
+        `📧 [EXPIRATION] Notification destinataires pour ${invitationId}`,
+        {
+          toUserIds: invitationData.toUserIds,
+          acceptedByUserIds: invitationData.acceptedByUserIds,
+          declinedByUserIds: invitationData.declinedByUserIds,
+        }
+      );
+
       // Notifier seulement les destinataires qui n'ont pas encore répondu
-      const pendingRecipients = invitationData.toUserIds.filter(
+      const pendingRecipients = (invitationData.toUserIds || []).filter(
         userId =>
-          !invitationData.acceptedByUserIds.includes(userId) &&
-          !invitationData.declinedByUserIds.includes(userId)
+          !(invitationData.acceptedByUserIds || []).includes(userId) &&
+          !(invitationData.declinedByUserIds || []).includes(userId)
+      );
+
+      console.log(
+        `📧 [EXPIRATION] ${pendingRecipients.length} destinataires en attente:`,
+        pendingRecipients
       );
 
       if (pendingRecipients.length === 0) {
+        console.log(
+          `📧 [EXPIRATION] Aucun destinataire à notifier, tous ont déjà répondu`
+        );
         return; // Tous ont déjà répondu
       }
 
@@ -466,7 +516,49 @@ export class InvitationExpirationService {
 
       const activityLabel =
         activities[invitationData.activity] || invitationData.activity;
-      const message = `⏰ L'invitation pour ${activityLabel} a expiré`;
+
+      // Utiliser le nom de l'expéditeur stocké dans l'invitation
+      const senderName = invitationData.fromUserName || 'Un ami';
+      const message = `Vous n'avez pas donné suite à ${senderName} pour ${activityLabel}`;
+
+      // 🎯 NOUVEAU: Marquer les anciennes notifications d'invitation comme lues pour les destinataires
+      const markAsReadPromises = pendingRecipients.map(async recipientId => {
+        try {
+          // Chercher les notifications d'invitation non lues pour ce destinataire et cette invitation
+          const notifQuery = query(
+            collection(db, 'notifications'),
+            where('userId', '==', recipientId),
+            where('type', '==', 'invitation'),
+            where('read', '==', false)
+          );
+
+          const notifSnapshot = await getDocs(notifQuery);
+          const updatePromises = [];
+
+          notifSnapshot.forEach(notifDoc => {
+            const notifData = notifDoc.data();
+            // Vérifier si c'est bien la notification de cette invitation
+            if (notifData.data?.invitationId === invitationId) {
+              updatePromises.push(
+                updateDoc(notifDoc.ref, {
+                  read: true,
+                  expiredAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                })
+              );
+            }
+          });
+
+          await Promise.all(updatePromises);
+        } catch (err) {
+          debugLog(
+            `⚠️ Erreur marquage notification lue pour ${recipientId}:`,
+            err
+          );
+        }
+      });
+
+      await Promise.all(markAsReadPromises);
 
       // Créer des notifications pour les destinataires en attente
       const notificationPromises = pendingRecipients.map(recipientId =>
@@ -499,10 +591,13 @@ export class InvitationExpirationService {
   }
 }
 
-// Démarrage automatique du service en mode production
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+// Démarrage automatique du service (production ET développement)
+if (typeof window !== 'undefined') {
   // Démarrer le timer après un délai pour laisser l'app s'initialiser
   setTimeout(() => {
+    console.log(
+      "🚀 [EXPIRATION] Démarrage automatique du service d'expiration"
+    );
     InvitationExpirationService.startExpirationTimer();
   }, 5000); // 5 secondes de délai
 }

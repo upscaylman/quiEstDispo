@@ -641,7 +641,7 @@ export class AuthService {
 
           // Informer l'utilisateur avec un message explicatif
           alert(
-            `✅ Parfait ! Votre numéro ${phoneNumber} a été ajouté à votre compte "${existingUserData.name}".\n\n` +
+            `Parfait ! Votre numéro ${phoneNumber} a été ajouté à votre compte "${existingUserData.name}".\n\n` +
               `Reconnectez-vous avec votre email OU votre numéro de téléphone pour accéder au même compte.`
           );
 

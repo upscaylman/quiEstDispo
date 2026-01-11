@@ -272,8 +272,8 @@ function App() {
     try {
       const responseMessage =
         responseType === 'join'
-          ? `🎉 ${user.name} veut vous rejoindre !`
-          : `😔 ${user.name} ne peut pas vous rejoindre cette fois`;
+          ? `${user.name} veut vous rejoindre !`
+          : `${user.name} ne peut pas vous rejoindre cette fois`;
 
       await NotificationService.sendNotification(
         friendAvailability.userId,
@@ -323,7 +323,7 @@ function App() {
 
           await NotificationService.sendNotification(
             friendId,
-            `📱 ${user.name} vous invite pour ${activity} !`,
+            `${user.name} vous invite pour ${activity} !`,
             'activity_invitation',
             { invitationId, activity, location }
           );
@@ -336,7 +336,7 @@ function App() {
       const failed = results.filter(r => r.status === 'rejected').length;
 
       if (successful > 0) {
-        alert(`✅ ${successful} invitation(s) envoyée(s) !`);
+        alert(`${successful} invitation(s) envoyée(s) !`);
       }
       if (failed > 0) {
         console.error(`❌ ${failed} invitation(s) échouée(s)`);

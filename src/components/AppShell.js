@@ -364,6 +364,7 @@ const AppShell = ({
             onActivityInvitationResponse={onActivityInvitationResponse}
             onMarkNotificationAsRead={onMarkNotificationAsRead}
             onMarkAllNotificationsAsRead={onMarkAllNotificationsAsRead}
+            onNavigateToHome={() => onScreenChange('home')}
           />
         );
 

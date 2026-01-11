@@ -18,6 +18,9 @@ node_modules/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.vercel
+.env.backup
+.env.example
 
 # logs
 npm-debug.log*

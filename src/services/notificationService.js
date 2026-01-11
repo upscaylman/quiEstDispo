@@ -261,7 +261,7 @@ export class NotificationService {
         to: toUserId,
         from: fromUserId,
         type: 'invitation',
-        message: `🎉 ${fromUserName} vous invite pour ${activityLabel}`,
+        message: `${fromUserName} vous invite pour ${activityLabel}`,
         data: {
           activity,
           fromUserId,
@@ -322,7 +322,7 @@ export class NotificationService {
         to: toUserId,
         from: fromUserId,
         type: 'invitation',
-        message: `🎉 ${fromUserName} vous invite pour ${activityLabel}`,
+        message: `${fromUserName} vous invite pour ${activityLabel}`,
         data: {
           activity,
           fromUserId,

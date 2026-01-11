@@ -14,6 +14,7 @@ import {
   Film,
   MapPin,
   PartyPopper,
+  RotateCcw,
   Send,
   Sofa,
   UserPlus,
@@ -37,6 +38,7 @@ const TYPE_CONFIG = {
     borderColor: 'border-l-blue-500',
     icon: Send,
     label: 'Envoyée',
+    animate: true, // Animation de pulse sur le badge
   },
   in_progress: {
     color: 'bg-purple-500',
@@ -83,6 +85,14 @@ const TYPE_CONFIG = {
     label: 'Expirée',
     opacity: 'opacity-60',
   },
+  invitation_expired: {
+    color: 'bg-orange-400',
+    textColor: 'text-orange-500',
+    borderColor: 'border-l-orange-400',
+    icon: ClockIcon,
+    label: 'Expirée',
+    opacity: 'opacity-60',
+  },
 };
 
 // Icônes par activité
@@ -115,6 +125,8 @@ const InvitationListItem = ({
   onTerminate,
   onJoinGroup,
   onInviteOther,
+  onReinvite,
+  onReinviteOther,
 }) => {
   const config = TYPE_CONFIG[type] || TYPE_CONFIG.invitation_received;
   const ActivityIcon = ACTIVITY_ICONS[activity] || Coffee;
@@ -245,6 +257,32 @@ const InvitationListItem = ({
             <UserPlus size={14} />
           </button>
         );
+      case 'expired':
+      case 'invitation_expired':
+        return (
+          <div className="flex gap-1">
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                onReinvite?.();
+              }}
+              className="p-1.5 rounded-full bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+              title="Réinviter"
+            >
+              <RotateCcw size={14} />
+            </button>
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                onReinviteOther?.();
+              }}
+              className="p-1.5 rounded-full bg-gray-300 text-gray-600 hover:bg-gray-400 transition-colors"
+              title="Inviter quelqu'un d'autre"
+            >
+              <UserPlus size={14} />
+            </button>
+          </div>
+        );
       default:
         return null;
     }
@@ -260,15 +298,23 @@ const InvitationListItem = ({
         transition-shadow hover:shadow-md
       `}
     >
-      {/* Icône type */}
-      <div
-        className={`
-          w-8 h-8 rounded-full ${config.color} 
-          flex items-center justify-center text-white
-          flex-shrink-0
-        `}
-      >
-        <TypeIcon size={16} />
+      {/* Icône type avec animation décompte pour invitation_sent */}
+      <div className="relative flex-shrink-0">
+        {type === 'invitation_sent' && (
+          <motion.div
+            className="absolute inset-0 w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+          />
+        )}
+        <div
+          className={`
+            w-8 h-8 rounded-full ${config.color} 
+            flex items-center justify-center text-white
+          `}
+        >
+          <TypeIcon size={16} />
+        </div>
       </div>
 
       {/* Contenu principal */}
@@ -307,12 +353,21 @@ const InvitationListItem = ({
               {distance}
             </span>
           )}
-          <span
-            className={`flex items-center gap-1 ${config.animate ? 'text-red-500 font-semibold' : ''}`}
-          >
-            <ClockIcon size={10} />
-            {getSecondaryInfo()}
-          </span>
+          {config.animate ? (
+            <motion.span
+              className={`flex items-center gap-1 font-semibold ${type === 'invitation_sent' ? 'text-blue-500' : 'text-red-500'}`}
+              animate={{ opacity: [1, 0.5, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            >
+              <ClockIcon size={10} />
+              {getSecondaryInfo()}
+            </motion.span>
+          ) : (
+            <span className="flex items-center gap-1">
+              <ClockIcon size={10} />
+              {getSecondaryInfo()}
+            </span>
+          )}
         </div>
       </div>
 

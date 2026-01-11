@@ -146,7 +146,7 @@ describe('useProfileEditor - PHASE 3 - Hooks Profil', () => {
         ...defaultUser,
         name: 'Nouveau Nom',
       });
-      expect(result.current.success).toBe('Nom mis à jour avec succès ! 🎉');
+      expect(result.current.success).toBe('Nom mis à jour avec succès !');
     });
 
     test('doit gérer les erreurs lors de la sauvegarde du nom', async () => {
@@ -209,7 +209,7 @@ describe('useProfileEditor - PHASE 3 - Hooks Profil', () => {
         '06 87 65 43 21'
       );
       expect(result.current.success).toBe(
-        'Numéro de téléphone ajouté avec succès ! 🎉'
+        'Numéro de téléphone ajouté avec succès !'
       );
     });
 
@@ -246,7 +246,7 @@ describe('useProfileEditor - PHASE 3 - Hooks Profil', () => {
       window.confirm = originalConfirm;
 
       expect(AuthService.removeUserPhone).toHaveBeenCalledWith('user1');
-      expect(result.current.success).toBe('✅ Numéro de téléphone supprimé !');
+      expect(result.current.success).toBe('Numéro de téléphone supprimé !');
       expect(result.current.phoneNumber).toBe('');
     });
 
@@ -291,7 +291,7 @@ describe('useProfileEditor - PHASE 3 - Hooks Profil', () => {
       expect(result.current.localAvatar).toBe(
         'https://example.com/new-avatar.jpg'
       );
-      expect(result.current.success).toBe('Photo de profil mise à jour ! 🎉');
+      expect(result.current.success).toBe('Photo de profil mise à jour !');
       expect(result.current.forceRefresh).toBe(1);
     });
 
@@ -408,7 +408,7 @@ describe('useProfileEditor - PHASE 3 - Hooks Profil', () => {
         await result.current.handleSaveName();
       });
 
-      expect(result.current.success).toBe('Nom mis à jour ! 🎉');
+      expect(result.current.success).toBe('Nom mis à jour avec succès !');
 
       // Attendre que le message disparaisse (3 secondes)
       await act(async () => {
@@ -473,7 +473,7 @@ describe('useProfileEditor - PHASE 3 - Hooks Profil', () => {
       });
 
       // L'upload doit réussir malgré l'erreur de refresh
-      expect(result.current.success).toBe('Photo de profil mise à jour ! 🎉');
+      expect(result.current.success).toBe('Photo de profil mise à jour !');
     });
   });
 

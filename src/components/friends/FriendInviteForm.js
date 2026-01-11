@@ -1,5 +1,5 @@
 import { Share2 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const FriendInviteForm = ({
   method,
@@ -14,12 +14,12 @@ const FriendInviteForm = ({
   const [inviteMessage, setInviteMessage] = useState('');
 
   // Message d'invitation par défaut avec la bonne URL
-  const defaultInviteMessage = `Salut ! Je t'invite à rejoindre "Qui Est Dispo" pour qu'on puisse organiser nos sorties ensemble ! 🎉
+  const defaultInviteMessage = `Salut ! Je t'invite à rejoindre "Qui Est Dispo" pour qu'on puisse organiser nos sorties ensemble !
 
 C'est une super app pour savoir qui est disponible pour un café, un resto ou juste traîner. 
 
 Télécharge l'app et on pourra se retrouver facilement :
-📱 https://qui-est-dispo.vercel.app/
+https://qui-est-dispo.vercel.app/
 
 Tu peux même l'installer sur ton téléphone comme une vraie app ! 
 Sur Android : Menu → "Ajouter à l'écran d'accueil"
@@ -29,11 +29,11 @@ Sur iPhone : Partage → "Ajouter à l'écran d'accueil"
 ${currentUser?.displayName || currentUser?.name || 'Ton ami'}`;
 
   // Message de partage social
-  const shareMessage = `🎉 Découvre "Qui Est Dispo" - l'app parfaite pour organiser tes sorties spontanées entre amis !
+  const shareMessage = `Découvre "Qui Est Dispo" - l'app parfaite pour organiser tes sorties spontanées entre amis !
 
 Coffee • Lunch • Drinks • Chill • Clubbing • Cinema
 
-📱 https://qui-est-dispo.vercel.app/
+https://qui-est-dispo.vercel.app/
 
 #QuiEstDispo #SortiesEntreAmis #AppMobile`;
 

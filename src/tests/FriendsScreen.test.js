@@ -154,8 +154,8 @@ describe('FriendsScreen - PHASE 3 - UI Complexe', () => {
       expect(
         screen.getByText("Alice Martin vous a envoyé une demande d'amitié")
       ).toBeInTheDocument();
-      expect(screen.getByText('✅ Accepter')).toBeInTheDocument();
-      expect(screen.getByText('❌ Refuser')).toBeInTheDocument();
+      expect(screen.getByText('Accepter')).toBeInTheDocument();
+      expect(screen.getByText('Refuser')).toBeInTheDocument();
     });
 
     test('doit masquer la section si aucune invitation', () => {
@@ -173,7 +173,7 @@ describe('FriendsScreen - PHASE 3 - UI Complexe', () => {
     test("doit appeler onFriendInvitationResponse lors de l'acceptation", () => {
       render(<FriendsScreen {...defaultProps} />);
 
-      const acceptButton = screen.getByText('✅ Accepter');
+      const acceptButton = screen.getByText('Accepter');
 
       fireEvent.click(acceptButton);
 
@@ -187,7 +187,7 @@ describe('FriendsScreen - PHASE 3 - UI Complexe', () => {
     test('doit appeler onFriendInvitationResponse lors du refus', () => {
       render(<FriendsScreen {...defaultProps} />);
 
-      const declineButton = screen.getByText('❌ Refuser');
+      const declineButton = screen.getByText('Refuser');
 
       fireEvent.click(declineButton);
 
@@ -296,8 +296,8 @@ describe('FriendsScreen - PHASE 3 - UI Complexe', () => {
 
       render(<FriendsScreen {...propsWithoutActions} />);
 
-      expect(screen.queryByText('✅ Accepter')).not.toBeInTheDocument();
-      expect(screen.queryByText('❌ Refuser')).not.toBeInTheDocument();
+      expect(screen.queryByText('Accepter')).not.toBeInTheDocument();
+      expect(screen.queryByText('Refuser')).not.toBeInTheDocument();
     });
 
     test("doit gérer l'absence de props optionnelles", () => {
@@ -356,8 +356,8 @@ describe('FriendsScreen - PHASE 3 - UI Complexe', () => {
       expect(buttons.length).toBeGreaterThan(0);
 
       // Vérifier que les boutons critiques sont présents
-      expect(screen.getByText('✅ Accepter')).toBeInTheDocument();
-      expect(screen.getByText('❌ Refuser')).toBeInTheDocument();
+      expect(screen.getByText('Accepter')).toBeInTheDocument();
+      expect(screen.getByText('Refuser')).toBeInTheDocument();
     });
 
     test('doit avoir des images avec alt text', () => {
